@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}EMERGENCY SOS BEACON (139 / 182) | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <div style="max-width: 680px; margin: 0 auto;">
+        
+        <!-- Emergency Banner -->
+        <div style="background: rgba(239, 68, 68, 0.12); border: 2px solid var(--accent-ruby); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; margin-bottom: 2rem; box-shadow: var(--shadow-ruby);">
+            <div class="brand-icon" style="margin: 0 auto 0.75rem; width: 48px; height: 48px; background: linear-gradient(135deg, #ef4444, #b91c1c);">
+                <i data-lucide="siren"></i>
+            </div>
+            <h1 style="font-size: 1.85rem; color: #fca5a5; margin-bottom: 0.25rem;">Railway Protection Force SOS Beacon</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                Submitting this alert immediately transmits your live train position, coach coordinates, and emergency classification to the nearest RPF flying squad.
+            </p>
+        </div>
+
+        <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label" style="color: #f87171;">Select Emergency Threat Type *</label>
+                    {{ form.emergency_type }}
+                </div>
+
+                <div class="grid gap-3" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label class="form-label">Passenger Name *</label>
+                        {{ form.passenger_name }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number *</label>
+                        {{ form.passenger_phone }}
+                    </div>
+                </div>
+
+                <div class="grid gap-3" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="form-group">
+                        <label class="form-label">Train Number / Name</label>
+                        {{ form.train_number }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Coach</label>
+                        {{ form.coach_number }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Seat / Berth</label>
+                        {{ form.seat_number }}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Nearest Landmark / Station / Train Milestone</label>
+                    {{ form.current_location_desc }}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Details / Immediate Threat Description</label>
+                    {{ form.details }}
+                </div>
+
+                {{ form.latitude }}
+                {{ form.longitude }}
+
+                <button type="submit" class="btn btn-danger btn-lg w-full" style="padding: 1rem; font-size: 1.1rem; margin-top: 1rem;">
+                    <i data-lucide="radio"></i> BROADCAST LIVE SOS BEACON
+                </button>
+            </form>
+        </div>
+
+        <!-- Helplines Quick Access -->
+        <div style="margin-top: 2rem;">
+            <h3 style="font-size: 1rem; color: #fff; margin-bottom: 0.75rem;">Official Indian Railways Emergency Numbers:</h3>
+            <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                {% for h in helplines %}
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.75rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ h.category }}</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">{{ h.number }}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">{{ h.title }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = document.getElementById('id_latitude');
+                const lng = document.getElementById('id_longitude');
+                if (lat) lat.value = pos.coords.latitude;
+                if (lng) lng.value = pos.coords.longitude;
+            });
+        }
+    });
+</script>
+{% endblock %}

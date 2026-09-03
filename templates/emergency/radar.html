@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}RPF Emergency Command Radar | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Radar Top Header -->
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="pulse-dot red"></span>
+                <h1 style="font-size: 1.85rem; color: #fff; margin-bottom: 0.25rem;">RPF Live Emergency Radar</h1>
+                <span class="badge badge-critical">Active Beacon Matrix</span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Rapid security response unit dispatch and passenger incident tracker</p>
+        </div>
+
+        <div class="flex gap-2">
+            <button onclick="refreshRadar()" class="btn btn-secondary btn-sm">
+                <i data-lucide="refresh-cw"></i> Poll Radar
+            </button>
+            <a href="{% url 'emergency:trigger' %}" class="btn btn-danger btn-sm">
+                <i data-lucide="plus"></i> Trigger Test SOS
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Matrix -->
+    <div class="stats-grid" style="margin-top: 0; margin-bottom: 2rem;">
+        <div class="stat-card" style="border-color: rgba(239, 68, 68, 0.4);">
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-ruby);">
+                <i data-lucide="siren"></i>
+            </div>
+            <div>
+                <div class="stat-val" style="color: #f87171;">{{ stats.active_count }}</div>
+                <div class="stat-label">Active SOS Beacons</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">
+                <i data-lucide="shield-alert"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.critical_count }}</div>
+                <div class="stat-label">Critical Security Threats</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">
+                <i data-lucide="shield-check"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.available_units }}</div>
+                <div class="stat-label">RPF Units Ready & Patrolling</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--secondary);">
+                <i data-lucide="truck"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.dispatched_units }}</div>
+                <div class="stat-label">En Route on Incidents</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-6" style="grid-template-columns: 2fr 1fr;">
+        <!-- Active Live Incident Feeds -->
+        <div class="card" style="border-color: rgba(239,68,68,0.3);">
+            <div class="card-header">
+                <div class="card-title" style="color: #fca5a5;">
+                    <i data-lucide="radio"></i> Active Incident Radar Stream
+                </div>
+                <span class="badge badge-critical"><span class="pulse-dot red"></span> LIVE FEED</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                {% for alert in active_alerts %}
+                    <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: var(--radius-sm); padding: 1.25rem;">
+                        <div class="flex justify-between items-center" style="margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div class="flex items-center gap-2">
+                                <span class="badge badge-critical">{{ alert.alert_id }}</span>
+                                <strong style="color: #fff; font-size: 1.05rem;">{{ alert.get_emergency_type_display }}</strong>
+                            </div>
+                            <span class="badge badge-warning">{{ alert.get_status_display }}</span>
+                        </div>
+
+                        <div class="grid gap-2" style="grid-template-columns: 1fr 1fr; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                            <div>Passenger: <strong style="color: #fff;">{{ alert.passenger_name }}</strong> ({{ alert.passenger_phone }})</div>
+                            <div>Train / Coach / Seat: <strong style="color: #fff;">{{ alert.train_number }} ({{ alert.coach_number }}/{{ alert.seat_number }})</strong></div>
+                            <div>Milestone: <strong>{{ alert.current_location_desc }}</strong></div>
+                            <div>Time: <strong>{{ alert.triggered_at|date:"H:i:s (d M)" }}</strong></div>
+                        </div>
+
+                        {% if alert.details %}
+                            <p style="background: rgba(0,0,0,0.3); padding: 0.65rem; border-radius: var(--radius-sm); font-size: 0.85rem; color: #fecaca; margin-bottom: 0.75rem;">
+                                "{{ alert.details }}"
+                            </p>
+                        {% endif %}
+
+                        <div class="flex justify-between items-center" style="border-top: 1px solid rgba(239, 68, 68, 0.2); padding-top: 0.75rem;">
+                            <div style="font-size: 0.8rem; color: var(--text-subtle);">
+                                Dispatched: <strong style="color: var(--secondary);">{{ alert.rpf_unit_dispatched }}</strong>
+                            </div>
+                            <a href="{% url 'emergency:detail' alert.alert_id %}" class="btn btn-danger btn-sm">
+                                <i data-lucide="shield"></i> Dispatch & Triage
+                            </a>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div style="text-align: center; padding: 3rem; color: var(--text-subtle);">
+                        <i data-lucide="shield-check" style="width: 48px; height: 48px; margin: 0 auto 0.5rem; opacity: 0.4; color: var(--accent-emerald);"></i>
+                        <h3 style="color: var(--accent-emerald); font-size: 1.1rem; margin-bottom: 0.25rem;">Radar Clear</h3>
+                        <p>No active passenger SOS beacons. All railway zones reporting normal.</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- RPF Quick Reaction Units -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i data-lucide="users" style="color: var(--secondary);"></i> RPF Squads on Duty
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    {% for unit in rpf_units %}
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.75rem;">
+                            <div class="flex justify-between items-center" style="margin-bottom: 0.25rem;">
+                                <strong style="color: #fff; font-size: 0.85rem;">{{ unit.unit_name }}</strong>
+                                {% if unit.status == 'Available' %}
+                                    <span class="badge badge-success">Ready</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Dispatched</span>
+                                {% endif %}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                Officer: {{ unit.badge_officer }} • Base: {{ unit.station_base }}
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--secondary); margin-top: 0.25rem;">
+                                📞 {{ unit.phone_number }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshRadar() {
+    location.reload();
+}
+// Automatically poll every 20 seconds
+setInterval(() => {
+    fetch('/emergency/api/poll/')
+        .then(res => res.json())
+        .then(data => {
+            console.log('Radar pulse ok. Active beacons:', data.count);
+        });
+}, 20000);
+</script>
+{% endblock %}

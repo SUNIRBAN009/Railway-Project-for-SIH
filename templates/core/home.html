@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}RailConnect AI | Smart Passenger Redressal & Operations{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-tag">
+            <span class="pulse-dot amber"></span>
+            <span>Next-Gen Railway Intelligence for SIH</span>
+        </div>
+        <h1 class="hero-title">Intelligent Railways.<br>Safer Journeys for India.</h1>
+        <p class="hero-desc">
+            Empowering Indian Railways with AI-assisted grievance redressal, real-time train tracking, automated track crack detection, and rapid SOS emergency response for RPF.
+        </p>
+
+        <div class="hero-actions">
+            <a href="{% url 'grievances:lodge' %}" class="btn btn-primary btn-lg">
+                <i data-lucide="edit-3"></i> Lodge a Grievance
+            </a>
+            <a href="{% url 'emergency:trigger' %}" class="btn btn-danger btn-lg">
+                <i data-lucide="alert-octagon"></i> Emergency SOS (139)
+            </a>
+            <a href="{% url 'trains:list' %}" class="btn btn-secondary btn-lg">
+                <i data-lucide="map-pin"></i> Live Train Status
+            </a>
+        </div>
+
+        <!-- Quick Tracker & Search Card -->
+        <div class="quick-search-box">
+            <div class="search-tabs">
+                <button class="search-tab-btn active" onclick="switchSearchTab('pnr')">
+                    <i data-lucide="ticket"></i> PNR / Grievance Tracker
+                </button>
+                <button class="search-tab-btn" onclick="switchSearchTab('train')">
+                    <i data-lucide="train"></i> Search Trains & Routes
+                </button>
+                <button class="search-tab-btn" onclick="switchSearchTab('station')">
+                    <i data-lucide="building-2"></i> Station Live Board
+                </button>
+            </div>
+
+            <!-- Tab 1: PNR / Grievance -->
+            <div id="tab-pnr" class="tab-pane">
+                <form action="{% url 'grievances:track' %}" method="GET" class="flex gap-2" style="flex-wrap: wrap;">
+                    <input type="text" name="tracking_id" class="form-input" placeholder="Enter Tracking ID (e.g. GRV-20260903-1001) or 10-digit PNR" style="flex: 1; min-width: 250px;" required>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="search"></i> Track Status
+                    </button>
+                </form>
+            </div>
+
+            <!-- Tab 2: Train Search -->
+            <div id="tab-train" class="tab-pane" style="display: none;">
+                <form action="{% url 'trains:list' %}" method="GET" class="grid gap-2" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                    <input type="text" name="source" class="form-input" placeholder="From (e.g. NDLS)">
+                    <input type="text" name="dest" class="form-input" placeholder="To (e.g. HWH)">
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="search"></i> Find Trains
+                    </button>
+                </form>
+            </div>
+
+            <!-- Tab 3: Station Board -->
+            <div id="tab-station" class="tab-pane" style="display: none;">
+                <form action="{% url 'trains:station_board' %}" method="GET" class="flex gap-2">
+                    <input type="text" name="station" class="form-input" placeholder="Enter Station Code (e.g. NDLS, HWH, CSMT, CNB)" style="flex: 1;" required>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="tv"></i> View Live Board
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Statistics Ticker -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--secondary);">
+                <i data-lucide="train"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.active_trains }}</div>
+                <div class="stat-label">Active Monitored Trains</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">
+                <i data-lucide="check-circle-2"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.grievances_resolved }}</div>
+                <div class="stat-label">Grievances Redressed</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">
+                <i data-lucide="clock"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.response_time_min }} mins</div>
+                <div class="stat-label">Average RPF Response</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">
+                <i data-lucide="cpu"></i>
+            </div>
+            <div>
+                <div class="stat-val">96.8%</div>
+                <div class="stat-label">AI Classification Accuracy</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Feature Highlights -->
+    <div style="margin: 4rem 0;">
+        <div style="text-align: center; margin-bottom: 2.5rem;">
+            <span class="hero-tag">System Capabilities</span>
+            <h2 style="font-size: 2rem; margin-top: 0.5rem;">Unified Railway Intelligence Matrix</h2>
+        </div>
+
+        <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+            <!-- Feature 1 -->
+            <div class="card">
+                <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary); margin-bottom: 1rem;">
+                    <i data-lucide="bot"></i>
+                </div>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">AI Grievance Triage (Rail Madad)</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                    Automated NLP analysis prioritizes critical safety, medical and sanitation issues, assigning them instantly to on-board OBHS or station crew.
+                </p>
+                <a href="{% url 'grievances:lodge' %}" style="font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem;">
+                    File a Complaint <i data-lucide="arrow-right" style="width: 14px;"></i>
+                </a>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="card">
+                <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-ruby); margin-bottom: 1rem;">
+                    <i data-lucide="shield-alert"></i>
+                </div>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">RPF Emergency Radar</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                    Live emergency dispatch tracking for Railway Protection Force. Passengers trigger rapid GPS-enabled SOS beacons in cases of harassment or threat.
+                </p>
+                <a href="{% url 'emergency:radar' %}" style="font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem; color: var(--accent-ruby);">
+                    View RPF Radar <i data-lucide="arrow-right" style="width: 14px;"></i>
+                </a>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="card">
+                <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(56, 189, 248, 0.15); display: flex; align-items: center; justify-content: center; color: var(--secondary); margin-bottom: 1rem;">
+                    <i data-lucide="activity"></i>
+                </div>
+                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">AI Track & Coach Inspection</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                    Monitors acoustic rail crack sensors, hot box axle temperatures, and OHE wire tension drops to prevent derailments before departure.
+                </p>
+                <a href="{% url 'maintenance:dashboard' %}" style="font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem;">
+                    Explore Health Dashboard <i data-lucide="arrow-right" style="width: 14px;"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Featured Trains Section -->
+    <div style="margin-bottom: 4rem;">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="zap" style="color: var(--primary);"></i> Premier Express Trains & Live Trackers
+            </div>
+            <a href="{% url 'trains:list' %}" class="btn btn-secondary btn-sm">View All Trains</a>
+        </div>
+
+        <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+            {% for train in featured_trains %}
+                <div class="card" style="padding: 1.25rem;">
+                    <div class="flex justify-between items-center" style="margin-bottom: 0.75rem;">
+                        <span class="badge badge-warning">{{ train.train_number }}</span>
+                        {% if train.delay_minutes > 0 %}
+                            <span class="badge badge-danger">Delayed {{ train.delay_minutes }}m</span>
+                        {% else %}
+                            <span class="badge badge-success">On Time</span>
+                        {% endif %}
+                    </div>
+                    <h4 style="font-size: 1.05rem; margin-bottom: 0.5rem; color: #fff;">{{ train.name }}</h4>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                        <span>{{ train.source_station.name }} ({{ train.source_station.code }})</span>
+                        <i data-lucide="arrow-right" style="width: 16px; color: var(--text-subtle);"></i>
+                        <span>{{ train.destination_station.name }} ({{ train.destination_station.code }})</span>
+                    </div>
+                    <div class="flex justify-between items-center" style="border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-subtle);">{{ train.runs_on }}</span>
+                        <a href="{% url 'trains:detail' train.train_number %}" class="btn btn-secondary btn-sm">
+                            <i data-lucide="eye"></i> Route & Coaches
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchSearchTab(tabName) {
+        document.querySelectorAll('.search-tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(pane => pane.style.display = 'none');
+        
+        event.currentTarget.classList.add('active');
+        document.getElementById(`tab-${tabName}`).style.display = 'block';
+    }
+</script>
+{% endblock %}

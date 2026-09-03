@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Track & Rolling Stock Health (AI Maintenance) | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div class="flex items-center gap-2">
+                <h1 style="font-size: 1.85rem; margin-bottom: 0.25rem;">AI Track & Asset Health Hub</h1>
+                <span class="badge badge-purple">Vision AI & Ultrasonic Sensors</span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Automated detection of rail fractures, hot axle boxes, and OHE wire tension drops</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'maintenance:work_orders' %}" class="btn btn-secondary">
+                <i data-lucide="clipboard-list"></i> Work Orders
+            </a>
+            <a href="{% url 'maintenance:log' %}" class="btn btn-primary">
+                <i data-lucide="plus"></i> Log Defect Report
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid" style="margin-top: 0; margin-bottom: 2rem;">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--secondary);">
+                <i data-lucide="layers"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.total_defects }}</div>
+                <div class="stat-label">Total Monitored Faults</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-ruby);">
+                <i data-lucide="alert-octagon"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.critical_defects }}</div>
+                <div class="stat-label">Critical Track Hazards</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">
+                <i data-lucide="hammer"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.in_repair }}</div>
+                <div class="stat-label">Under Active Repair</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">
+                <i data-lucide="shield-check"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.resolved }}</div>
+                <div class="stat-label">Safety Certified & Cleared</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Defect Incidents Table -->
+    <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="activity" style="color: var(--accent-ruby);"></i> Active Track & Rolling Stock Fault Telemetry
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Defect Ref</th>
+                        <th>Defect Type</th>
+                        <th>Severity</th>
+                        <th>Track Section & KM Marker</th>
+                        <th>AI Confidence</th>
+                        <th>Sensor Origin</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in recent_defects %}
+                        <tr>
+                            <td><strong style="color: var(--secondary);">{{ d.report_id }}</strong></td>
+                            <td><strong style="color: #fff;">{{ d.get_defect_type_display }}</strong></td>
+                            <td>
+                                {% if d.severity == 'CRITICAL' %}
+                                    <span class="badge badge-critical">🔴 Critical Hazard</span>
+                                {% elif d.severity == 'MAJOR' %}
+                                    <span class="badge badge-high">🟠 Major Fault</span>
+                                {% else %}
+                                    <span class="badge badge-low">🟡 Minor Defect</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div>{{ d.section_name }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ d.track_km_marker }}</div>
+                            </td>
+                            <td>
+                                <strong style="color: var(--primary);">{{ d.ai_confidence_score }}%</strong>
+                            </td>
+                            <td style="font-size: 0.8rem; color: var(--text-muted);">{{ d.detected_by }}</td>
+                            <td>
+                                <span class="badge badge-info">{{ d.get_status_display }}</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'maintenance:detail' d.report_id %}" class="btn btn-secondary btn-sm">
+                                    <i data-lucide="wrench"></i> Work Order
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: var(--text-subtle); padding: 2rem;">No defects logged. Track infrastructure healthy.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

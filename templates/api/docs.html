@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}REST API Documentation & Explorer | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- API Header -->
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="badge badge-purple">Django REST Framework</span>
+                <h1 style="font-size: 1.85rem; color: #fff; margin-bottom: 0.25rem;">Developer API Documentation</h1>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">
+                Open RESTful API endpoints for integration with mobile apps, IoT rail sensors, and smart station displays
+            </p>
+        </div>
+        <a href="/api/analytics/summary/" target="_blank" class="btn btn-primary btn-sm">
+            <i data-lucide="external-link"></i> Live JSON Telemetry Feed
+        </a>
+    </div>
+
+    <!-- Endpoints List -->
+    <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="code-2" style="color: var(--secondary);"></i> REST API Endpoints Index
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>HTTP Method</th>
+                        <th>Endpoint Route</th>
+                        <th>Description</th>
+                        <th>Interactive Link</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ep in endpoints %}
+                        <tr>
+                            <td>
+                                {% if 'POST' in ep.method %}
+                                    <span class="badge badge-warning">{{ ep.method }}</span>
+                                {% else %}
+                                    <span class="badge badge-info">{{ ep.method }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <code style="color: var(--primary); background: rgba(245,158,11,0.1); padding: 0.2rem 0.4rem; border-radius: 4px;">{{ ep.path }}</code>
+                            </td>
+                            <td style="font-size: 0.9rem; color: var(--text-muted);">{{ ep.desc }}</td>
+                            <td>
+                                <a href="{{ ep.path }}" target="_blank" class="btn btn-secondary btn-sm" style="font-size: 0.8rem;">
+                                    <i data-lucide="play" style="width: 12px;"></i> Test Endpoint
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Sample API Response Preview -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="terminal" style="color: var(--primary);"></i> Sample Response: <code>/api/analytics/summary/</code>
+            </div>
+        </div>
+        <pre style="background: rgba(0,0,0,0.5); padding: 1.25rem; border-radius: var(--radius-sm); color: #38bdf8; font-size: 0.85rem; overflow-x: auto; line-height: 1.6;">{
+  "trains": {
+    "total": 6,
+    "on_time": 4,
+    "delayed": 2
+  },
+  "grievances": {
+    "total": 5,
+    "open": 1,
+    "in_progress": 2,
+    "resolved": 2,
+    "critical_ai_alerts": 2
+  },
+  "maintenance": {
+    "total_defects": 4,
+    "critical_track_faults": 2,
+    "active_work_orders": 3
+  },
+  "emergency": {
+    "active_sos": 1,
+    "rpf_units_ready": 2
+  }
+}</pre>
+    </div>
+</div>
+{% endblock %}

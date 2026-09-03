@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Sign In | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container flex justify-center items-center" style="padding-top: 3.5rem; padding-bottom: 4rem;">
+    <div class="card" style="width: 100%; max-width: 440px; padding: 2.25rem;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="brand-icon" style="margin: 0 auto 1rem; width: 44px; height: 44px;">
+                <i data-lucide="lock"></i>
+            </div>
+            <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Sign In to RailConnect</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Access the passenger grievance & operational matrix</p>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-input" placeholder="Enter your username" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-input" placeholder="Enter your password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-full" style="margin-top: 1rem;">
+                <i data-lucide="log-in"></i> Sign In
+            </button>
+        </form>
+
+        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem; text-align: center;">
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                Don't have an account? <a href="{% url 'accounts:register' %}">Register Here</a>
+            </div>
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px dashed var(--border-accent); border-radius: var(--radius-sm); padding: 0.75rem; text-align: left; font-size: 0.75rem; color: var(--text-muted);">
+                <strong style="color: var(--primary);">⚡ Hackathon Quick Evaluation:</strong><br>
+                Use the <strong>"Demo Role"</strong> dropdown in the top header to log in instantly as Passenger, Station Master, RPF Officer, Maintenance Engineer, or Admin!
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

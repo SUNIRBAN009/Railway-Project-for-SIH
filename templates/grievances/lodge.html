@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Lodge Grievance | RailConnect AI (Rail Madad){% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <div style="max-width: 800px; margin: 0 auto;">
+        
+        <div style="margin-bottom: 1.75rem; text-align: center;">
+            <span class="hero-tag">
+                <i data-lucide="sparkles" style="width: 14px;"></i> Powered by RailConnect AI Priority Engine
+            </span>
+            <h1 style="font-size: 2rem; margin-top: 0.5rem;">Lodge a Passenger Grievance</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">
+                Submit your complaint for immediate attention. Our AI analyzes severity and routes directly to the on-board team or nearest station.
+            </p>
+        </div>
+
+        <div class="card">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <!-- Passenger Details -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 1rem; color: var(--primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <i data-lucide="user"></i> 1. Passenger Information
+                    </h3>
+                    <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                        <div class="form-group">
+                            <label class="form-label">Passenger Name *</label>
+                            {{ form.passenger_name }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Phone Number *</label>
+                            {{ form.passenger_phone }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">10-Digit PNR Number</label>
+                            {{ form.pnr_number }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Train & Location -->
+                <div style="margin-bottom: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+                    <h3 style="font-size: 1rem; color: var(--secondary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <i data-lucide="map-pin"></i> 2. Journey & Location Coordinates
+                    </h3>
+                    <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+                        <div class="form-group">
+                            <label class="form-label">Train Number / Name</label>
+                            {{ form.train_number }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Coach (e.g. B2, S4)</label>
+                            {{ form.coach_number }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seat / Berth No</label>
+                            {{ form.seat_number }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Current Station / Landmark</label>
+                            {{ form.current_station }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complaint Details & AI Preview -->
+                <div style="margin-bottom: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+                    <h3 style="font-size: 1rem; color: var(--accent-emerald); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <i data-lucide="alert-circle"></i> 3. Incident Description & Evidence
+                    </h3>
+
+                    <div class="grid gap-3" style="grid-template-columns: 1fr 2fr;">
+                        <div class="form-group">
+                            <label class="form-label">Grievance Category *</label>
+                            {{ form.category }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Subject / Short Title *</label>
+                            {{ form.subject }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Detailed Description *</label>
+                        {{ form.description }}
+                    </div>
+
+                    <!-- Dynamic Live AI Feedback Widget -->
+                    <div id="aiFeedbackPreview" style="display: none; background: rgba(168, 85, 247, 0.08); border: 1px solid var(--accent-purple); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1.25rem;">
+                        <div class="flex justify-between items-center" style="margin-bottom: 0.35rem;">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="bot" style="color: var(--accent-purple); width: 16px;"></i>
+                                <strong style="color: #e9d5ff; font-size: 0.85rem;">AI Automated Urgency Assessment:</strong>
+                            </div>
+                            <span id="aiPriorityBadge" class="badge badge-critical">CALCULATING</span>
+                        </div>
+                        <div class="flex justify-between items-center" style="font-size: 0.75rem; color: var(--text-muted);">
+                            <span id="aiSentimentText">Sentiment: Analyzing...</span>
+                            <span id="aiSlaText">Target SLA: ~2 hrs</span>
+                        </div>
+                        <div id="aiKeywordsBadge" style="font-size: 0.75rem; color: var(--secondary); margin-top: 0.35rem;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Upload Photo Evidence (Optional)</label>
+                        {{ form.attachment }}
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center" style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+                    <a href="{% url 'grievances:list' %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i data-lucide="send"></i> Submit Grievance
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

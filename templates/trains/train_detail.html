@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}{{ train.train_number }} - {{ train.name }} | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Top Nav -->
+    <div class="flex justify-between items-center" style="margin-bottom: 1.5rem;">
+        <a href="{% url 'trains:list' %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left"></i> Back to Fleet
+        </a>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'trains:live_status' %}?train_number={{ train.train_number }}" class="btn btn-primary btn-sm">
+                <i data-lucide="radio"></i> Live Radar Position
+            </a>
+        </div>
+    </div>
+
+    <!-- Hero Card -->
+    <div class="card" style="margin-bottom: 2rem; border-color: var(--border-accent);">
+        <div class="flex justify-between items-center" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <div class="flex items-center gap-2" style="margin-bottom: 0.25rem;">
+                    <span class="badge badge-warning" style="font-size: 1rem;">{{ train.train_number }}</span>
+                    <span class="badge badge-purple">{{ train.get_train_type_display }}</span>
+                    {% if train.delay_minutes > 0 %}
+                        <span class="badge badge-danger">Delayed {{ train.delay_minutes }} mins</span>
+                    {% else %}
+                        <span class="badge badge-success">Running On Time</span>
+                    {% endif %}
+                </div>
+                <h1 style="font-size: 1.85rem; color: #fff;">{{ train.name }}</h1>
+            </div>
+
+            <div style="text-align: right;">
+                <div style="font-size: 0.8rem; color: var(--text-subtle);">Operating Days:</div>
+                <strong style="color: var(--primary);">{{ train.runs_on }}</strong>
+            </div>
+        </div>
+
+        <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); background: rgba(255,255,255,0.02); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.9rem;">
+            <div>Origin: <strong style="color: #fff;">{{ train.source_station.name }} ({{ train.source_station.code }})</strong></div>
+            <div>Destination: <strong style="color: #fff;">{{ train.destination_station.name }} ({{ train.destination_station.code }})</strong></div>
+            <div>Total Coaches: <strong style="color: #fff;">{{ train.total_coaches }} Coaches</strong></div>
+            <div>Avg Fleet Occupancy: <strong style="color: var(--secondary);">{{ overall_occupancy_pct }}%</strong></div>
+        </div>
+    </div>
+
+    <div class="grid gap-6" style="grid-template-columns: 1fr 1fr;">
+        <!-- Schedule & Stops Table -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i data-lucide="clock" style="color: var(--secondary);"></i> Route Timetable & Halts
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Station</th>
+                            <th>Arr</th>
+                            <th>Dep</th>
+                            <th>Halt</th>
+                            <th>Dist (km)</th>
+                            <th>Pf</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in schedules %}
+                            <tr>
+                                <td>{{ s.stop_number }}</td>
+                                <td>
+                                    <strong style="color: #fff;">{{ s.station.name }}</strong>
+                                    <span style="font-size: 0.75rem; color: var(--text-subtle);">({{ s.station.code }})</span>
+                                </td>
+                                <td>{{ s.arrival_time|default:"Origin" }}</td>
+                                <td>{{ s.departure_time|default:"Terminus" }}</td>
+                                <td>{{ s.halt_minutes }}m</td>
+                                <td>{{ s.distance_km }}</td>
+                                <td><span class="badge badge-warning">{{ s.platform_number }}</span></td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--text-subtle); padding: 1.5rem;">No route schedule data loaded.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Coach Crowd Density & Composition Visualizer -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i data-lucide="users" style="color: var(--primary);"></i> Coach Crowd Density & Cleanliness
+                </div>
+            </div>
+
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                Live AI sensor estimation based on reservation matrix, ticketing turnstiles, and CCTV optical density.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                {% for coach in coaches %}
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem;">
+                        <div class="flex justify-between items-center" style="margin-bottom: 0.4rem;">
+                            <div>
+                                <strong style="color: #fff; font-size: 0.95rem;">Coach {{ coach.coach_number }}</strong>
+                                <span style="font-size: 0.8rem; color: var(--text-subtle);">({{ coach.coach_type }})</span>
+                            </div>
+                            <div>
+                                {% if coach.crowd_level == 'LOW' %}
+                                    <span class="badge badge-success">🟢 Low Density</span>
+                                {% elif coach.crowd_level == 'MODERATE' %}
+                                    <span class="badge badge-info">🟡 Moderate</span>
+                                {% elif coach.crowd_level == 'HIGH' %}
+                                    <span class="badge badge-high">🟠 High Crowding</span>
+                                {% else %}
+                                    <span class="badge badge-critical">🔴 Overcrowded</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div style="background: rgba(255,255,255,0.06); height: 8px; border-radius: var(--radius-full); overflow: hidden; margin-bottom: 0.5rem;">
+                            <div style="width: {% widthratio coach.current_occupancy coach.capacity 100 %}%; height: 100%; background: {% if coach.crowd_level == 'OVERCROWDED' %}var(--accent-ruby){% elif coach.crowd_level == 'HIGH' %}var(--primary){% else %}var(--accent-emerald){% endif %};"></div>
+                        </div>
+
+                        <div class="flex justify-between items-center" style="font-size: 0.75rem; color: var(--text-muted);">
+                            <span>Occupancy: {{ coach.current_occupancy }} / {{ coach.capacity }} seats</span>
+                            <span>Cleanliness Rating: <strong>{{ coach.cleanliness_score }} / 5.0 ⭐</strong></span>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p style="color: var(--text-subtle); text-align: center; padding: 1.5rem;">Coach occupancy data currently syncing...</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

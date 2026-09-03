@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Trains & Live Schedules | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="font-size: 1.85rem; margin-bottom: 0.25rem;">Train Operations & Fleet Directory</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Live train running status, coach crowd density, and station platforms</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'trains:live_status' %}" class="btn btn-primary">
+                <i data-lucide="radio"></i> Live Running Status
+            </a>
+            <a href="{% url 'trains:station_board' %}" class="btn btn-secondary">
+                <i data-lucide="tv"></i> Station Board
+            </a>
+        </div>
+    </div>
+
+    <!-- Search / Filter Card -->
+    <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
+        <form method="GET" class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: end;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Search Train Name or #"</label>
+                <input type="text" name="q" value="{{ query }}" class="form-input" placeholder="e.g. 22436 or Vande Bharat">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Source Station</label>
+                <input type="text" name="source" value="{{ source_query }}" class="form-input" placeholder="e.g. NDLS">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Destination Station</label>
+                <input type="text" name="dest" value="{{ dest_query }}" class="form-input" placeholder="e.g. HWH">
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary w-full">
+                    <i data-lucide="search"></i> Search
+                </button>
+                <a href="{% url 'trains:list' %}" class="btn btn-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Trains List Cards Grid -->
+    <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));">
+        {% for train in trains %}
+            <div class="card">
+                <div class="flex justify-between items-center" style="margin-bottom: 0.75rem;">
+                    <div class="flex items-center gap-2">
+                        <span class="badge badge-warning" style="font-size: 0.85rem;">{{ train.train_number }}</span>
+                        <span class="badge badge-purple" style="font-size: 0.75rem;">{{ train.get_train_type_display }}</span>
+                    </div>
+                    {% if train.delay_minutes > 0 %}
+                        <span class="badge badge-danger">Delayed {{ train.delay_minutes }}m</span>
+                    {% else %}
+                        <span class="badge badge-success">On Time</span>
+                    {% endif %}
+                </div>
+
+                <h3 style="font-size: 1.15rem; color: #fff; margin-bottom: 0.75rem;">{{ train.name }}</h3>
+
+                <div style="background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1rem;">
+                    <div class="flex justify-between items-center" style="font-size: 0.9rem; margin-bottom: 0.35rem;">
+                        <div>
+                            <strong style="color: #fff;">{{ train.source_station.code }}</strong>
+                            <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ train.source_station.name }}</div>
+                        </div>
+                        <i data-lucide="arrow-right" style="color: var(--primary); width: 20px;"></i>
+                        <div style="text-align: right;">
+                            <strong style="color: #fff;">{{ train.destination_station.code }}</strong>
+                            <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ train.destination_station.name }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center" style="font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
+                    <span>Schedule: <strong>{{ train.runs_on }}</strong></span>
+                    <a href="{% url 'trains:detail' train.train_number %}" class="btn btn-secondary btn-sm">
+                        <i data-lucide="info"></i> View Timetable & Coaches
+                    </a>
+                </div>
+            </div>
+        {% empty %}
+            <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-subtle);">
+                <i data-lucide="train" style="width: 48px; height: 48px; margin: 0 auto 0.75rem; opacity: 0.4;"></i>
+                <p>No trains matching your search criteria.</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

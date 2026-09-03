@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block title %}Grievance Redressal Portal | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="font-size: 1.85rem; margin-bottom: 0.25rem;">Passenger Grievance Redressal (Rail Madad)</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Track, manage, and triage passenger incidents across all zones</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'grievances:track' %}" class="btn btn-secondary">
+                <i data-lucide="search"></i> Track by ID / PNR
+            </a>
+            <a href="{% url 'grievances:lodge' %}" class="btn btn-primary">
+                <i data-lucide="plus"></i> Lodge New Grievance
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Quick Cards -->
+    <div class="stats-grid" style="margin-top: 0; margin-bottom: 2rem;">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--secondary);">
+                <i data-lucide="inbox"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.total }}</div>
+                <div class="stat-label">Total Logged</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">
+                <i data-lucide="clock"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.open }}</div>
+                <div class="stat-label">Open / Unassigned</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">
+                <i data-lucide="loader-2"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.in_progress }}</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">
+                <i data-lucide="check-check"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ stats.resolved }}</div>
+                <div class="stat-label">Resolved & Closed</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
+        <form method="GET" class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Search Query</label>
+                <input type="text" name="q" value="{{ query }}" class="form-input" placeholder="Tracking ID, PNR, Train...">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for cat_val, cat_label in categories %}
+                        <option value="{{ cat_val }}" {% if selected_category == cat_val %}selected{% endif %}>{{ cat_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Priority</label>
+                <select name="priority" class="form-select">
+                    <option value="">All Priorities</option>
+                    {% for prio_val, prio_label in priorities %}
+                        <option value="{{ prio_val }}" {% if selected_priority == prio_val %}selected{% endif %}>{{ prio_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    {% for stat_val, stat_label in statuses %}
+                        <option value="{{ stat_val }}" {% if selected_status == stat_val %}selected{% endif %}>{{ stat_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary w-full">
+                    <i data-lucide="filter"></i> Filter
+                </button>
+                <a href="{% url 'grievances:list' %}" class="btn btn-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Grievances Table Card -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tracking ID</th>
+                        <th>Subject & Category</th>
+                        <th>Passenger / PNR</th>
+                        <th>Train / Coach / Seat</th>
+                        <th>Priority (AI)</th>
+                        <th>Status</th>
+                        <th>Logged At</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in grievances %}
+                        <tr>
+                            <td>
+                                <strong style="color: var(--secondary);">{{ g.tracking_id }}</strong>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #fff;">{{ g.subject }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ g.get_category_display }}</div>
+                            </td>
+                            <td>
+                                <div>{{ g.passenger_name }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-subtle);">PNR: {{ g.pnr_number|default:"-" }}</div>
+                            </td>
+                            <td>
+                                <div>Train: {{ g.train_number|default:"N/A" }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-subtle);">Coach {{ g.coach_number|default:"-" }} / Seat {{ g.seat_number|default:"-" }}</div>
+                            </td>
+                            <td>
+                                {% if g.priority == 'CRITICAL' %}
+                                    <span class="badge badge-critical">🔴 Critical ({{ g.urgency_score }}%)</span>
+                                {% elif g.priority == 'HIGH' %}
+                                    <span class="badge badge-high">🟠 High ({{ g.urgency_score }}%)</span>
+                                {% elif g.priority == 'MEDIUM' %}
+                                    <span class="badge badge-medium">🟡 Med ({{ g.urgency_score }}%)</span>
+                                {% else %}
+                                    <span class="badge badge-low">🟢 Low ({{ g.urgency_score }}%)</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if g.status == 'OPEN' %}
+                                    <span class="badge badge-warning">Open</span>
+                                {% elif g.status == 'IN_PROGRESS' %}
+                                    <span class="badge badge-info">In Progress</span>
+                                {% elif g.status == 'RESOLVED' %}
+                                    <span class="badge badge-success">Resolved</span>
+                                {% else %}
+                                    <span class="badge badge-purple">Closed</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size: 0.8rem; color: var(--text-muted);">
+                                {{ g.created_at|date:"d M, H:i" }}
+                            </td>
+                            <td>
+                                <a href="{% url 'grievances:detail' g.tracking_id %}" class="btn btn-secondary btn-sm">
+                                    <i data-lucide="eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-subtle);">
+                                <i data-lucide="inbox" style="width: 36px; height: 36px; margin: 0 auto 0.5rem; display: block; opacity: 0.4;"></i>
+                                No grievance records found matching your filters.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

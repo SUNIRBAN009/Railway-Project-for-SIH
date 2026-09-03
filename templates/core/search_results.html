@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Search Results | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 3rem;">
+    <div style="margin-bottom: 2rem;">
+        <h1 style="font-size: 1.75rem; margin-bottom: 0.5rem;">Search Results for "<span style="color: var(--primary);">{{ query }}</span>"</h1>
+        <p style="color: var(--text-muted);">Matches found across trains, stations, grievances, and maintenance defect records.</p>
+    </div>
+
+    <div class="grid gap-6">
+        <!-- Trains -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i data-lucide="train" style="color: var(--secondary);"></i> Matching Trains</div>
+            </div>
+            {% if train_results %}
+                <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem;">
+                    {% for t in train_results %}
+                        <li class="flex justify-between items-center" style="background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: var(--radius-sm);">
+                            <div>
+                                <strong style="color: #fff;">{{ t.train_number }} - {{ t.name }}</strong>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ t.source_station.name }} → {{ t.destination_station.name }}</div>
+                            </div>
+                            <a href="{% url 'trains:detail' t.train_number %}" class="btn btn-secondary btn-sm">View Schedule</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-subtle);">No train records found.</p>
+            {% endif %}
+        </div>
+
+        <!-- Grievances -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><i data-lucide="message-square-warning" style="color: var(--primary);"></i> Matching Grievances</div>
+            </div>
+            {% if grievance_results %}
+                <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem;">
+                    {% for g in grievance_results %}
+                        <li class="flex justify-between items-center" style="background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: var(--radius-sm);">
+                            <div>
+                                <strong style="color: var(--secondary);">{{ g.tracking_id }}</strong> - {{ g.subject }}
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">PNR: {{ g.pnr_number|default:"N/A" }} • Train: {{ g.train_number }}</div>
+                            </div>
+                            <a href="{% url 'grievances:detail' g.tracking_id %}" class="btn btn-secondary btn-sm">Track</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-subtle);">No grievance records found.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

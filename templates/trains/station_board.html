@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}{{ station.name }} - Digital Station Board | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Top Station Header & Switcher -->
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="badge badge-warning" style="font-size: 1rem;">{{ station.code }}</span>
+                <h1 style="font-size: 1.85rem; color: #fff;">{{ station.name }}</h1>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                {{ station.zone }} • {{ station.division }} Division • {{ station.number_of_platforms }} Platforms
+            </p>
+        </div>
+
+        <form method="GET" class="flex gap-2">
+            <select name="station" class="form-select" onchange="this.form.submit()" style="min-width: 220px;">
+                {% for s in all_stations %}
+                    <option value="{{ s.code }}" {% if s.code == station.code %}selected{% endif %}>{{ s.name }} ({{ s.code }})</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <!-- Active Platform Allocations Grid -->
+    <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="tv" style="color: var(--primary);"></i> Live Digital Platform Allocation (Station Master Board)
+            </div>
+            <span class="pulse-dot green"></span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Train # & Name</th>
+                        <th>Origin → Destination</th>
+                        <th>Expected Arrival</th>
+                        <th>Expected Departure</th>
+                        <th>Platform Status</th>
+                        <th>Dispatch Authority</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alloc in allocations %}
+                        <tr>
+                            <td>
+                                <span class="badge badge-warning" style="font-size: 1.1rem; padding: 0.35rem 0.75rem;">Pf #{{ alloc.platform_number }}</span>
+                            </td>
+                            <td>
+                                <strong style="color: #fff; font-size: 0.95rem;">{{ alloc.train.train_number }}</strong>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ alloc.train.name }}</div>
+                            </td>
+                            <td style="font-size: 0.85rem;">
+                                {{ alloc.train.source_station.code }} → {{ alloc.train.destination_station.code }}
+                            </td>
+                            <td>{{ alloc.expected_arrival|date:"H:i" }}</td>
+                            <td>{{ alloc.expected_departure|date:"H:i" }}</td>
+                            <td>
+                                {% if alloc.status == 'Docked' %}
+                                    <span class="badge badge-success">🟢 Docked / Boarding</span>
+                                {% elif alloc.status == 'Approaching' %}
+                                    <span class="badge badge-info">🟡 Approaching</span>
+                                {% else %}
+                                    <span class="badge badge-purple">{{ alloc.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size: 0.8rem; color: var(--text-subtle);">{{ alloc.assigned_by }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-subtle); padding: 2rem;">No active trains docked at platforms.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

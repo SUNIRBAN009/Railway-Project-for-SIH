@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Live Running Status | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <div class="brand-icon" style="margin: 0 auto 1rem; width: 44px; height: 44px;">
+            <i data-lucide="radio"></i>
+        </div>
+        <h1 style="font-size: 1.85rem; margin-bottom: 0.25rem;">Live Train Running Status</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Real-time GPS telemetry and upcoming station estimation</p>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="card" style="max-width: 680px; margin: 0 auto 2rem;">
+        <form method="GET" class="flex gap-2">
+            <input type="text" name="train_number" value="{{ train_number }}" class="form-input" placeholder="Enter 5-digit Train Number (e.g. 22436, 12301, 12004)" required style="flex: 1;">
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="crosshair"></i> Track Live
+            </button>
+        </form>
+    </div>
+
+    {% if train %}
+        <!-- Live Running Status Display -->
+        <div class="card" style="max-width: 800px; margin: 0 auto; border-color: var(--border-glow);">
+            <div class="flex justify-between items-center" style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <span class="badge badge-warning" style="font-size: 0.9rem;">{{ train.train_number }}</span>
+                    <h2 style="font-size: 1.35rem; color: #fff; margin-top: 0.25rem;">{{ train.name }}</h2>
+                </div>
+                <div>
+                    {% if train.delay_minutes > 0 %}
+                        <span class="badge badge-danger" style="font-size: 0.85rem;">⚠️ Delayed by {{ train.delay_minutes }} mins</span>
+                    {% else %}
+                        <span class="badge badge-success" style="font-size: 0.85rem;"><span class="pulse-dot green"></span> Running Right on Time</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Current Location Banner -->
+            <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid var(--border-glow); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.5rem;">
+                <div class="flex items-center gap-3">
+                    <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--secondary); display: flex; align-items: center; justify-content: center; color: #060b13;">
+                        <i data-lucide="map-pin"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Current Live Position</div>
+                        <h3 style="font-size: 1.15rem; color: #fff;">
+                            {% if train.current_station %}
+                                Near {{ train.current_station.name }} ({{ train.current_station.code }})
+                            {% else %}
+                                En Route towards {{ train.destination_station.name }}
+                            {% endif %}
+                        </h3>
+                        {% if train.next_station %}
+                            <div style="font-size: 0.8rem; color: var(--text-subtle);">
+                                Approaching next halt: <strong style="color: var(--primary);">{{ train.next_station.name }} ({{ train.next_station.code }})</strong>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route Stop Sequence Visualizer -->
+            <h4 style="font-size: 0.95rem; color: #fff; margin-bottom: 1rem;">Route Milestone Progression</h4>
+            <div class="timeline">
+                {% for s in schedules %}
+                    <div class="timeline-item {% if forloop.first or s.station == train.current_station %}completed{% endif %}">
+                        <div class="timeline-dot"></div>
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <strong style="color: #fff; font-size: 0.95rem;">{{ s.station.name }} ({{ s.station.code }})</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-subtle);">Stop #{{ s.stop_number }} • Platform {{ s.platform_number }}</div>
+                            </div>
+                            <div style="text-align: right; font-size: 0.85rem;">
+                                <div>Arr: {{ s.arrival_time|default:"Start" }}</div>
+                                <div style="color: var(--text-muted);">Dep: {{ s.departure_time|default:"End" }}</div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <!-- Suggestions -->
+        <div style="max-width: 680px; margin: 0 auto;">
+            <div class="card">
+                <h3 style="font-size: 1rem; color: #fff; margin-bottom: 0.75rem;">Quick Select Trackers:</h3>
+                <div class="flex gap-2" style="flex-wrap: wrap;">
+                    {% for r in recent_trains %}
+                        <a href="{% url 'trains:live_status' %}?train_number={{ r.train_number }}" class="btn btn-secondary btn-sm">
+                            {{ r.train_number }} - {{ r.name }}
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

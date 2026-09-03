@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Executive Control Dashboard | RailConnect AI{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 3rem;">
+    <!-- Dashboard Header -->
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <div class="flex items-center gap-2" style="margin-bottom: 0.3rem;">
+                <h1 style="font-size: 1.85rem;">Railway Operations Command Center</h1>
+                <span class="badge badge-purple">{{ role_display }} View</span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">
+                Live operational telemetry, automated AI triage queues, and security beacons.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'grievances:lodge' %}" class="btn btn-primary btn-sm">
+                <i data-lucide="plus-circle"></i> New Grievance
+            </a>
+            <a href="{% url 'maintenance:log' %}" class="btn btn-secondary btn-sm">
+                <i data-lucide="alert-triangle"></i> Log Defect
+            </a>
+            <a href="{% url 'emergency:radar' %}" class="btn btn-danger btn-sm">
+                <i data-lucide="radar"></i> RPF Radar
+            </a>
+        </div>
+    </div>
+
+    <!-- Key Performance Indicators (KPIs) -->
+    <div class="stats-grid" style="margin-top: 0; margin-bottom: 2rem;">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--secondary);">
+                <i data-lucide="train"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ kpis.total_trains }}</div>
+                <div class="stat-label">Active Express Trains ({{ kpis.on_time_pct }}% On-Time)</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">
+                <i data-lucide="message-square-warning"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ kpis.open_grievances }}</div>
+                <div class="stat-label">Pending Grievances ({{ kpis.critical_grievances }} Critical)</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-ruby);">
+                <i data-lucide="siren"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ kpis.active_sos }}</div>
+                <div class="stat-label">Active SOS Beacons</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">
+                <i data-lucide="wrench"></i>
+            </div>
+            <div>
+                <div class="stat-val">{{ kpis.critical_defects }}</div>
+                <div class="stat-label">Critical Track/Coach Faults</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Charts Row -->
+    <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); margin-bottom: 2rem;">
+        <!-- Grievance Category Breakdown -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i data-lucide="pie-chart" style="color: var(--primary);"></i> Passenger Grievance Distribution
+                </div>
+            </div>
+            <div style="height: 240px; position: relative;">
+                <canvas id="grievanceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Train Punctuality & Speed Gauge -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i data-lucide="bar-chart-3" style="color: var(--secondary);"></i> Operations & Safety Fleet Health
+                </div>
+            </div>
+            <div style="height: 240px; position: relative;">
+                <canvas id="punctualityChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Tables Grid -->
+    <div class="grid gap-6" style="grid-template-columns: 1fr; margin-bottom: 2rem;">
+        <!-- Recent Grievance AI Triage -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i data-lucide="inbox" style="color: var(--primary);"></i> Active Grievances & AI Priority Queue
+                </div>
+                <a href="{% url 'grievances:list' %}" class="btn btn-secondary btn-sm">View All</a>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Ref ID</th>
+                            <th>Passenger & Contact</th>
+                            <th>Train / Seat</th>
+                            <th>Category</th>
+                            <th>AI Urgency</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in recent_grievances %}
+                            <tr>
+                                <td>
+                                    <strong style="color: var(--secondary);">{{ g.tracking_id }}</strong>
+                                </td>
+                                <td>
+                                    <div>{{ g.passenger_name }}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ g.passenger_phone }}</div>
+                                </td>
+                                <td>
+                                    <div>{{ g.train_number }}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-subtle);">Coach {{ g.coach_number }} (Seat {{ g.seat_number }})</div>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.85rem;">{{ g.get_category_display }}</span>
+                                </td>
+                                <td>
+                                    {% if g.priority == 'CRITICAL' %}
+                                        <span class="badge badge-critical">🔴 {{ g.urgency_score }}% Critical</span>
+                                    {% elif g.priority == 'HIGH' %}
+                                        <span class="badge badge-high">🟠 {{ g.urgency_score }}% High</span>
+                                    {% elif g.priority == 'MEDIUM' %}
+                                        <span class="badge badge-medium">🟡 {{ g.urgency_score }}% Med</span>
+                                    {% else %}
+                                        <span class="badge badge-low">🟢 {{ g.urgency_score }}% Low</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if g.status == 'OPEN' %}
+                                        <span class="badge badge-warning">Open</span>
+                                    {% elif g.status == 'IN_PROGRESS' %}
+                                        <span class="badge badge-info">In Progress</span>
+                                    {% elif g.status == 'RESOLVED' %}
+                                        <span class="badge badge-success">Resolved</span>
+                                    {% else %}
+                                        <span class="badge badge-purple">Closed</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'grievances:detail' g.tracking_id %}" class="btn btn-secondary btn-sm">
+                                        <i data-lucide="arrow-up-right"></i> Details
+                                    </a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--text-subtle); padding: 2rem;">No active grievances found.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Row: Track Defects & SOS Beacons -->
+    <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));">
+        <!-- Maintenance Alerts -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i data-lucide="wrench" style="color: var(--accent-purple);"></i> Track & Rolling Stock Faults
+                </div>
+                <a href="{% url 'maintenance:dashboard' %}" class="btn btn-secondary btn-sm">Manage</a>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% for d in recent_defects %}
+                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem;">
+                        <div class="flex justify-between items-center" style="margin-bottom: 0.35rem;">
+                            <strong style="color: #fff; font-size: 0.9rem;">{{ d.get_defect_type_display }}</strong>
+                            {% if d.severity == 'CRITICAL' %}
+                                <span class="badge badge-critical">Critical</span>
+                            {% elif d.severity == 'MAJOR' %}
+                                <span class="badge badge-high">Major</span>
+                            {% else %}
+                                <span class="badge badge-medium">Minor</span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                            {{ d.section_name }} • {{ d.track_km_marker }}
+                        </div>
+                        <div class="flex justify-between items-center" style="font-size: 0.75rem; color: var(--text-subtle);">
+                            <span>AI Confidence: {{ d.ai_confidence_score }}%</span>
+                            <a href="{% url 'maintenance:detail' d.report_id %}" style="color: var(--secondary);">View Work Order →</a>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p style="color: var(--text-subtle); text-align: center;">No defects reported.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Emergency SOS Alerts -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <i data-lucide="shield-alert" style="color: var(--accent-ruby);"></i> Active Emergency SOS Beacons
+                </div>
+                <a href="{% url 'emergency:radar' %}" class="btn btn-danger btn-sm">Open Radar</a>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% for s in recent_sos %}
+                    <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 0.85rem;">
+                        <div class="flex justify-between items-center" style="margin-bottom: 0.35rem;">
+                            <div class="flex items-center gap-2">
+                                <span class="pulse-dot red"></span>
+                                <strong style="color: #fca5a5; font-size: 0.9rem;">{{ s.get_emergency_type_display }}</strong>
+                            </div>
+                            <span class="badge badge-critical">{{ s.status }}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                            Passenger: {{ s.passenger_name }} ({{ s.passenger_phone }}) • Train {{ s.train_number }} (Coach {{ s.coach_number }}/{{ s.seat_number }})
+                        </div>
+                        <div class="flex justify-between items-center" style="font-size: 0.75rem; color: var(--text-subtle);">
+                            <span>{{ s.current_location_desc|default:"Coordinates Logged" }}</span>
+                            <a href="{% url 'emergency:detail' s.alert_id %}" style="color: var(--accent-ruby); font-weight: 700;">Triage SOS →</a>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p style="color: var(--text-subtle); text-align: center;">No active SOS emergency beacons.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Grievance Category Doughnut Chart
+    const ctx1 = document.getElementById('grievanceChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'doughnut',
+        data: {
+            labels: ['Electrical & AC', 'Cleanliness', 'Medical Emergency', 'Security / RPF', 'Catering', 'Staff / Infra'],
+            datasets: [{
+                data: [35, 25, 15, 12, 8, 5],
+                backgroundColor: [
+                    '#f59e0b', '#10b981', '#ef4444', '#38bdf8', '#a855f7', '#64748b'
+                ],
+                borderColor: '#0f1c30',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
+            }
+        }
+    });
+
+    // 2. Punctuality & System Fleet Bar Chart
+    const ctx2 = document.getElementById('punctualityChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: ['Vande Bharat', 'Rajdhani', 'Shatabdi', 'Superfast', 'Freight'],
+            datasets: [
+                {
+                    label: 'On-Time Runs (%)',
+                    data: [98, 92, 95, 84, 78],
+                    backgroundColor: 'rgba(56, 189, 248, 0.7)',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Cleanliness Score (x20)',
+                    data: [95, 90, 88, 76, 65],
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' }, max: 100 }
+            },
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#94a3b8' } }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}Grievance {{ grievance.tracking_id }} | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <!-- Breadcrumbs / Top Bar -->
+    <div class="flex justify-between items-center" style="margin-bottom: 1.5rem;">
+        <a href="{% url 'grievances:list' %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left"></i> Back to Grievances
+        </a>
+        <div class="flex gap-2">
+            <span class="badge badge-purple">Assigned Dept: {{ grievance.assigned_department }}</span>
+        </div>
+    </div>
+
+    <div class="grid gap-6" style="grid-template-columns: 2fr 1fr;">
+        <!-- Left Column: Details, Timeline, Comments -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Main Grievance Card -->
+            <div class="card">
+                <div class="flex justify-between items-center" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <span style="font-size: 0.8rem; color: var(--text-subtle); text-transform: uppercase; font-weight: 700;">Tracking ID:</span>
+                        <h2 style="font-size: 1.5rem; color: var(--secondary);">{{ grievance.tracking_id }}</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {% if grievance.priority == 'CRITICAL' %}
+                            <span class="badge badge-critical">🔴 Critical Priority</span>
+                        {% elif grievance.priority == 'HIGH' %}
+                            <span class="badge badge-high">🟠 High Priority</span>
+                        {% elif grievance.priority == 'MEDIUM' %}
+                            <span class="badge badge-medium">🟡 Medium Priority</span>
+                        {% else %}
+                            <span class="badge badge-low">🟢 Low Priority</span>
+                        {% endif %}
+
+                        <span class="badge badge-info">{{ grievance.get_status_display }}</span>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 1.2rem; color: #fff; margin-bottom: 0.75rem;">{{ grievance.subject }}</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.7; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
+                    {{ grievance.description }}
+                </p>
+
+                {% if grievance.attachment %}
+                    <div style="margin-bottom: 1.25rem;">
+                        <h4 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Photo Evidence:</h4>
+                        <img src="{{ grievance.attachment.url }}" alt="Evidence" style="max-width: 100%; max-height: 300px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                    </div>
+                {% endif %}
+
+                <!-- AI Metadata Insight -->
+                <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid var(--accent-purple); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
+                    <div class="flex justify-between items-center" style="margin-bottom: 0.5rem;">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="sparkles" style="color: var(--accent-purple);"></i>
+                            <strong style="color: #e9d5ff; font-size: 0.9rem;">RailConnect AI Diagnostic Telemetry</strong>
+                        </div>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Urgency Score: <strong>{{ grievance.urgency_score }}/100</strong></span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
+                        Sentiment Polarity: <strong style="color: #fff;">{{ grievance.sentiment_label }}</strong> •
+                        Automated Triage: <strong style="color: #fff;">{{ grievance.assigned_department }}</strong>
+                    </div>
+                </div>
+
+                {% if grievance.resolution_notes %}
+                    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid var(--accent-emerald); border-radius: var(--radius-sm); padding: 1rem;">
+                        <h4 style="color: var(--accent-emerald); font-size: 0.9rem; margin-bottom: 0.3rem;">Official Resolution Notes:</h4>
+                        <p style="color: var(--text-main); font-size: 0.9rem;">{{ grievance.resolution_notes }}</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Conversation & Official Updates -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i data-lucide="message-square" style="color: var(--secondary);"></i> Official Updates & Discussion
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+                    {% for c in comments %}
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem;">
+                            <div class="flex justify-between items-center" style="margin-bottom: 0.25rem;">
+                                <strong style="color: {% if c.is_official_update %}var(--primary){% else %}#fff{% endif %}; font-size: 0.85rem;">
+                                    {{ c.author_name }} {% if c.is_official_update %}<span class="badge badge-warning" style="font-size: 0.65rem;">Official</span>{% endif %}
+                                </strong>
+                                <span style="font-size: 0.75rem; color: var(--text-subtle);">{{ c.created_at|date:"d M, H:i" }}</span>
+                            </div>
+                            <p style="color: var(--text-muted); font-size: 0.85rem;">{{ c.message }}</p>
+                        </div>
+                    {% empty %}
+                        <p style="color: var(--text-subtle); font-size: 0.85rem;">No updates yet.</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Add Comment Form -->
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="add_comment" value="1">
+                    <div class="form-group">
+                        {{ comment_form.message }}
+                    </div>
+                    <button type="submit" class="btn btn-secondary btn-sm">
+                        <i data-lucide="send"></i> Post Note
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Column: Passenger Info, Status Update (Staff), Audit Timeline -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Passenger & Journey Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i data-lucide="user"></i> Journey Meta</div>
+                </div>
+                <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.85rem;">
+                    <li class="flex justify-between">
+                        <span style="color: var(--text-muted);">Passenger:</span>
+                        <strong>{{ grievance.passenger_name }}</strong>
+                    </li>
+                    <li class="flex justify-between">
+                        <span style="color: var(--text-muted);">Phone:</span>
+                        <strong>{{ grievance.passenger_phone }}</strong>
+                    </li>
+                    <li class="flex justify-between">
+                        <span style="color: var(--text-muted);">PNR:</span>
+                        <strong>{{ grievance.pnr_number|default:"Not Provided" }}</strong>
+                    </li>
+                    <li class="flex justify-between">
+                        <span style="color: var(--text-muted);">Train:</span>
+                        <strong>{{ grievance.train_number|default:"N/A" }}</strong>
+                    </li>
+                    <li class="flex justify-between">
+                        <span style="color: var(--text-muted);">Coach / Seat:</span>
+                        <strong>{{ grievance.coach_number|default:"-" }} / {{ grievance.seat_number|default:"-" }}</strong>
+                    </li>
+                    <li class="flex justify-between">
+                        <span style="color: var(--text-muted);">Location:</span>
+                        <strong>{{ grievance.current_station|default:"En Route" }}</strong>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Official Action Panel (For Staff) -->
+            {% if is_staff %}
+                <div class="card" style="border-color: var(--border-accent);">
+                    <div class="card-header">
+                        <div class="card-title" style="color: var(--primary);">
+                            <i data-lucide="shield-check"></i> Official Triage Action
+                        </div>
+                    </div>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="update_status" value="1">
+                        <div class="form-group">
+                            <label class="form-label">Update Status</label>
+                            {{ status_form.status }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Priority</label>
+                            {{ status_form.priority }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Assigned Department</label>
+                            {{ status_form.assigned_department }}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Action / Resolution Notes</label>
+                            {{ status_form.resolution_notes }}
+                        </div>
+                        <button type="submit" class="btn btn-primary w-full">
+                            <i data-lucide="check-circle"></i> Save Triage Update
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+
+            <!-- Audit Trail Timeline -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i data-lucide="history"></i> Lifecycle Timeline</div>
+                </div>
+
+                <div class="timeline">
+                    {% for audit in audit_logs %}
+                        <div class="timeline-item completed">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-title">{{ audit.old_status }} → {{ audit.new_status }}</div>
+                            <div class="timeline-time">{{ audit.timestamp|date:"d M, H:i" }} by {{ audit.performed_by.username|default:"System AI" }}</div>
+                            {% if audit.remarks %}
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">{{ audit.remarks }}</div>
+                            {% endif %}
+                        </div>
+                    {% empty %}
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-title">Grievance Registered</div>
+                            <div class="timeline-time">{{ grievance.created_at|date:"d M, H:i" }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

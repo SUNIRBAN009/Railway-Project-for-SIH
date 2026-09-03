@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Emergency Incident {{ alert.alert_id }} | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <div class="flex justify-between items-center" style="margin-bottom: 1.5rem;">
+        <a href="{% url 'emergency:radar' %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left"></i> Back to RPF Radar
+        </a>
+        <div class="flex gap-2">
+            <span class="badge badge-critical">{{ alert.status }}</span>
+        </div>
+    </div>
+
+    <div class="grid gap-6" style="grid-template-columns: 2fr 1fr;">
+        <!-- Alert Info -->
+        <div class="card" style="border-color: rgba(239, 68, 68, 0.4);">
+            <div class="flex justify-between items-center" style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-subtle);">Incident Beacon Code:</span>
+                    <h2 style="font-size: 1.5rem; color: #f87171;">{{ alert.alert_id }}</h2>
+                </div>
+                <span class="badge badge-critical" style="font-size: 0.9rem;">{{ alert.get_emergency_type_display }}</span>
+            </div>
+
+            <div class="grid gap-3" style="grid-template-columns: 1fr 1fr; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.9rem; margin-bottom: 1.25rem;">
+                <div>Passenger: <strong style="color: #fff;">{{ alert.passenger_name }}</strong></div>
+                <div>Phone: <strong style="color: #fff;">{{ alert.passenger_phone }}</strong></div>
+                <div>Train: <strong style="color: #fff;">{{ alert.train_number }}</strong></div>
+                <div>Coach / Seat: <strong style="color: #fff;">{{ alert.coach_number }} / {{ alert.seat_number }}</strong></div>
+                <div>Milestone: <strong style="color: #fff;">{{ alert.current_location_desc }}</strong></div>
+                <div>Coordinates: <strong>{{ alert.latitude }}, {{ alert.longitude }}</strong></div>
+            </div>
+
+            {% if alert.details %}
+                <h4 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.35rem;">Distress Details:</h4>
+                <p style="background: rgba(0,0,0,0.3); padding: 0.85rem; border-radius: var(--radius-sm); color: #fecaca; margin-bottom: 1.25rem;">
+                    {{ alert.details }}
+                </p>
+            {% endif %}
+
+            <div style="font-size: 0.8rem; color: var(--text-subtle);">
+                Beacon Triggered: {{ alert.triggered_at|date:"d M Y, H:i:s" }}
+            </div>
+        </div>
+
+        <!-- RPF Dispatch & Action Form -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title" style="color: var(--accent-ruby);">
+                    <i data-lucide="shield"></i> Incident Response Action
+                </div>
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="update_response" value="1">
+                <div class="form-group">
+                    <label class="form-label">Update Incident Status</label>
+                    {{ form.status }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Assigned RPF Unit / Squad</label>
+                    {{ form.rpf_unit_dispatched }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Response Log / Action Taken</label>
+                    {{ form.response_notes }}
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full">
+                    <i data-lucide="save"></i> Update Incident Log
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

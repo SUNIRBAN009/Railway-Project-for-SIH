@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Defect {{ defect.report_id }} | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <div class="flex justify-between items-center" style="margin-bottom: 1.5rem;">
+        <a href="{% url 'maintenance:dashboard' %}" class="btn btn-secondary btn-sm">
+            <i data-lucide="arrow-left"></i> Back to Maintenance Hub
+        </a>
+        <div class="flex gap-2">
+            <span class="badge badge-purple">AI Confidence: {{ defect.ai_confidence_score }}%</span>
+        </div>
+    </div>
+
+    <div class="grid gap-6" style="grid-template-columns: 2fr 1fr;">
+        <!-- Left: Defect Details & Work Orders -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card">
+                <div class="flex justify-between items-center" style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-subtle);">Report Ref:</span>
+                        <h2 style="font-size: 1.5rem; color: var(--secondary);">{{ defect.report_id }}</h2>
+                    </div>
+                    <div>
+                        {% if defect.severity == 'CRITICAL' %}
+                            <span class="badge badge-critical">🔴 Critical Hazard</span>
+                        {% elif defect.severity == 'MAJOR' %}
+                            <span class="badge badge-high">🟠 Major</span>
+                        {% else %}
+                            <span class="badge badge-low">🟡 Minor</span>
+                        {% endif %}
+                        <span class="badge badge-info">{{ defect.get_status_display }}</span>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 1.2rem; color: #fff; margin-bottom: 0.5rem;">{{ defect.get_defect_type_display }}</h3>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Location: <strong>{{ defect.section_name }}</strong> (Marker: <strong>{{ defect.track_km_marker }}</strong>)
+                </div>
+
+                <p style="color: var(--text-main); font-size: 0.95rem; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
+                    {{ defect.description }}
+                </p>
+
+                <div class="grid gap-3" style="grid-template-columns: 1fr 1fr; background: rgba(56,189,248,0.05); padding: 0.85rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
+                    <div>Detected By: <strong>{{ defect.detected_by }}</strong></div>
+                    <div>Coordinates: <strong>{{ defect.latitude }}, {{ defect.longitude }}</strong></div>
+                </div>
+            </div>
+
+            <!-- Active Work Orders -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i data-lucide="clipboard-check" style="color: var(--primary);"></i> Assigned Work Orders & Gang Dispatch
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    {% for wo in work_orders %}
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem;">
+                            <div class="flex justify-between items-center" style="margin-bottom: 0.35rem;">
+                                <strong style="color: var(--secondary);">Order Ref: {{ wo.order_id }}</strong>
+                                <span class="badge badge-warning">{{ wo.status }}</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #fff; margin-bottom: 0.25rem;">{{ wo.assigned_crew }}</div>
+                            <p style="font-size: 0.8rem; color: var(--text-muted);">{{ wo.repair_summary }}</p>
+                        </div>
+                    {% empty %}
+                        <p style="color: var(--text-subtle); font-size: 0.85rem;">No work orders created for this defect yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Dispatch Form -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title" style="color: var(--primary);">
+                        <i data-lucide="send"></i> Dispatch Work Order
+                    </div>
+                </div>
+
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="create_work_order" value="1">
+                    <div class="form-group">
+                        <label class="form-label">Assigned Repair Gang</label>
+                        {{ wo_form.assigned_crew }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Supervising Engineer</label>
+                        {{ wo_form.assigned_engineer }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Target Completion Time</label>
+                        {{ wo_form.target_completion_time }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Action / Repair Protocol Summary</label>
+                        {{ wo_form.repair_summary }}
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">
+                        <i data-lucide="check"></i> Dispatch Crew & Create Work Order
+                    </button>
+                </form>
+            </div>
+
+            {% if defect.status != 'RESOLVED' and defect.status != 'VERIFIED' %}
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="resolve_defect" value="1">
+                    <button type="submit" class="btn btn-secondary w-full" style="border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                        <i data-lucide="shield-check"></i> Mark Defect as Repaired & Safe
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

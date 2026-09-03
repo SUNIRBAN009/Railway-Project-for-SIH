@@ -1,0 +1,185 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RailConnect AI | Smart Railway Operations & Passenger Redressal (SIH){% endblock %}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="header">
+        <div class="container flex items-center justify-between">
+            <!-- Brand -->
+            <a href="{% url 'core:home' %}" class="nav-brand">
+                <div class="brand-icon">
+                    <i data-lucide="train"></i>
+                </div>
+                <div>
+                    <span>RailConnect<span style="color: var(--primary);">AI</span></span>
+                    <span class="brand-badge">SIH 2026</span>
+                </div>
+            </a>
+
+            <!-- Nav Links -->
+            <ul class="nav-links">
+                <li><a href="{% url 'core:home' %}" class="nav-link"><i data-lucide="home"></i> Home</a></li>
+                <li><a href="{% url 'grievances:list' %}" class="nav-link"><i data-lucide="message-square-warning"></i> Grievances</a></li>
+                <li><a href="{% url 'trains:list' %}" class="nav-link"><i data-lucide="activity"></i> Trains & Status</a></li>
+                <li><a href="{% url 'maintenance:dashboard' %}" class="nav-link"><i data-lucide="wrench"></i> Track AI & Health</a></li>
+                <li><a href="{% url 'emergency:radar' %}" class="nav-link"><i data-lucide="shield-alert"></i> RPF Radar</a></li>
+                <li><a href="{% url 'api:docs' %}" class="nav-link"><i data-lucide="terminal"></i> API</a></li>
+            </ul>
+
+            <!-- Actions & Auth -->
+            <div class="flex items-center gap-3">
+                <!-- SOS Pulse Button -->
+                <a href="{% url 'emergency:trigger' %}" class="sos-pulse-btn">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>SOS 139</span>
+                </a>
+
+                <!-- 1-Click Demo Switcher -->
+                <div class="demo-switcher">
+                    <button class="demo-btn" title="Quick switch roles for hackathon evaluation">
+                        <i data-lucide="zap"></i> Demo Role ▾
+                    </button>
+                    <div class="demo-menu">
+                        <div style="font-size: 0.75rem; color: var(--text-subtle); padding: 0.25rem 0.5rem; text-transform: uppercase; font-weight: 700;">Switch Perspective</div>
+                        <a href="{% url 'accounts:demo_switch' 'passenger' %}" class="demo-item">
+                            <span>👤 Passenger</span>
+                            <span class="demo-badge">Lodge & Track</span>
+                        </a>
+                        <a href="{% url 'accounts:demo_switch' 'station_master' %}" class="demo-item">
+                            <span>🚉 Station Master</span>
+                            <span class="demo-badge">Platforms & Trains</span>
+                        </a>
+                        <a href="{% url 'accounts:demo_switch' 'rpf' %}" class="demo-item">
+                            <span>🛡️ RPF Officer</span>
+                            <span class="demo-badge">Live Radar SOS</span>
+                        </a>
+                        <a href="{% url 'accounts:demo_switch' 'maintenance' %}" class="demo-item">
+                            <span>🔧 Maintenance Tech</span>
+                            <span class="demo-badge">Defects & Repair</span>
+                        </a>
+                        <a href="{% url 'accounts:demo_switch' 'admin' %}" class="demo-item">
+                            <span>⚙️ Railway Admin</span>
+                            <span class="demo-badge">Executive View</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- User Profile / Login -->
+                {% if user.is_authenticated %}
+                    <a href="{% url 'core:dashboard' %}" class="btn btn-secondary btn-sm" title="Go to Dashboard">
+                        <i data-lucide="layout-dashboard"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{% url 'accounts:logout' %}" class="btn btn-secondary btn-sm" title="Logout">
+                        <i data-lucide="log-out"></i>
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-sm">
+                        <i data-lucide="log-in"></i> Sign In
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Global Messages Container -->
+    {% if messages %}
+    <div class="messages-container">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="info"></i>
+                    <span>{{ message }}</span>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content Block -->
+    <main style="flex: 1;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="flex items-center gap-2" style="font-weight: 800; color: #fff; font-size: 1.1rem; margin-bottom: 0.75rem;">
+                        <i data-lucide="train" style="color: var(--primary);"></i> RailConnect AI
+                    </div>
+                    <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                        Smart India Hackathon (SIH) Intelligent Railway Management, AI Grievance Classification, Track Safety & Emergency Radar Platform.
+                    </p>
+                    <div style="font-size: 0.75rem; color: var(--text-subtle);">
+                        Indian Railways (Ministry of Railways) Technology Prototype
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="margin-bottom: 0.75rem; color: #fff; font-size: 0.95rem;">Quick Links</h4>
+                    <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.4rem;">
+                        <li><a href="{% url 'grievances:lodge' %}">Lodge a Grievance</a></li>
+                        <li><a href="{% url 'grievances:track' %}">Track Complaint Status</a></li>
+                        <li><a href="{% url 'trains:live_status' %}">Live Train Running Status</a></li>
+                        <li><a href="{% url 'trains:station_board' %}">Digital Station Board</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 style="margin-bottom: 0.75rem; color: #fff; font-size: 0.95rem;">Emergency & Security</h4>
+                    <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.4rem;">
+                        <li><a href="{% url 'emergency:trigger' %}" style="color: var(--accent-ruby); font-weight: 700;">🚨 Trigger Passenger SOS</a></li>
+                        <li><a href="{% url 'emergency:radar' %}">RPF Live Emergency Radar</a></li>
+                        <li><a href="{% url 'emergency:helplines' %}">Emergency Helpline Directory (139 / 182)</a></li>
+                        <li><a href="{% url 'maintenance:dashboard' %}">AI Track & Rail Defect Center</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 style="margin-bottom: 0.75rem; color: #fff; font-size: 0.95rem;">Developers & APIs</h4>
+                    <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.4rem;">
+                        <li><a href="{% url 'api:docs' %}">REST API Explorer</a></li>
+                        <li><a href="/api/trains/">Trains Endpoint</a></li>
+                        <li><a href="/api/grievances/">Grievance Classifier Endpoint</a></li>
+                        <li><a href="/api/analytics/summary/">Live Analytics Feed</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div>© 2026 RailConnect AI Platform | Built with Django & AI Modules</div>
+                <div class="flex items-center gap-3">
+                    <span class="pulse-dot green"></span> All Railway IoT & AI Nodes Operational
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Client Scripts -->
+    <script src="{% static 'js/main.js' %}"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Work Orders & Field Maintenance | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <div class="flex justify-between items-center" style="margin-bottom: 2rem;">
+        <div>
+            <h1 style="font-size: 1.85rem; margin-bottom: 0.25rem;">Active Field Work Orders</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Track gang dispatches, thermite welding, and OHE repairs</p>
+        </div>
+        <a href="{% url 'maintenance:dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left"></i> Maintenance Hub
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Defect Ref</th>
+                        <th>Assigned Gang / Crew</th>
+                        <th>Engineer</th>
+                        <th>Target Completion</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                        <tr>
+                            <td><strong style="color: var(--secondary);">{{ order.order_id }}</strong></td>
+                            <td>
+                                <a href="{% url 'maintenance:detail' order.defect.report_id %}" style="color: var(--primary);">
+                                    {{ order.defect.report_id }} ({{ order.defect.get_defect_type_display }})
+                                </a>
+                            </td>
+                            <td>{{ order.assigned_crew }}</td>
+                            <td>{{ order.assigned_engineer.username|default:"Duty Officer" }}</td>
+                            <td style="font-size: 0.85rem;">{{ order.target_completion_time|date:"d M H:i"|default:"Immediate" }}</td>
+                            <td><span class="badge badge-warning">{{ order.status }}</span></td>
+                            <td style="font-size: 0.8rem; color: var(--text-muted);">{{ order.created_at|date:"d M H:i" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-subtle); padding: 2rem;">No work orders active.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

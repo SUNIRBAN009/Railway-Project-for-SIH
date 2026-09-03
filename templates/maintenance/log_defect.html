@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Log Track / Rolling Stock Defect | RailConnect AI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+    <div style="max-width: 760px; margin: 0 auto;">
+        
+        <div style="margin-bottom: 1.75rem; text-align: center;">
+            <div class="brand-icon" style="margin: 0 auto 1rem; width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent-purple), #7e22ce);">
+                <i data-lucide="wrench"></i>
+            </div>
+            <h1 style="font-size: 1.85rem; margin-bottom: 0.25rem;">Log Infrastructure or Rolling Stock Defect</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Record ultrasonic track fractures, OHE tension drops, or hot axle anomalies</p>
+        </div>
+
+        <div class="card">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="grid gap-3" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label class="form-label">Defect Classification *</label>
+                        {{ form.defect_type }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Severity Level *</label>
+                        {{ form.severity }}
+                    </div>
+                </div>
+
+                <div class="grid gap-3" style="grid-template-columns: 2fr 1fr;">
+                    <div class="form-group">
+                        <label class="form-label">Railway Section Name *</label>
+                        {{ form.section_name }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Track KM Marker *</label>
+                        {{ form.track_km_marker }}
+                    </div>
+                </div>
+
+                <div class="grid gap-3" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+                    <div class="form-group">
+                        <label class="form-label">Latitude</label>
+                        {{ form.latitude }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Longitude</label>
+                        {{ form.longitude }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Train Number</label>
+                        {{ form.train_number }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Coach</label>
+                        {{ form.coach_number }}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Defect Description & Sensor Diagnostic Log *</label>
+                    {{ form.description }}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Attach Defect Thermal / Vision Photo</label>
+                    {{ form.photo }}
+                </div>
+
+                <div class="flex justify-between items-center" style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+                    <a href="{% url 'maintenance:dashboard' %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i data-lucide="shield-alert"></i> Submit & Dispatch Maintenance Team
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

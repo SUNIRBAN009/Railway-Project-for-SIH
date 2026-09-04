@@ -153,7 +153,7 @@ railway-ai-block-platform/
 │            ┌─────────────────┼─────────────────┐                           │
 │            ▼                 ▼                 ▼                           │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────────────┐          │
-│  │  PostgreSQL  │   │    Redis     │   │  Owlready2           │          │
+│  │    MySQL     │   │    Redis     │   │  Owlready2           │          │
 │  │  (Primary DB)│   │  (Cache/Queue│   │  (Semantic Graph     │          │
 │  │              │   │   /PubSub)   │   │   SQLite Quadstore)  │          │
 │  └──────────────┘   └──────────────┘   └──────────────────────┘          │
@@ -206,7 +206,7 @@ railway-ai-block-platform/
 │  │                      Repository Layer                                │   │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐ │   │
 │  │  │BlockRepo     │  │CrewRepo      │  │  AssetRepo               │ │   │
-│  │  │(PostgreSQL)  │  │(PostgreSQL)  │  │  (PostgreSQL)            │ │   │
+│  │  │(MySQL)       │  │(MySQL)       │  │  (MySQL)                 │ │   │
 │  │  └──────────────┘  └──────────────┘  └──────────────────────────┘ │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -235,7 +235,7 @@ railway-ai-block-platform/
 │  │  ┌────────────────────────┼────────────────────────┼────────────┐ │   │
 │  │  │                        ▼                        ▼            │ │   │
 │  │  │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌─────────┐ │ │   │
-│  │  │  │PostgreSQL│   │  Redis   │   │Owlready2 │   │ Celery  │ │ │   │
+│  │  │  │  MySQL   │   │  Redis   │   │Owlready2 │   │ Celery  │ │ │   │
 │  │  │  │   15     │   │    7     │   │ Quadstore│   │ Workers │ │ │   │
 │  │  │  └──────────┘   └──────────┘   └──────────┘   └─────────┘ │ │   │
 │  │  └────────────────────────────────────────────────────────────┘ │   │
@@ -265,7 +265,7 @@ railway-ai-block-platform/
 | **Backend Real-time** | Django Channels | 4.0 | WebSocket support | Socket.io standalone (Django integration জটিল) |
 | **Backend Async** | Celery | 5.3 | Background task queue | RQ (monitoring কম) |
 | **Auth** | djangorestframework-simplejwt | 5.3 | JWT token auth | OAuth2 (হ্যাকাথনে overkill) |
-| **Database** | PostgreSQL | 15 | Primary relational DB | MySQL (GIS support কম) |
+| **Database** | MySQL | 8.0 | Primary relational DB | PostgreSQL (team MySQL-এ অভ্যস্ত) |
 | **Cache/Queue** | Redis | 7 | Session, cache, pub/sub, Channels layer | RabbitMQ (Python-এ Redis বেশি native) |
 | **Semantic Layer** | Owlready2 | 0.46 | OWL 2 ontology + reasoning | Apache Jena (Java stack, separate server) |
 | **Graph Query** | SPARQL (built-in) | 1.1 | Ontology query language | Cypher (Neo4j — OWL native নয়) |
@@ -286,7 +286,7 @@ railway-ai-block-platform/
 
 ```
 ┌──────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ 
-│ ENG JE   │────►│ POST /api/v1/│────►│ BlockService │────►│ PostgreSQL   │ 
+│ ENG JE   │────►│ POST /api/v1/│────►│ BlockService │────►│ MySQL        │ 
 │ Login    │     │ blocks/      │     │ • Validate   │     │ blocks table │ 
 │          │     │ {section,    │     │ • Save       │     │ row created  │ 
 │          │     │ time, work}  │     │ • Queue      │     │              │ 
@@ -403,7 +403,7 @@ railway-ai-block-platform/
 ```
 Developer Laptop 
 ├── Docker Desktop 
-│ ├── postgres:15 container 
+│ ├── mysql:8.0 container 
 │ ├── redis:7-alpine container 
 │ ├── backend container (Django runserver) 
 │ ├── frontend container (Vite dev server) 
@@ -428,7 +428,7 @@ Internet
    │ • Environment variables from Railway    │ 
    └─────────────────────────────────────────┘ 
  │ 
- ├──► Railway PostgreSQL (managed) 
+ ├──► Railway MySQL (managed) 
  ├──► Railway Redis (managed) 
  └──► Owlready2 quadstore (persistent volume)
 ```
@@ -495,13 +495,13 @@ Rollback: `railway rollback` or git revert + redeploy
 ## 9. Scalability Strategy
 
 ### Current (MVP — 100 concurrent users)
-- **Monolith:** Single Django app, single PostgreSQL instance
+- **Monolith:** Single Django app, single MySQL instance
 - **Caching:** Redis for session + block queue + WebSocket channel layer
 - **Ontology:** File-based SQLite quadstore (Owlready2 default)
 - **Media:** Local filesystem (Docker volume)
 
 ### Phase 2 (1,000 users — Division Level)
-- **Database:** PostgreSQL read replica for analytics/reporting queries
+- **Database:** MySQL read replica for analytics/reporting queries
 - **Cache:** Redis Cluster for session distribution
 - **Ontology:** Migrate to Neo4j or Apache Jena Fuseki (if reasoning load increases)
 - **Celery:** Multiple worker nodes with dedicated queues (high/default/low)
@@ -512,7 +512,7 @@ Rollback: `railway rollback` or git revert + redeploy
   - `notification-service` (standalone)
   - `ontology-service` (standalone with Jena Fuseki)
   - `analytics-service` (ClickHouse for time-series)
-- **Database:** PostgreSQL partitioning by division (Howrah, Sealdah, etc.)
+- **Database:** MySQL partitioning by division (Howrah, Sealdah, etc.)
 - **CDN:** Mapbox tiles + static assets via Cloudflare
 - **Load Balancer:** Nginx upstream with health checks
 

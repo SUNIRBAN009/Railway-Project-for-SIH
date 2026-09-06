@@ -1,102 +1,472 @@
 {% extends 'base.html' %}
-{% block title %}Live Running Status | RailConnect AI{% endblock %}
+{% load static %}
+
+{% block title %}Train Operations & Live Punctuality | RailBlock AI{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
-    <!-- Header -->
-    <div style="text-align: center; margin-bottom: 2rem;">
-        <div class="brand-icon" style="margin: 0 auto 1rem; width: 44px; height: 44px;">
-            <i data-lucide="radio"></i>
-        </div>
-        <h1 style="font-size: 1.85rem; margin-bottom: 0.25rem;">Live Train Running Status</h1>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Real-time GPS telemetry and upcoming station estimation</p>
-    </div>
-
-    <!-- Search Bar -->
-    <div class="card" style="max-width: 680px; margin: 0 auto 2rem;">
-        <form method="GET" class="flex gap-2">
-            <input type="text" name="train_number" value="{{ train_number }}" class="form-input" placeholder="Enter 5-digit Train Number (e.g. 22436, 12301, 12004)" required style="flex: 1;">
-            <button type="submit" class="btn btn-primary">
-                <i data-lucide="crosshair"></i> Track Live
-            </button>
-        </form>
-    </div>
-
-    {% if train %}
-        <!-- Live Running Status Display -->
-        <div class="card" style="max-width: 800px; margin: 0 auto; border-color: var(--border-glow);">
-            <div class="flex justify-between items-center" style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
-                <div>
-                    <span class="badge badge-warning" style="font-size: 0.9rem;">{{ train.train_number }}</span>
-                    <h2 style="font-size: 1.35rem; color: #fff; margin-top: 0.25rem;">{{ train.name }}</h2>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="{
+    activeTab: 'map',
+    searchFilter: '{{ search_query }}',
+    selectedType: '{{ selected_type }}',
+    showSimModal: false
+}">
+    <!-- Top Header & Live Punctuality Banner -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 pb-6 border-b border-slate-800 gap-4">
+        <div>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center border border-sky-500/30">
+                    <i data-lucide="train" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    {% if train.delay_minutes > 0 %}
-                        <span class="badge badge-danger" style="font-size: 0.85rem;">⚠️ Delayed by {{ train.delay_minutes }} mins</span>
-                    {% else %}
-                        <span class="badge badge-success" style="font-size: 0.85rem;"><span class="pulse-dot green"></span> Running Right on Time</span>
-                    {% endif %}
+                    <h1 class="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                        Train Operations & Timetable Service
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            SVC-TRN Live
+                        </span>
+                    </h1>
+                    <p class="text-sm text-slate-400 mt-0.5">
+                        High-Density Delhi - Kanpur Corridor (NDLS - GZB - ALJN - TDL - CNB) Ground-Truth Telemetry
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-Time Actions -->
+        <div class="flex items-center gap-3">
+            <button 
+                @click="showSimModal = true"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-semibold shadow-lg shadow-amber-500/20 transition-all cursor-pointer">
+                <i data-lucide="calculator" class="w-4 h-4"></i>
+                Simulate Delay Cascade
+            </button>
+            <button 
+                hx-post="{% url 'trains:ingest_feed' %}"
+                hx-swap="none"
+                hx-on::after-request="window.location.reload()"
+                class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700 transition-colors cursor-pointer">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                Sync COA Feed
+            </button>
+        </div>
+    </div>
+
+    <!-- Operations Metric KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Active Services</span>
+                <div class="w-7 h-7 rounded-md bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                    <i data-lucide="layers" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-white font-mono mt-3">{{ total_trains }}</div>
+            <div class="text-xs text-slate-500 mt-1">Passenger & Freight rakes</div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Corridor Punctuality</span>
+                <div class="w-7 h-7 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-emerald-400 font-mono mt-3">{{ punctuality_rate }}%</div>
+            <div class="text-xs text-emerald-500/80 mt-1 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> {{ on_time_count }} on-time (< 5m delay)
+            </div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Delayed Services</span>
+                <div class="w-7 h-7 rounded-md bg-rose-500/10 text-rose-400 flex items-center justify-center">
+                    <i data-lucide="clock" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-rose-400 font-mono mt-3">{{ delayed_count }}</div>
+            <div class="text-xs text-slate-500 mt-1">Impacting headway slots</div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Signaling Headway</span>
+                <div class="w-7 h-7 rounded-md bg-sky-500/10 text-sky-400 flex items-center justify-center">
+                    <i data-lucide="git-commit" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-sky-400 font-mono mt-3">5.0m</div>
+            <div class="text-xs text-slate-500 mt-1">Automatic 4-aspect block buffer</div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs: Corridor GIS Map vs Timetable Master -->
+    <div class="flex border-b border-slate-800 mb-6 gap-6">
+        <button 
+            @click="activeTab = 'map'; setTimeout(() => window.corridorTrainMap && window.corridorTrainMap.invalidateSize(), 150)"
+            :class="activeTab === 'map' ? 'text-sky-400 border-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-300 border-transparent'"
+            class="pb-3 border-b-2 text-sm flex items-center gap-2 cursor-pointer transition-colors">
+            <i data-lucide="map" class="w-4 h-4"></i>
+            Live Corridor GIS Tracking
+        </button>
+        <button 
+            @click="activeTab = 'catalog'"
+            :class="activeTab === 'catalog' ? 'text-sky-400 border-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-300 border-transparent'"
+            class="pb-3 border-b-2 text-sm flex items-center gap-2 cursor-pointer transition-colors">
+            <i data-lucide="list" class="w-4 h-4"></i>
+            Master Timetables & Schedules ({{ total_trains }})
+        </button>
+    </div>
+
+    <!-- TAB 1: Live Corridor GIS Map -->
+    <div x-show="activeTab === 'map'" class="space-y-6">
+        <div class="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 shadow-2xl">
+            <div class="flex items-center justify-between mb-3 px-2">
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Live GPS Telemetry & Active Block Possessions
+                </div>
+                <div class="flex items-center gap-4 text-xs">
+                    <span class="flex items-center gap-1.5 text-slate-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> On Time
+                    </span>
+                    <span class="flex items-center gap-1.5 text-slate-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Delay < 15m
+                    </span>
+                    <span class="flex items-center gap-1.5 text-slate-300">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span> Delay > 15m
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Leaflet Container -->
+            <div id="corridor-train-map" class="w-full h-[520px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950 z-0"></div>
+        </div>
+    </div>
+
+    <!-- TAB 2: Master Timetables & Schedules Catalog -->
+    <div x-show="activeTab === 'catalog'" class="space-y-6">
+        <!-- Search & Category Filters -->
+        <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-800 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex items-center gap-3 flex-1 min-w-[280px]">
+                <div class="relative w-full max-w-md">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3 top-3"></i>
+                    <input 
+                        type="text" 
+                        name="q" 
+                        value="{{ search_query }}"
+                        placeholder="Search train number or name (e.g. 22436, Rajdhani)..."
+                        class="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500">
                 </div>
             </div>
 
-            <!-- Current Location Banner -->
-            <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid var(--border-glow); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.5rem;">
-                <div class="flex items-center gap-3">
-                    <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--secondary); display: flex; align-items: center; justify-content: center; color: #060b13;">
-                        <i data-lucide="map-pin"></i>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'trains:dashboard' %}" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-medium {% if not selected_type %}bg-sky-500/20 text-sky-400 border border-sky-500/30{% else %}bg-slate-800 text-slate-400 hover:text-slate-200{% endif %}">
+                    All Categories
+                </a>
+                <a href="{% url 'trains:dashboard' %}?type=PRESTIGE_SUPERFAST" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-medium {% if selected_type == 'PRESTIGE_SUPERFAST' %}bg-purple-500/20 text-purple-400 border border-purple-500/30{% else %}bg-slate-800 text-slate-400 hover:text-slate-200{% endif %}">
+                    Prestige Express
+                </a>
+                <a href="{% url 'trains:dashboard' %}?type=PASSENGER_EXPRESS" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-medium {% if selected_type == 'PASSENGER_EXPRESS' %}bg-blue-500/20 text-blue-400 border border-blue-500/30{% else %}bg-slate-800 text-slate-400 hover:text-slate-200{% endif %}">
+                    Mail / Express
+                </a>
+                <a href="{% url 'trains:dashboard' %}?type=BULK_FREIGHT" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-medium {% if selected_type == 'BULK_FREIGHT' %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{% else %}bg-slate-800 text-slate-400 hover:text-slate-200{% endif %}">
+                    Freight Rakes
+                </a>
+            </div>
+        </div>
+
+        <!-- Train Master Table -->
+        <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300 border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-950/60 text-xs uppercase font-semibold text-slate-400 tracking-wider">
+                            <th class="py-3.5 px-4">Train Service</th>
+                            <th class="py-3.5 px-4">Type & Priority</th>
+                            <th class="py-3.5 px-4">Corridor Path</th>
+                            <th class="py-3.5 px-4">Max Speed</th>
+                            <th class="py-3.5 px-4">Current Position</th>
+                            <th class="py-3.5 px-4 text-center">Delay Status</th>
+                            <th class="py-3.5 px-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        {% for train in trains %}
+                        {% with live=train.current_live_status %}
+                        <tr class="hover:bg-slate-800/30 transition-colors">
+                            <td class="py-3.5 px-4">
+                                <div class="font-mono font-bold text-white text-base">{{ train.train_number }}</div>
+                                <div class="text-xs text-slate-400">{{ train.train_name }}</div>
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold
+                                    {% if train.is_prestige %}bg-purple-500/20 text-purple-300 border border-purple-500/30
+                                    {% elif train.is_freight %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30
+                                    {% else %}bg-blue-500/20 text-blue-300 border border-blue-500/30{% endif %}">
+                                    {{ train.get_train_type_display }}
+                                </span>
+                                <div class="text-[11px] text-slate-500 mt-1 font-mono">Rank: #{{ train.priority_rank }}</div>
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <div class="font-mono text-xs text-slate-200">{{ train.source_station }} ➔ {{ train.destination_station }}</div>
+                                <div class="text-[11px] text-slate-500">{{ train.schedules.count }} Stoppages</div>
+                            </td>
+                            <td class="py-3.5 px-4 font-mono text-xs text-slate-300">
+                                {{ train.max_speed_kmh }} km/h
+                            </td>
+                            <td class="py-3.5 px-4">
+                                {% if live %}
+                                    <div class="text-xs font-semibold text-slate-200">Near {{ live.current_station_code }}</div>
+                                    <div class="text-[11px] text-slate-500 font-mono">KM {{ live.current_km }} • {{ live.speed_kmh }} km/h</div>
+                                {% else %}
+                                    <span class="text-xs text-slate-500 italic">Scheduled</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4 text-center">
+                                {% if live %}
+                                    {% if live.delay_minutes <= 0 %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            Right on Time
+                                        </span>
+                                    {% elif live.delay_minutes <= 15 %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            +{{ live.delay_minutes }}m Delay
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                            +{{ live.delay_minutes }}m Delayed
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-xs text-slate-500">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4 text-right">
+                                <a href="{% url 'trains:detail' train.train_number %}" 
+                                   class="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300 font-medium">
+                                    Timetable <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="py-8 text-center text-slate-500">No trains matching the selected criteria.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELAY CASCADE SIMULATION MODAL (HTMX-powered) -->
+    <div 
+        x-show="showSimModal" 
+        x-cloak 
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+        @keydown.escape.window="showSimModal = false">
+        
+        <div 
+            @click.outside="showSimModal = false"
+            class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                        <i data-lucide="calculator" class="w-4 h-4"></i>
                     </div>
                     <div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Current Live Position</div>
-                        <h3 style="font-size: 1.15rem; color: #fff;">
-                            {% if train.current_station %}
-                                Near {{ train.current_station.name }} ({{ train.current_station.code }})
-                            {% else %}
-                                En Route towards {{ train.destination_station.name }}
-                            {% endif %}
-                        </h3>
-                        {% if train.next_station %}
-                            <div style="font-size: 0.8rem; color: var(--text-subtle);">
-                                Approaching next halt: <strong style="color: var(--primary);">{{ train.next_station.name }} ({{ train.next_station.code }})</strong>
-                            </div>
-                        {% endif %}
+                        <h3 class="text-lg font-bold text-white">Speed Restriction Delay Simulator</h3>
+                        <p class="text-xs text-slate-400">FUNC-TRN-004: Decel/Accel Lost Time + Headway Ripple</p>
                     </div>
                 </div>
+                <button @click="showSimModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
 
-            <!-- Route Stop Sequence Visualizer -->
-            <h4 style="font-size: 0.95rem; color: #fff; margin-bottom: 1rem;">Route Milestone Progression</h4>
-            <div class="timeline">
-                {% for s in schedules %}
-                    <div class="timeline-item {% if forloop.first or s.station == train.current_station %}completed{% endif %}">
-                        <div class="timeline-dot"></div>
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <strong style="color: #fff; font-size: 0.95rem;">{{ s.station.name }} ({{ s.station.code }})</strong>
-                                <div style="font-size: 0.75rem; color: var(--text-subtle);">Stop #{{ s.stop_number }} • Platform {{ s.platform_number }}</div>
-                            </div>
-                            <div style="text-align: right; font-size: 0.85rem;">
-                                <div>Arr: {{ s.arrival_time|default:"Start" }}</div>
-                                <div style="color: var(--text-muted);">Dep: {{ s.departure_time|default:"End" }}</div>
-                            </div>
-                        </div>
+            <form 
+                hx-post="{% url 'trains:htmx_simulate_delay' %}" 
+                hx-target="#simulation-output" 
+                hx-indicator="#sim-spinner"
+                class="space-y-4">
+                {% csrf_token %}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Caution Speed Restriction (km/h)</label>
+                        <input 
+                            type="number" 
+                            name="speed_restriction" 
+                            value="30" 
+                            min="5" 
+                            max="110" 
+                            step="5"
+                            required
+                            class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 font-mono focus:border-amber-500 focus:outline-none">
+                        <div class="text-[11px] text-slate-500 mt-1">Normal line speed: 130 km/h</div>
                     </div>
-                {% endfor %}
-            </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Block Possession Length (km)</label>
+                        <input 
+                            type="number" 
+                            name="corridor_length" 
+                            value="3.700" 
+                            min="0.1" 
+                            max="50" 
+                            step="0.1"
+                            required
+                            class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 font-mono focus:border-amber-500 focus:outline-none">
+                        <div class="text-[11px] text-slate-500 mt-1">Delhi Division standard track block</div>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-end gap-3 items-center">
+                    <span id="sim-spinner" class="htmx-indicator text-xs text-amber-400 flex items-center gap-1.5">
+                        <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> Calculating headway cascade...
+                    </span>
+                    <button 
+                        type="submit"
+                        class="px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-bold shadow-lg shadow-amber-500/20 cursor-pointer transition-all">
+                        Execute Simulation
+                    </button>
+                </div>
+            </form>
+
+            <!-- Dynamic Output Target -->
+            <div id="simulation-output"></div>
         </div>
-    {% else %}
-        <!-- Suggestions -->
-        <div style="max-width: 680px; margin: 0 auto;">
-            <div class="card">
-                <h3 style="font-size: 1rem; color: #fff; margin-bottom: 0.75rem;">Quick Select Trackers:</h3>
-                <div class="flex gap-2" style="flex-wrap: wrap;">
-                    {% for r in recent_trains %}
-                        <a href="{% url 'trains:live_status' %}?train_number={{ r.train_number }}" class="btn btn-secondary btn-sm">
-                            {{ r.train_number }} - {{ r.name }}
-                        </a>
-                    {% endfor %}
+    </div>
+</div>
+
+<!-- LEAFLET GIS CORRIDOR MAP INITIALIZATION SCRIPT -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mapElement = document.getElementById('corridor-train-map');
+    if (!mapElement) return;
+
+    // Delhi - Kanpur High Density Corridor Waypoints
+    // Coordinates: New Delhi (28.6143, 77.2090), Ghaziabad (28.6692, 77.4538), Aligarh (27.8974, 78.0880), Tundla (27.2072, 78.2393), Kanpur Central (26.4547, 80.3507)
+    const stations = [
+        { name: 'New Delhi (NDLS)', code: 'NDLS', km: 0.0, lat: 28.6143, lng: 77.2090 },
+        { name: 'Ghaziabad (GZB)', code: 'GZB', km: 28.5, lat: 28.6692, lng: 77.4538 },
+        { name: 'Aligarh Jn (ALJN)', code: 'ALJN', km: 126.0, lat: 27.8974, lng: 78.0880 },
+        { name: 'Tundla Jn (TDL)', code: 'TDL', km: 206.0, lat: 27.2072, lng: 78.2393 },
+        { name: 'Kanpur Central (CNB)', code: 'CNB', km: 435.0, lat: 26.4547, lng: 80.3507 }
+    ];
+
+    const map = L.map('corridor-train-map', {
+        attributionControl: false
+    }).setView([27.8, 78.5], 8);
+
+    window.corridorTrainMap = map;
+
+    // CartoDB Dark Matter Tiles (Zero Build / Modern Aesthetics)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18,
+        subdomains: 'abcd'
+    }).addTo(map);
+
+    // Draw Main Delhi-Kanpur Double Track Line
+    const trackLatlngs = stations.map(s => [s.lat, s.lng]);
+    const corridorTrack = L.polyline(trackLatlngs, {
+        color: '#0284c7',
+        weight: 4,
+        opacity: 0.85,
+        dashArray: '8, 6'
+    }).addTo(map);
+
+    // Plot Station Nodes
+    stations.forEach(stn => {
+        const marker = L.circleMarker([stn.lat, stn.lng], {
+            radius: 7,
+            fillColor: '#38bdf8',
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+        }).addTo(map);
+
+        marker.bindPopup(`
+            <div style="font-family: sans-serif; padding: 4px; color: #0f172a;">
+                <div style="font-weight: bold; font-size: 13px;">${stn.name}</div>
+                <div style="font-size: 11px; color: #64748b;">Milestone: KM ${stn.km}</div>
+            </div>
+        `);
+    });
+
+    // Interpolate & Plot Active Trains on Track
+    const activeTrains = [
+        {% for train in trains %}
+        {% with live=train.current_live_status %}
+        {% if live %}
+        {
+            number: '{{ train.train_number }}',
+            name: '{{ train.train_name|escapejs }}',
+            type: '{{ train.train_type }}',
+            km: {{ live.current_km }},
+            delay: {{ live.delay_minutes }},
+            speed: {{ live.speed_kmh }},
+            station: '{{ live.current_station_code }}'
+        },
+        {% endif %}
+        {% endwith %}
+        {% endfor %}
+    ];
+
+    function getInterpolatedCoordinates(km) {
+        // Find segment
+        for (let i = 0; i < stations.length - 1; i++) {
+            const s1 = stations[i];
+            const s2 = stations[i + 1];
+            if (km >= s1.km && km <= s2.km) {
+                const ratio = (km - s1.km) / (s2.km - s1.km);
+                return [
+                    s1.lat + ratio * (s2.lat - s1.lat),
+                    s1.lng + ratio * (s2.lng - s1.lng)
+                ];
+            }
+        }
+        return [stations[0].lat, stations[0].lng];
+    }
+
+    activeTrains.forEach(trn => {
+        const coords = getInterpolatedCoordinates(trn.km);
+        let color = '#10b981'; // green on-time
+        if (trn.delay > 15) color = '#f43f5e'; // red delayed
+        else if (trn.delay > 0) color = '#fbbf24'; // yellow minor delay
+
+        const trainMarker = L.circleMarker(coords, {
+            radius: 8,
+            fillColor: color,
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 1
+        }).addTo(map);
+
+        trainMarker.bindPopup(`
+            <div style="font-family: sans-serif; padding: 6px; min-width: 170px; color: #0f172a;">
+                <div style="font-weight: 800; font-size: 14px; color: #0f172a;">${trn.number}</div>
+                <div style="font-size: 11px; color: #475569; margin-bottom: 4px;">${trn.name}</div>
+                <div style="font-size: 11px; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+                    <div>Speed: <strong>${trn.speed} km/h</strong></div>
+                    <div>Location: <strong>KM ${trn.km} (${trn.station})</strong></div>
+                    <div style="color: ${color}; font-weight: bold; margin-top: 2px;">
+                        ${trn.delay <= 0 ? 'Right on Time' : 'Delay: +' + trn.delay + ' min'}
+                    </div>
                 </div>
             </div>
-        </div>
-    {% endif %}
-</div>
+        `);
+    });
+
+    lucide.createIcons();
+});
+</script>
 {% endblock %}

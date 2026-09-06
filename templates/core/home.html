@@ -1,220 +1,137 @@
 {% extends 'base.html' %}
-{% load static %}
-
-{% block title %}RailConnect AI | Smart Passenger Redressal & Operations{% endblock %}
+{% block title %}RailBlock AI | Smart Automatic Block Planning for Indian Railways (PS 26027){% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="space-y-12 py-4">
+
     <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-tag">
-            <span class="pulse-dot amber"></span>
-            <span>Next-Gen Railway Intelligence for SIH</span>
-        </div>
-        <h1 class="hero-title">Intelligent Railways.<br>Safer Journeys for India.</h1>
-        <p class="hero-desc">
-            Empowering Indian Railways with AI-assisted grievance redressal, real-time train tracking, automated track crack detection, and rapid SOS emergency response for RPF.
-        </p>
+    <div class="relative bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-8 sm:p-12 overflow-hidden shadow-2xl">
+        <div class="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div class="hero-actions">
-            <a href="{% url 'grievances:lodge' %}" class="btn btn-primary btn-lg">
-                <i data-lucide="edit-3"></i> Lodge a Grievance
-            </a>
-            <a href="{% url 'emergency:trigger' %}" class="btn btn-danger btn-lg">
-                <i data-lucide="alert-octagon"></i> Emergency SOS (139)
-            </a>
-            <a href="{% url 'trains:list' %}" class="btn btn-secondary btn-lg">
-                <i data-lucide="map-pin"></i> Live Train Status
-            </a>
-        </div>
-
-        <!-- Quick Tracker & Search Card -->
-        <div class="quick-search-box">
-            <div class="search-tabs">
-                <button class="search-tab-btn active" onclick="switchSearchTab('pnr')">
-                    <i data-lucide="ticket"></i> PNR / Grievance Tracker
-                </button>
-                <button class="search-tab-btn" onclick="switchSearchTab('train')">
-                    <i data-lucide="train"></i> Search Trains & Routes
-                </button>
-                <button class="search-tab-btn" onclick="switchSearchTab('station')">
-                    <i data-lucide="building-2"></i> Station Live Board
-                </button>
+        <div class="max-w-3xl relative z-10">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-6">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span>Smart India Hackathon • Problem Statement PS 26027</span>
             </div>
 
-            <!-- Tab 1: PNR / Grievance -->
-            <div id="tab-pnr" class="tab-pane">
-                <form action="{% url 'grievances:track' %}" method="GET" class="flex gap-2" style="flex-wrap: wrap;">
-                    <input type="text" name="tracking_id" class="form-input" placeholder="Enter Tracking ID (e.g. GRV-20260903-1001) or 10-digit PNR" style="flex: 1; min-width: 250px;" required>
-                    <button type="submit" class="btn btn-primary">
-                        <i data-lucide="search"></i> Track Status
-                    </button>
-                </form>
-            </div>
+            <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+                AI-Powered Automatic Block Planning for <span class="text-amber-500">Indian Railways</span>.
+            </h1>
 
-            <!-- Tab 2: Train Search -->
-            <div id="tab-train" class="tab-pane" style="display: none;">
-                <form action="{% url 'trains:list' %}" method="GET" class="grid gap-2" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-                    <input type="text" name="source" class="form-input" placeholder="From (e.g. NDLS)">
-                    <input type="text" name="dest" class="form-input" placeholder="To (e.g. HWH)">
-                    <button type="submit" class="btn btn-primary">
-                        <i data-lucide="search"></i> Find Trains
-                    </button>
-                </form>
-            </div>
+            <p class="text-base sm:text-lg text-slate-300 mt-4 leading-relaxed">
+                Unifying maintenance block requests across <strong class="text-orange-400">Engineering (TMS)</strong>, 
+                <strong class="text-cyan-400">Traction Distribution (TDMS)</strong>, and 
+                <strong class="text-purple-400">Signal & Telecom (SMMS)</strong> into an intelligent 
+                <strong class="text-emerald-400">Control Office Administrator (COA)</strong> engine powered by PostGIS Spatial Indexing, Sweep-Line Algorithms, and Semantic Digital Twins.
+            </p>
 
-            <!-- Tab 3: Station Board -->
-            <div id="tab-station" class="tab-pane" style="display: none;">
-                <form action="{% url 'trains:station_board' %}" method="GET" class="flex gap-2">
-                    <input type="text" name="station" class="form-input" placeholder="Enter Station Code (e.g. NDLS, HWH, CSMT, CNB)" style="flex: 1;" required>
-                    <button type="submit" class="btn btn-primary">
-                        <i data-lucide="tv"></i> View Live Board
-                    </button>
-                </form>
-            </div>
-        </div>
-    </section>
-
-    <!-- Key Statistics Ticker -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--secondary);">
-                <i data-lucide="train"></i>
-            </div>
-            <div>
-                <div class="stat-val">{{ stats.active_trains }}</div>
-                <div class="stat-label">Active Monitored Trains</div>
+            <!-- Hero Action Buttons -->
+            <div class="flex flex-wrap items-center gap-4 mt-8">
+                <a href="{% url 'accounts:login' %}" class="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-sm shadow-xl shadow-amber-500/20 transition flex items-center gap-2">
+                    <i data-lucide="shield" class="w-4 h-4"></i> Enter Control Matrix
+                </a>
+                <a href="{% url 'accounts:demo_switch' 'coa' %}" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm transition flex items-center gap-2">
+                    <i data-lucide="play" class="w-4 h-4 text-emerald-400"></i> Launch 1-Click Chief Controller Demo
+                </a>
+                <a href="/api/v1/users/" class="px-6 py-3 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-white text-sm border border-slate-800 transition flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i> REST API
+                </a>
             </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">
-                <i data-lucide="check-circle-2"></i>
+        <!-- Metric Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 pt-8 border-t border-slate-800/80">
+            <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <div class="text-2xl font-black text-white font-mono">3 Silos Unified</div>
+                <div class="text-xs text-slate-400 mt-1">ENG + TRD + SNT Systems</div>
             </div>
-            <div>
-                <div class="stat-val">{{ stats.grievances_resolved }}</div>
-                <div class="stat-label">Grievances Redressed</div>
+            <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <div class="text-2xl font-black text-emerald-400 font-mono">78% Less Conflict</div>
+                <div class="text-xs text-slate-400 mt-1">Sweep-Line Interval Trees</div>
             </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">
-                <i data-lucide="clock"></i>
+            <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <div class="text-2xl font-black text-cyan-400 font-mono">Shadow Blocks</div>
+                <div class="text-xs text-slate-400 mt-1">Co-located Multi-Dept Work</div>
             </div>
-            <div>
-                <div class="stat-val">{{ stats.response_time_min }} mins</div>
-                <div class="stat-label">Average RPF Response</div>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">
-                <i data-lucide="cpu"></i>
-            </div>
-            <div>
-                <div class="stat-val">96.8%</div>
-                <div class="stat-label">AI Classification Accuracy</div>
+            <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <div class="text-2xl font-black text-amber-400 font-mono">OWL 2 Twin</div>
+                <div class="text-xs text-slate-400 mt-1">Semantic Reasoning Engine</div>
             </div>
         </div>
     </div>
 
-    <!-- Core Feature Highlights -->
-    <div style="margin: 4rem 0;">
-        <div style="text-align: center; margin-bottom: 2.5rem;">
-            <span class="hero-tag">System Capabilities</span>
-            <h2 style="font-size: 2rem; margin-top: 0.5rem;">Unified Railway Intelligence Matrix</h2>
+    <!-- The 3 Maintenance Departments Grid -->
+    <div>
+        <div class="text-center max-w-2xl mx-auto mb-8">
+            <h2 class="text-2xl font-black text-white">Multi-Departmental Operational Matrix</h2>
+            <p class="text-xs text-slate-400 mt-1">Granular RBAC ensures departmental isolation while maximizing track possession efficiency.</p>
         </div>
 
-        <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
-            <!-- Feature 1 -->
-            <div class="card">
-                <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(245, 158, 11, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary); margin-bottom: 1rem;">
-                    <i data-lucide="bot"></i>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- ENG Card -->
+            <div class="bg-slate-900 border border-orange-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden group hover:border-orange-500/60 transition">
+                <div class="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center font-bold mb-4">
+                    <i data-lucide="wrench" class="w-5 h-5"></i>
                 </div>
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">AI Grievance Triage (Rail Madad)</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
-                    Automated NLP analysis prioritizes critical safety, medical and sanitation issues, assigning them instantly to on-board OBHS or station crew.
+                <div class="flex items-center justify-between">
+                    <h3 class="text-base font-bold text-white">Civil Track & P-Way (ENG)</h3>
+                    <span class="text-[10px] font-mono font-bold text-orange-400 px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/30">TMS</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Manages rail replacement, sleeper tamping, ballast cleaning (BCM), and ultrasonic rail flaw detection (USFD) possessions.
                 </p>
-                <a href="{% url 'grievances:lodge' %}" style="font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem;">
-                    File a Complaint <i data-lucide="arrow-right" style="width: 14px;"></i>
-                </a>
+                <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
+                    <span class="text-slate-400">Persona: SSE/JE Track</span>
+                    <a href="{% url 'accounts:demo_switch' 'eng' %}" class="text-orange-400 hover:text-orange-300 font-semibold flex items-center gap-1">
+                        Test Role →
+                    </a>
+                </div>
             </div>
 
-            <!-- Feature 2 -->
-            <div class="card">
-                <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-ruby); margin-bottom: 1rem;">
-                    <i data-lucide="shield-alert"></i>
+            <!-- TRD Card -->
+            <div class="bg-slate-900 border border-cyan-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden group hover:border-cyan-500/60 transition">
+                <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold mb-4">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
                 </div>
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">RPF Emergency Radar</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
-                    Live emergency dispatch tracking for Railway Protection Force. Passengers trigger rapid GPS-enabled SOS beacons in cases of harassment or threat.
+                <div class="flex items-center justify-between">
+                    <h3 class="text-base font-bold text-white">Traction Distribution (TRD)</h3>
+                    <span class="text-[10px] font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30">TDMS</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Manages 25kV Overhead Equipment (OHE), power isolations, cantilever adjustments, contact wire inspection, and tower wagons.
                 </p>
-                <a href="{% url 'emergency:radar' %}" style="font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem; color: var(--accent-ruby);">
-                    View RPF Radar <i data-lucide="arrow-right" style="width: 14px;"></i>
-                </a>
+                <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
+                    <span class="text-slate-400">Persona: SSE/JE OHE</span>
+                    <a href="{% url 'accounts:demo_switch' 'trd' %}" class="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+                        Test Role →
+                    </a>
+                </div>
             </div>
 
-            <!-- Feature 3 -->
-            <div class="card">
-                <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: rgba(56, 189, 248, 0.15); display: flex; align-items: center; justify-content: center; color: var(--secondary); margin-bottom: 1rem;">
-                    <i data-lucide="activity"></i>
+            <!-- SNT Card -->
+            <div class="bg-slate-900 border border-purple-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden group hover:border-purple-500/60 transition">
+                <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold mb-4">
+                    <i data-lucide="radio" class="w-5 h-5"></i>
                 </div>
-                <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;">AI Track & Coach Inspection</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
-                    Monitors acoustic rail crack sensors, hot box axle temperatures, and OHE wire tension drops to prevent derailments before departure.
+                <div class="flex items-center justify-between">
+                    <h3 class="text-base font-bold text-white">Signal & Telecom (SNT)</h3>
+                    <span class="text-[10px] font-mono font-bold text-purple-400 px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/30">SMMS</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Maintains electronic interlocking points, track circuits, axle counters, automatic block signalling, and optic fiber links.
                 </p>
-                <a href="{% url 'maintenance:dashboard' %}" style="font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem;">
-                    Explore Health Dashboard <i data-lucide="arrow-right" style="width: 14px;"></i>
-                </a>
+                <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
+                    <span class="text-slate-400">Persona: SSE/JE Signal</span>
+                    <a href="{% url 'accounts:demo_switch' 'snt' %}" class="text-purple-400 hover:text-purple-300 font-semibold flex items-center gap-1">
+                        Test Role →
+                    </a>
+                </div>
             </div>
+
         </div>
     </div>
 
-    <!-- Featured Trains Section -->
-    <div style="margin-bottom: 4rem;">
-        <div class="card-header">
-            <div class="card-title">
-                <i data-lucide="zap" style="color: var(--primary);"></i> Premier Express Trains & Live Trackers
-            </div>
-            <a href="{% url 'trains:list' %}" class="btn btn-secondary btn-sm">View All Trains</a>
-        </div>
-
-        <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
-            {% for train in featured_trains %}
-                <div class="card" style="padding: 1.25rem;">
-                    <div class="flex justify-between items-center" style="margin-bottom: 0.75rem;">
-                        <span class="badge badge-warning">{{ train.train_number }}</span>
-                        {% if train.delay_minutes > 0 %}
-                            <span class="badge badge-danger">Delayed {{ train.delay_minutes }}m</span>
-                        {% else %}
-                            <span class="badge badge-success">On Time</span>
-                        {% endif %}
-                    </div>
-                    <h4 style="font-size: 1.05rem; margin-bottom: 0.5rem; color: #fff;">{{ train.name }}</h4>
-                    <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                        <span>{{ train.source_station.name }} ({{ train.source_station.code }})</span>
-                        <i data-lucide="arrow-right" style="width: 16px; color: var(--text-subtle);"></i>
-                        <span>{{ train.destination_station.name }} ({{ train.destination_station.code }})</span>
-                    </div>
-                    <div class="flex justify-between items-center" style="border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
-                        <span style="font-size: 0.75rem; color: var(--text-subtle);">{{ train.runs_on }}</span>
-                        <a href="{% url 'trains:detail' train.train_number %}" class="btn btn-secondary btn-sm">
-                            <i data-lucide="eye"></i> Route & Coaches
-                        </a>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    </div>
 </div>
-
-<script>
-    function switchSearchTab(tabName) {
-        document.querySelectorAll('.search-tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(pane => pane.style.display = 'none');
-        
-        event.currentTarget.classList.add('active');
-        document.getElementById(`tab-${tabName}`).style.display = 'block';
-    }
-</script>
 {% endblock %}

@@ -1,0 +1,27 @@
+{% if conflicts %}
+<div class="space-y-2">
+    <div class="text-[11px] font-mono text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+        <i data-lucide="scan" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span>Live Sweep-Line Pre-Check Feedback:</span>
+    </div>
+    {% for c in conflicts %}
+    <div class="p-3 rounded-xl text-xs flex items-center justify-between
+                {% if c.is_shadow %}bg-cyan-950/40 border border-cyan-500/40 text-cyan-300
+                {% else %}bg-amber-950/40 border border-amber-500/40 text-amber-300{% endif %}">
+        <div class="flex items-center gap-2">
+            {% if c.is_shadow %}
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 font-mono font-bold">SHADOW CO-OP</span>
+            {% else %}
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-mono font-bold">OVERLAP</span>
+            {% endif %}
+            <span><strong>{{ c.entity }}:</strong> {{ c.msg }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span>No preliminary spatial conflicts detected on this corridor segment.</span>
+</div>
+{% endif %}

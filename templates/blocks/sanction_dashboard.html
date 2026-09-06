@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Chief Controller Sanction Console | RailBlock AI{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2">
+                <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+                <h1 class="text-xl font-bold text-white">Chief Controller (COA) Block Sanction Console</h1>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    SANCTION AUTHORITY
+                </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+                Authoritative multi-departmental block possession approval with optimistic concurrency locking.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400 font-mono">Role Verified:</span>
+            <span class="px-3 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-bold text-xs">
+                Chief Controller (COA)
+            </span>
+        </div>
+    </div>
+
+    <!-- Pending Submissions Queue -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="inbox" class="w-4 h-4 text-amber-400"></i>
+                <span>Pending Block Sanctions (Requires Controller Approval)</span>
+            </h2>
+            <span class="text-xs text-slate-500 font-mono">{{ pending_blocks|length }} Requests Awaiting Decision</span>
+        </div>
+
+        <div class="space-y-4">
+            {% for b in pending_blocks %}
+            <div class="p-5 rounded-xl bg-slate-950 border 
+                        {% if b.status == 'CONFLICT_DETECTED' %}border-rose-500/50 bg-rose-950/10
+                        {% elif b.status == 'COORDINATED' %}border-cyan-500/50 bg-cyan-950/10
+                        {% else %}border-slate-800{% endif %}">
+                
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 font-mono">
+                            <span class="text-base font-black text-white">{{ b.block_code }}</span>
+                            <span class="px-2 py-0.5 rounded text-xs font-bold
+                                        {% if b.department_code == 'ENG' %}bg-orange-500/10 text-orange-400 border border-orange-500/30
+                                        {% elif b.department_code == 'TRD' %}bg-cyan-500/10 text-cyan-400 border border-cyan-500/30
+                                        {% else %}bg-purple-500/10 text-purple-400 border border-purple-500/30{% endif %}">
+                                {{ b.department_code }}
+                            </span>
+                            <span class="text-slate-400 font-sans text-xs">({{ b.get_work_type_display }})</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-3 text-xs text-slate-400 font-mono">
+                            <div>Corridor: <strong class="text-slate-200">{{ b.corridor.code }}</strong></div>
+                            <div>Span: <strong class="text-slate-200">KM {{ b.start_km }} - {{ b.end_km }}</strong></div>
+                            <div>Time: <strong class="text-slate-200">{{ b.scheduled_start_time|date:"d M H:i" }} - {{ b.scheduled_end_time|date:"H:i" }}</strong></div>
+                            <div>Duration: <strong class="text-amber-400">{{ b.duration_hours }} hrs</strong></div>
+                        </div>
+
+                        <!-- Conflicts / Shadow Opportunities -->
+                        {% if b.conflicts.all %}
+                        <div class="mt-3 space-y-1.5">
+                            {% for c in b.conflicts.all %}
+                            <div class="p-2 rounded-lg text-xs flex items-center justify-between
+                                        {% if c.resolution_status == 'SHADOW_MERGED' %}bg-cyan-950/40 text-cyan-300 border border-cyan-500/30
+                                        {% else %}bg-rose-950/40 text-rose-300 border border-rose-500/30{% endif %}">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="alert-circle" class="w-3.5 h-3.5 shrink-0"></i>
+                                    <span>{{ c.resolution_notes|default:c.conflicting_entity_label }}</span>
+                                </div>
+                                <span class="font-mono text-[10px] uppercase font-bold">{{ c.severity }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- 1-Click Action Form (Optimistic Concurrency Locked with version) -->
+                    <div class="flex items-center gap-2 shrink-0">
+                        <form method="POST" action="{% url 'blocks:api_block_sanction' b.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="SANCTION">
+                            <input type="hidden" name="version" value="{{ b.version }}">
+                            <input type="hidden" name="remarks" value="Approved by Chief Controller Delhi Division">
+                            <button type="submit" 
+                                    class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-lg shadow-emerald-500/20">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                                <span>Sanction Block</span>
+                            </button>
+                        </form>
+
+                        <form method="POST" action="{% url 'blocks:api_block_sanction' b.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="REJECT">
+                            <input type="hidden" name="version" value="{{ b.version }}">
+                            <input type="hidden" name="remarks" value="Slot rejected due to passenger traffic headway priority">
+                            <button type="submit" 
+                                    class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs font-semibold transition">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+            {% empty %}
+            <div class="text-center py-8 text-slate-500 text-xs font-mono">
+                ✓ All block possession requests have been reviewed and sanctioned.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recently Sanctioned Blocks Table -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="check-check" class="w-4 h-4 text-emerald-400"></i>
+            <span>Recently Sanctioned Possessions</span>
+        </h3>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="text-[11px] text-slate-400 uppercase bg-slate-950 border-b border-slate-800 font-mono">
+                    <tr>
+                        <th class="py-3 px-3">Block Code</th>
+                        <th class="py-3 px-3">Department</th>
+                        <th class="py-3 px-3">Corridor</th>
+                        <th class="py-3 px-3">Time Window</th>
+                        <th class="py-3 px-3">Version</th>
+                        <th class="py-3 px-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-mono">
+                    {% for b in sanctioned_blocks %}
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-2.5 px-3 font-bold text-white">{{ b.block_code }}</td>
+                        <td class="py-2.5 px-3">{{ b.department_code }}</td>
+                        <td class="py-2.5 px-3">{{ b.corridor.code }}</td>
+                        <td class="py-2.5 px-3">{{ b.scheduled_start_time|date:"H:i" }} - {{ b.scheduled_end_time|date:"H:i" }}</td>
+                        <td class="py-2.5 px-3 text-slate-400">v{{ b.version }}</td>
+                        <td class="py-2.5 px-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                SANCTIONED
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-4 text-center text-slate-500">No sanctioned blocks found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

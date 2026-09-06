@@ -1,0 +1,70 @@
+﻿services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: railway_db
+    environment:
+      POSTGRES_DB: railway_sih
+      POSTGRES_USER: railway_user
+      POSTGRES_PASSWORD: railway_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - railway_network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: railway_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - railway_network
+
+  daphne:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: railway_daphne
+    command: python -m daphne -b 0.0.0.0 -p 8000 railway_sih.asgi:application
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "True"
+      DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    networks:
+      - railway_network
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: railway_celery
+    command: celery -A railway_sih worker -l info
+    environment:
+      DEBUG: "False"
+      DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    networks:
+      - railway_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  railway_network:
+    driver: bridge

@@ -1,0 +1,95 @@
+<div class="mt-4 p-5 rounded-xl border border-sky-500/40 bg-slate-900/90 shadow-2xl backdrop-blur animate-fade-in">
+    <!-- Header Summary Metrics -->
+    <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4 flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                ⚡ Caution Speed: {{ simulation.imposed_speed_restriction_kmh }} km/h
+            </span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                📏 Zone Length: {{ simulation.corridor_length_km }} km
+            </span>
+        </div>
+        <span class="text-xs text-slate-400 font-mono">Algorithm: Lost Time + 5m Auto-Headway</span>
+    </div>
+
+    <!-- Impact KPI Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50 text-center">
+            <div class="text-xs uppercase text-slate-400 font-medium">Lead Train Delay</div>
+            <div class="text-2xl font-bold text-amber-400 mt-1 font-mono">+{{ simulation.lead_train_delay_minutes }}m</div>
+            <div class="text-[10px] text-slate-500">Decel/Accel + Traversing</div>
+        </div>
+
+        <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50 text-center">
+            <div class="text-xs uppercase text-slate-400 font-medium">Passenger Delay</div>
+            <div class="text-2xl font-bold text-rose-400 mt-1 font-mono">+{{ simulation.total_passenger_delay_minutes }}m</div>
+            <div class="text-[10px] text-slate-500">Cumulative impact</div>
+        </div>
+
+        <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50 text-center">
+            <div class="text-xs uppercase text-slate-400 font-medium">Freight Delay</div>
+            <div class="text-2xl font-bold text-yellow-300 mt-1 font-mono">+{{ simulation.total_freight_delay_minutes }}m</div>
+            <div class="text-[10px] text-slate-500">Loop / Siding holding</div>
+        </div>
+
+        <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50 text-center">
+            <div class="text-xs uppercase text-slate-400 font-medium">Punctuality Impact</div>
+            <div class="text-2xl font-bold text-orange-400 mt-1 font-mono">-{{ simulation.punctuality_index_drop_percent }}%</div>
+            <div class="text-[10px] text-slate-500">Division Corridor Index</div>
+        </div>
+    </div>
+
+    <!-- Dispatch Recommendation Callout -->
+    <div class="p-3.5 bg-sky-950/40 border border-sky-500/30 rounded-lg mb-5 flex items-start gap-3">
+        <div class="text-sky-400 text-lg mt-0.5">💡</div>
+        <div>
+            <div class="text-xs font-semibold uppercase text-sky-400 tracking-wider">AI Automated Dispatch Recommendation</div>
+            <div class="text-sm text-slate-200 mt-0.5 font-medium">{{ simulation.rerouting_recommendation }}</div>
+        </div>
+    </div>
+
+    <!-- Affected Train Breakdown Table -->
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-300 border-collapse">
+            <thead>
+                <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                    <th class="py-2 px-3">Train</th>
+                    <th class="py-2 px-3">Category</th>
+                    <th class="py-2 px-3 text-center">Priority</th>
+                    <th class="py-2 px-3 text-center">Cascade Delay</th>
+                    <th class="py-2 px-3">Control Regulation Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60">
+                {% for item in simulation.train_breakdown %}
+                <tr class="hover:bg-slate-800/30 transition-colors">
+                    <td class="py-2.5 px-3 font-medium">
+                        <div class="text-white font-semibold font-mono">{{ item.train_number }}</div>
+                        <div class="text-[11px] text-slate-400 truncate max-w-[180px]">{{ item.train_name }}</div>
+                    </td>
+                    <td class="py-2.5 px-3">
+                        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold
+                            {% if 'PRESTIGE' in item.train_type %}bg-purple-500/20 text-purple-300 border border-purple-500/30
+                            {% elif 'FREIGHT' in item.train_type %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30
+                            {% else %}bg-blue-500/20 text-blue-300 border border-blue-500/30{% endif %}">
+                            {{ item.train_type }}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-3 text-center font-mono text-slate-300">#{{ item.priority_rank }}</td>
+                    <td class="py-2.5 px-3 text-center font-mono font-bold
+                        {% if item.added_delay_minutes > 15 %}text-rose-400
+                        {% elif item.added_delay_minutes > 5 %}text-amber-400
+                        {% else %}text-emerald-400{% endif %}">
+                        +{{ item.added_delay_minutes }}m
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-300 text-[11px]">{{ item.recommended_action }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-slate-500">No scheduled trains affected along this block.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

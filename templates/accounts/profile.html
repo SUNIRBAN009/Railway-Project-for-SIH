@@ -1,64 +1,174 @@
 {% extends 'base.html' %}
-{% block title %}My Profile | RailConnect AI{% endblock %}
+{% block title %}Operational Profile | RailBlock AI{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 2rem; padding-bottom: 3rem;">
-    <div style="max-width: 680px; margin: 0 auto;">
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="user-cog" style="color: var(--primary);"></i> User Profile & Official Credentials
-                </div>
-                <span class="badge badge-purple">{{ profile.get_role_display }}</span>
+<div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- Profile Header Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-xl">
+        <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-slate-950 font-black text-2xl flex items-center justify-center font-mono shadow-lg shadow-amber-500/20">
+                {{ profile.employee_id|default:"IR"|slice:":2" }}
             </div>
-
-            <form method="POST" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="grid gap-3" style="grid-template-columns: 1fr 1fr;">
-                    <div class="form-group">
-                        <label class="form-label">First Name</label>
-                        {{ form.first_name }}
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Last Name</label>
-                        {{ form.last_name }}
-                    </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl font-bold text-white">{{ profile.full_name }}</h1>
+                    <span class="px-2 py-0.5 rounded text-xs font-semibold 
+                                {% if profile.department_code == 'ENG' %}bg-orange-500/10 text-orange-400 border border-orange-500/30
+                                {% elif profile.department_code == 'TRD' %}bg-cyan-500/10 text-cyan-400 border border-cyan-500/30
+                                {% elif profile.department_code == 'SNT' %}bg-purple-500/10 text-purple-400 border border-purple-500/30
+                                {% else %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30{% endif %}">
+                        {{ profile.get_department_code_display }}
+                    </span>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Email Address</label>
-                    {{ form.email }}
+                <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-3 font-mono">
+                    <span>ID: <strong class="text-slate-200">{{ profile.employee_id }}</strong></span>
+                    <span>•</span>
+                    <span>Role: <strong class="text-amber-400">{{ profile.get_role_display }}</strong></span>
+                    <span>•</span>
+                    <span>Division: <strong class="text-slate-200">{{ profile.division_code }}</strong></span>
                 </div>
+            </div>
+        </div>
 
-                <div class="grid gap-3" style="grid-template-columns: 1fr 1fr;">
-                    <div class="form-group">
-                        <label class="form-label">Phone Number</label>
-                        {{ form.phone_number }}
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Emergency Contact Phone</label>
-                        {{ form.emergency_contact }}
-                    </div>
-                </div>
-
-                {% if profile.is_official %}
-                    <div class="grid gap-3" style="grid-template-columns: 1fr 1fr; background: rgba(56, 189, 248, 0.05); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Badge Number</label>
-                            {{ form.badge_number }}
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label class="form-label">Assigned Station / Post</label>
-                            {{ form.assigned_station }}
-                        </div>
-                    </div>
-                {% endif %}
-
-                <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
-                    <i data-lucide="save"></i> Update Profile
-                </button>
-            </form>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <a href="{% url 'accounts:logout' %}" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Invalidate Session & Logout
+            </a>
         </div>
     </div>
+
+    <!-- Security & Operational Capabilities Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Capabilities Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-2 text-sm font-bold text-white mb-4">
+                <i data-lucide="key" class="w-4 h-4 text-amber-400"></i>
+                <span>RBAC Capabilities</span>
+            </div>
+            
+            <ul class="space-y-3 text-xs">
+                <li class="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-300">Sanction Maintenance Blocks</span>
+                    <span class="font-mono font-bold {% if profile.can_approve_blocks %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                        {{ profile.can_approve_blocks|yesno:"PERMITTED,DENIED" }}
+                    </span>
+                </li>
+                <li class="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-300">Submit Block Possession Request</span>
+                    <span class="font-mono font-bold {% if profile.can_request_blocks %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                        {{ profile.can_request_blocks|yesno:"PERMITTED,DENIED" }}
+                    </span>
+                </li>
+                <li class="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-300">Direct Digital Twin Reasoning</span>
+                    <span class="font-mono font-bold {% if profile.is_chief_controller %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                        {{ profile.is_chief_controller|yesno:"PERMITTED,READ-ONLY" }}
+                    </span>
+                </li>
+                <li class="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-300">User Provisioning Gateway</span>
+                    <span class="font-mono font-bold {% if profile.role == 'ADMIN' %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                        {{ profile.role|yesno:"PERMITTED,DENIED" }}
+                    </span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Telemetry & Security Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-2 text-sm font-bold text-white mb-4">
+                <i data-lucide="shield" class="w-4 h-4 text-emerald-400"></i>
+                <span>Security Telemetry</span>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-slate-400 text-[11px]">Password Hash Engine</div>
+                    <div class="font-mono text-slate-200 mt-0.5">Argon2id (time=3, mem=65536)</div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-slate-400 text-[11px]">Last Authenticated</div>
+                    <div class="font-mono text-emerald-400 mt-0.5">{{ profile.last_login_at|default:"Current Session" }}</div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-slate-400 text-[11px]">Failed Login Attempts</div>
+                    <div class="font-mono text-slate-200 mt-0.5">{{ profile.failed_login_attempts }} (Limit: 5)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Token Information -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center gap-2 text-sm font-bold text-white mb-4">
+                <i data-lucide="database" class="w-4 h-4 text-cyan-400"></i>
+                <span>Database Context</span>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-slate-400 text-[11px]">Spatial Engine</div>
+                    <div class="font-mono text-emerald-400 mt-0.5">PostgreSQL 15 + PostGIS 3.3</div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-slate-400 text-[11px]">Coordinate System</div>
+                    <div class="font-mono text-slate-200 mt-0.5">EPSG:4326 (WGS 84 Indian Track)</div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-slate-400 text-[11px]">Task Broker</div>
+                    <div class="font-mono text-amber-400 mt-0.5">Celery 5.3 + Redis 7.2</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Active Audit Sessions Table -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2 text-sm font-bold text-white">
+                <i data-lucide="history" class="w-4 h-4 text-amber-400"></i>
+                <span>Active Cryptographic Refresh Sessions (UserSession Table)</span>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">{{ sessions|length }} Recorded Sessions</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="text-[11px] text-slate-400 uppercase bg-slate-950 border-b border-slate-800 font-mono">
+                    <tr>
+                        <th class="py-3 px-3">Session JTI</th>
+                        <th class="py-3 px-3">Client IP</th>
+                        <th class="py-3 px-3">Device / User Agent</th>
+                        <th class="py-3 px-3">Expires At</th>
+                        <th class="py-3 px-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-mono">
+                    {% for s in sessions %}
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-2.5 px-3 text-slate-300">{{ s.session_jti|slice:":12" }}...</td>
+                        <td class="py-2.5 px-3 text-slate-400">{{ s.ip_address|default:"127.0.0.1" }}</td>
+                        <td class="py-2.5 px-3 text-slate-400 max-w-xs truncate">{{ s.user_agent|default:"Terminal" }}</td>
+                        <td class="py-2.5 px-3 text-slate-400">{{ s.expires_at|date:"d M Y H:i" }}</td>
+                        <td class="py-2.5 px-3">
+                            {% if s.is_revoked %}
+                                <span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30">REVOKED</span>
+                            {% else %}
+                                <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">ACTIVE</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-4 text-center text-slate-500">No active sessions found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

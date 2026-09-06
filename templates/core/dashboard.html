@@ -1,322 +1,279 @@
 {% extends 'base.html' %}
-{% load static %}
-
-{% block title %}Executive Control Dashboard | RailConnect AI{% endblock %}
-
-{% block extra_css %}
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{% endblock %}
+{% block title %}Operational Control Matrix | RailBlock AI (PS 26027){% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 2rem; padding-bottom: 3rem;">
-    <!-- Dashboard Header -->
-    <div class="flex justify-between items-center" style="margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+<div class="space-y-6">
+
+    <!-- Dashboard Operational Header -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center gap-2" style="margin-bottom: 0.3rem;">
-                <h1 style="font-size: 1.85rem;">Railway Operations Command Center</h1>
-                <span class="badge badge-purple">{{ role_display }} View</span>
+            <div class="flex items-center gap-2">
+                <h1 class="text-xl font-bold text-white">Central Operations Control Matrix</h1>
+                <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    LIVE DISPATCH
+                </span>
             </div>
-            <p style="color: var(--text-muted); font-size: 0.95rem;">
-                Live operational telemetry, automated AI triage queues, and security beacons.
+            <p class="text-xs text-slate-400 mt-1">
+                Active Corridor: <strong class="text-slate-200">NDLS - GZB - CNB (Delhi Division)</strong> • PostGIS Geometry Engine SRID: 4326
             </p>
         </div>
 
-        <div class="flex items-center gap-2">
-            <a href="{% url 'grievances:lodge' %}" class="btn btn-primary btn-sm">
-                <i data-lucide="plus-circle"></i> New Grievance
-            </a>
-            <a href="{% url 'maintenance:log' %}" class="btn btn-secondary btn-sm">
-                <i data-lucide="alert-triangle"></i> Log Defect
-            </a>
-            <a href="{% url 'emergency:radar' %}" class="btn btn-danger btn-sm">
-                <i data-lucide="radar"></i> RPF Radar
-            </a>
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400 font-mono">Terminal Persona:</span>
+            <span class="px-3 py-1.5 rounded-lg bg-slate-950 border border-amber-500/30 text-amber-300 font-semibold text-xs flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span>{{ profile.get_role_display }}</span>
+                <span class="text-slate-500">|</span>
+                <span class="text-slate-400">{{ profile.get_department_code_display }}</span>
+            </span>
         </div>
     </div>
 
-    <!-- Key Performance Indicators (KPIs) -->
-    <div class="stats-grid" style="margin-top: 0; margin-bottom: 2rem;">
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--secondary);">
-                <i data-lucide="train"></i>
+    <!-- Operational KPI Matrix -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 mb-2">
+                <span class="text-xs font-semibold">Total Block Proposals</span>
+                <i data-lucide="layers" class="w-4 h-4 text-amber-400"></i>
             </div>
-            <div>
-                <div class="stat-val">{{ kpis.total_trains }}</div>
-                <div class="stat-label">Active Express Trains ({{ kpis.on_time_pct }}% On-Time)</div>
-            </div>
+            <div class="text-2xl font-black text-white font-mono">{{ kpi.total_requests }}</div>
+            <div class="text-[11px] text-slate-500 mt-1 font-mono">ENG (14) • TRD (8) • SNT (6)</div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--primary);">
-                <i data-lucide="message-square-warning"></i>
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 mb-2">
+                <span class="text-xs font-semibold">Spatial-Temporal Conflicts</span>
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
             </div>
-            <div>
-                <div class="stat-val">{{ kpis.open_grievances }}</div>
-                <div class="stat-label">Pending Grievances ({{ kpis.critical_grievances }} Critical)</div>
-            </div>
+            <div class="text-2xl font-black text-rose-400 font-mono">{{ kpi.conflicts_detected }}</div>
+            <div class="text-[11px] text-rose-400/80 mt-1 font-mono">Sweep-Line Resolver Triggered</div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-ruby);">
-                <i data-lucide="siren"></i>
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 mb-2">
+                <span class="text-xs font-semibold">COA Sanctioned Blocks</span>
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
             </div>
-            <div>
-                <div class="stat-val">{{ kpis.active_sos }}</div>
-                <div class="stat-label">Active SOS Beacons</div>
-            </div>
+            <div class="text-2xl font-black text-emerald-400 font-mono">{{ kpi.sanctioned_blocks }}</div>
+            <div class="text-[11px] text-emerald-400/80 mt-1 font-mono">Possessions Approved</div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">
-                <i data-lucide="wrench"></i>
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
+            <div class="flex items-center justify-between text-slate-400 mb-2">
+                <span class="text-xs font-semibold">Shadow Opportunities</span>
+                <i data-lucide="git-pull-request" class="w-4 h-4 text-cyan-400"></i>
             </div>
-            <div>
-                <div class="stat-val">{{ kpis.critical_defects }}</div>
-                <div class="stat-label">Critical Track/Coach Faults</div>
-            </div>
+            <div class="text-2xl font-black text-cyan-400 font-mono">{{ kpi.shadow_opportunities }}</div>
+            <div class="text-[11px] text-cyan-400/80 mt-1 font-mono">Co-Possession Windows Active</div>
         </div>
+
     </div>
 
-    <!-- Analytics Charts Row -->
-    <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); margin-bottom: 2rem;">
-        <!-- Grievance Category Breakdown -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="pie-chart" style="color: var(--primary);"></i> Passenger Grievance Distribution
+    <!-- GIS Map & Real-time Reasoning Split -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="gis">
+        
+        <!-- Interactive Leaflet.js GIS Map (2 Columns) -->
+        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
+                    <h2 class="text-sm font-bold text-white">Corridor GIS Spatial Track Geometry (Leaflet.js + OSM)</h2>
+                </div>
+                <div class="flex items-center gap-2 text-[11px] font-mono">
+                    <span class="flex items-center gap-1 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Clear</span>
+                    <span class="flex items-center gap-1 text-amber-400"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Blocked</span>
+                    <span class="flex items-center gap-1 text-rose-400"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Conflict</span>
                 </div>
             </div>
-            <div style="height: 240px; position: relative;">
-                <canvas id="grievanceChart"></canvas>
+
+            <!-- Leaflet Container -->
+            <div id="railway-gis-map" class="w-full h-80 rounded-xl bg-slate-950 border border-slate-800 z-10"></div>
+            
+            <div class="mt-3 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                <span>Rendering: <strong class="text-slate-300">NDLS - ANVT - GZB LineString (SRID 4326)</strong></span>
+                <span>Vanilla JS • Zero React/Mapbox Dependencies</span>
             </div>
         </div>
 
-        <!-- Train Punctuality & Speed Gauge -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="bar-chart-3" style="color: var(--secondary);"></i> Operations & Safety Fleet Health
+        <!-- Semantic Digital Twin Reasoning Widget (1 Column) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between" id="digital-twin">
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="cpu" class="w-4 h-4 text-purple-400"></i>
+                        <h2 class="text-sm font-bold text-white">Semantic Digital Twin (OWL 2)</h2>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                        HermiT 1.4.3
+                    </span>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <div class="flex items-center justify-between text-[11px] text-slate-400">
+                            <span>Axiom Count:</span>
+                            <span class="font-mono text-white font-bold">14,289</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1">
+                            <span>Inference Consistency:</span>
+                            <span class="font-mono text-emerald-400 font-bold">SATISFIABLE</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30">
+                        <div class="text-[11px] font-semibold text-purple-300 flex items-center gap-1.5 mb-1">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                            <span>Description Logic Rule Evaluated</span>
+                        </div>
+                        <p class="text-[11px] text-slate-300">
+                            `TractionBlock ⊓ ElectricTrainRoute ⟹ StrandedTrainHazard`. System successfully verified diesel pilot locomotive requirement for Train 12004.
+                        </p>
+                    </div>
                 </div>
             </div>
-            <div style="height: 240px; position: relative;">
-                <canvas id="punctualityChart"></canvas>
+
+            <div class="mt-4 pt-4 border-t border-slate-800">
+                <button class="w-full py-2 px-3 rounded-xl bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 border border-purple-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Run Async Reasoning Job
+                </button>
             </div>
         </div>
+
     </div>
 
-    <!-- Active Tables Grid -->
-    <div class="grid gap-6" style="grid-template-columns: 1fr; margin-bottom: 2rem;">
-        <!-- Recent Grievance AI Triage -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="inbox" style="color: var(--primary);"></i> Active Grievances & AI Priority Queue
-                </div>
-                <a href="{% url 'grievances:list' %}" class="btn btn-secondary btn-sm">View All</a>
+    <!-- Active Departmental Block Requests Table -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl" id="blocks">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+                <h2 class="text-base font-bold text-white">Departmental Block Possession Pipeline</h2>
+                <p class="text-xs text-slate-400 mt-0.5">Real-time submissions from ENG (TMS), TRD (TDMS), and SNT (SMMS).</p>
             </div>
 
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Ref ID</th>
-                            <th>Passenger & Contact</th>
-                            <th>Train / Seat</th>
-                            <th>Category</th>
-                            <th>AI Urgency</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for g in recent_grievances %}
-                            <tr>
-                                <td>
-                                    <strong style="color: var(--secondary);">{{ g.tracking_id }}</strong>
-                                </td>
-                                <td>
-                                    <div>{{ g.passenger_name }}</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ g.passenger_phone }}</div>
-                                </td>
-                                <td>
-                                    <div>{{ g.train_number }}</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-subtle);">Coach {{ g.coach_number }} (Seat {{ g.seat_number }})</div>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.85rem;">{{ g.get_category_display }}</span>
-                                </td>
-                                <td>
-                                    {% if g.priority == 'CRITICAL' %}
-                                        <span class="badge badge-critical">🔴 {{ g.urgency_score }}% Critical</span>
-                                    {% elif g.priority == 'HIGH' %}
-                                        <span class="badge badge-high">🟠 {{ g.urgency_score }}% High</span>
-                                    {% elif g.priority == 'MEDIUM' %}
-                                        <span class="badge badge-medium">🟡 {{ g.urgency_score }}% Med</span>
-                                    {% else %}
-                                        <span class="badge badge-low">🟢 {{ g.urgency_score }}% Low</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if g.status == 'OPEN' %}
-                                        <span class="badge badge-warning">Open</span>
-                                    {% elif g.status == 'IN_PROGRESS' %}
-                                        <span class="badge badge-info">In Progress</span>
-                                    {% elif g.status == 'RESOLVED' %}
-                                        <span class="badge badge-success">Resolved</span>
-                                    {% else %}
-                                        <span class="badge badge-purple">Closed</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a href="{% url 'grievances:detail' g.tracking_id %}" class="btn btn-secondary btn-sm">
-                                        <i data-lucide="arrow-up-right"></i> Details
-                                    </a>
-                                </td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="7" style="text-align: center; color: var(--text-subtle); padding: 2rem;">No active grievances found.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            {% if profile.can_request_blocks %}
+            <button class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-md shadow-amber-500/20">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> Submit New Block Request
+            </button>
+            {% endif %}
         </div>
-    </div>
 
-    <!-- Secondary Row: Track Defects & SOS Beacons -->
-    <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));">
-        <!-- Maintenance Alerts -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="wrench" style="color: var(--accent-purple);"></i> Track & Rolling Stock Faults
-                </div>
-                <a href="{% url 'maintenance:dashboard' %}" class="btn btn-secondary btn-sm">Manage</a>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                {% for d in recent_defects %}
-                    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem;">
-                        <div class="flex justify-between items-center" style="margin-bottom: 0.35rem;">
-                            <strong style="color: #fff; font-size: 0.9rem;">{{ d.get_defect_type_display }}</strong>
-                            {% if d.severity == 'CRITICAL' %}
-                                <span class="badge badge-critical">Critical</span>
-                            {% elif d.severity == 'MAJOR' %}
-                                <span class="badge badge-high">Major</span>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="text-[11px] text-slate-400 uppercase bg-slate-950 border-b border-slate-800 font-mono">
+                    <tr>
+                        <th class="py-3 px-3">Request ID</th>
+                        <th class="py-3 px-3">Department</th>
+                        <th class="py-3 px-3">Track Section / Location</th>
+                        <th class="py-3 px-3">Time Window</th>
+                        <th class="py-3 px-3">Assigned Gang / Equipment</th>
+                        <th class="py-3 px-3">Shadow Status</th>
+                        <th class="py-3 px-3">COA Decision</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-mono">
+                    {% for req in dept_requests %}
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3 px-3 font-bold text-white">{{ req.id }}</td>
+                        <td class="py-3 px-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold
+                                        {% if req.department == 'ENG' %}bg-orange-500/10 text-orange-400 border border-orange-500/30
+                                        {% elif req.department == 'TRD' %}bg-cyan-500/10 text-cyan-400 border border-cyan-500/30
+                                        {% else %}bg-purple-500/10 text-purple-400 border border-purple-500/30{% endif %}">
+                                {{ req.department }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-3 text-slate-300 font-sans">{{ req.section }}</td>
+                        <td class="py-3 px-3 text-slate-400">{{ req.time_window }}</td>
+                        <td class="py-3 px-3 text-slate-400 font-sans">
+                            <div>{{ req.gang_lead }}</div>
+                            <div class="text-[10px] text-slate-500 font-mono">{{ req.equipment }}</div>
+                        </td>
+                        <td class="py-3 px-3">
+                            {% if req.has_shadow %}
+                                <span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">SHADOW CO-WORK</span>
                             {% else %}
-                                <span class="badge badge-medium">Minor</span>
+                                <span class="text-slate-500">Standalone</span>
                             {% endif %}
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">
-                            {{ d.section_name }} • {{ d.track_km_marker }}
-                        </div>
-                        <div class="flex justify-between items-center" style="font-size: 0.75rem; color: var(--text-subtle);">
-                            <span>AI Confidence: {{ d.ai_confidence_score }}%</span>
-                            <a href="{% url 'maintenance:detail' d.report_id %}" style="color: var(--secondary);">View Work Order →</a>
-                        </div>
-                    </div>
-                {% empty %}
-                    <p style="color: var(--text-subtle); text-align: center;">No defects reported.</p>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Emergency SOS Alerts -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="shield-alert" style="color: var(--accent-ruby);"></i> Active Emergency SOS Beacons
-                </div>
-                <a href="{% url 'emergency:radar' %}" class="btn btn-danger btn-sm">Open Radar</a>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                {% for s in recent_sos %}
-                    <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 0.85rem;">
-                        <div class="flex justify-between items-center" style="margin-bottom: 0.35rem;">
-                            <div class="flex items-center gap-2">
-                                <span class="pulse-dot red"></span>
-                                <strong style="color: #fca5a5; font-size: 0.9rem;">{{ s.get_emergency_type_display }}</strong>
-                            </div>
-                            <span class="badge badge-critical">{{ s.status }}</span>
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">
-                            Passenger: {{ s.passenger_name }} ({{ s.passenger_phone }}) • Train {{ s.train_number }} (Coach {{ s.coach_number }}/{{ s.seat_number }})
-                        </div>
-                        <div class="flex justify-between items-center" style="font-size: 0.75rem; color: var(--text-subtle);">
-                            <span>{{ s.current_location_desc|default:"Coordinates Logged" }}</span>
-                            <a href="{% url 'emergency:detail' s.alert_id %}" style="color: var(--accent-ruby); font-weight: 700;">Triage SOS →</a>
-                        </div>
-                    </div>
-                {% empty %}
-                    <p style="color: var(--text-subtle); text-align: center;">No active SOS emergency beacons.</p>
-                {% endfor %}
-            </div>
+                        </td>
+                        <td class="py-3 px-3">
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold
+                                        {% if req.status == 'SANCTIONED' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30
+                                        {% elif req.status == 'SHADOW_APPROVED' %}bg-cyan-500/10 text-cyan-400 border border-cyan-500/30
+                                        {% elif req.status == 'PENDING_COA' %}bg-amber-500/10 text-amber-400 border border-amber-500/30
+                                        {% else %}bg-rose-500/10 text-rose-400 border border-rose-500/30{% endif %}">
+                                {{ req.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
+
 </div>
 
+<!-- Leaflet GIS Map Initialization Script (Pure Vanilla JS) -->
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Grievance Category Doughnut Chart
-    const ctx1 = document.getElementById('grievanceChart').getContext('2d');
-    new Chart(ctx1, {
-        type: 'doughnut',
-        data: {
-            labels: ['Electrical & AC', 'Cleanliness', 'Medical Emergency', 'Security / RPF', 'Catering', 'Staff / Infra'],
-            datasets: [{
-                data: [35, 25, 15, 12, 8, 5],
-                backgroundColor: [
-                    '#f59e0b', '#10b981', '#ef4444', '#38bdf8', '#a855f7', '#64748b'
-                ],
-                borderColor: '#0f1c30',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
-            }
-        }
-    });
+    document.addEventListener('DOMContentLoaded', () => {
+        const mapEl = document.getElementById('railway-gis-map');
+        if (mapEl && window.L) {
+            // Center around Delhi Railway Division (New Delhi - Ghaziabad section)
+            const map = L.map('railway-gis-map').setView([28.6448, 77.2655], 11);
 
-    // 2. Punctuality & System Fleet Bar Chart
-    const ctx2 = document.getElementById('punctualityChart').getContext('2d');
-    new Chart(ctx2, {
-        type: 'bar',
-        data: {
-            labels: ['Vande Bharat', 'Rajdhani', 'Shatabdi', 'Superfast', 'Freight'],
-            datasets: [
-                {
-                    label: 'On-Time Runs (%)',
-                    data: [98, 92, 95, 84, 78],
-                    backgroundColor: 'rgba(56, 189, 248, 0.7)',
-                    borderRadius: 6
-                },
-                {
-                    label: 'Cleanliness Score (x20)',
-                    data: [95, 90, 88, 76, 65],
-                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
-                    borderRadius: 6
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' }, max: 100 }
-            },
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#94a3b8' } }
-            }
+            // Dark CartoDB Tile Layer (No API Key Required)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://carto.com/">CARTO</a> | Indian Railways Track Matrix',
+                maxZoom: 18,
+            }).addTo(map);
+
+            // Stations along NDLS - GZB corridor
+            const stations = [
+                { name: "New Delhi (NDLS)", coords: [28.6429, 77.2195], status: "Active" },
+                { name: "Anand Vihar (ANVT)", coords: [28.6508, 77.3153], status: "Active" },
+                { name: "Sahibabad (SBB)", coords: [28.6723, 77.3551], status: "Active" },
+                { name: "Ghaziabad Jn (GZB)", coords: [28.6575, 77.4326], status: "Active" }
+            ];
+
+            stations.forEach(st => {
+                const marker = L.circleMarker(st.coords, {
+                    radius: 6,
+                    fillColor: '#f59e0b',
+                    color: '#fff',
+                    weight: 1.5,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map);
+                marker.bindPopup(`<strong>${st.name}</strong><br>Status: ${st.status}<br>Division: NR-DLI`);
+            });
+
+            // Railway track corridor LineString (Up & Down main lines)
+            const trackCoords = [
+                [28.6429, 77.2195],
+                [28.6508, 77.3153],
+                [28.6723, 77.3551],
+                [28.6575, 77.4326]
+            ];
+
+            // Clear Line
+            L.polyline(trackCoords, {
+                color: '#10b981',
+                weight: 4,
+                opacity: 0.85,
+                dashArray: '8, 6'
+            }).addTo(map).bindPopup("NDLS-GZB Down Main Line: Normal Operations");
+
+            // Maintenance Block Segment (KM 14.2 - 18.6)
+            const blockCoords = [
+                [28.6508, 77.3153],
+                [28.6723, 77.3551]
+            ];
+            L.polyline(blockCoords, {
+                color: '#f97316',
+                weight: 6,
+                opacity: 0.95
+            }).addTo(map).bindPopup("<strong>ACTIVE MAINTENANCE BLOCK (BLK-2026-ENG-089)</strong><br>Dept: ENG (Track) + TRD (OHE Shadow)<br>Window: 01:30 - 04:30");
         }
     });
-});
 </script>
 {% endblock %}

@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Submit Block Proposal | RailBlock AI{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto py-4">
+
+    <!-- Form Container -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+            <div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-amber-400"></i>
+                    <h1 class="text-xl font-bold text-white">Submit Maintenance Block Proposal (SVC-BLK)</h1>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">
+                    Formal track possession submission to Control Office Administrator (COA).
+                </p>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                FORM BLK-01
+            </span>
+        </div>
+
+        <!-- HTMX Live Conflict Pre-Check Target -->
+        <div id="conflict-preview" class="mb-6"></div>
+
+        <form method="POST" action="{% url 'blocks:propose' %}">
+            {% csrf_token %}
+
+            <div class="space-y-5">
+                
+                <!-- Corridor & Department Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Track Corridor Segment</label>
+                        <select name="corridor" 
+                                id="corridor-select"
+                                hx-post="{% url 'blocks:htmx_precheck' %}" 
+                                hx-trigger="change" 
+                                hx-target="#conflict-preview" 
+                                class="w-full py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-sm focus:outline-none focus:border-amber-500 transition font-mono">
+                            {% for c in corridors %}
+                            <option value="{{ c.id }}">{{ c.code }} - {{ c.name }} (KM {{ c.start_km }}-{{ c.end_km }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Requesting Department</label>
+                        <select name="department_code" 
+                                id="department-select"
+                                hx-post="{% url 'blocks:htmx_precheck' %}" 
+                                hx-trigger="change" 
+                                hx-target="#conflict-preview" 
+                                class="w-full py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-sm focus:outline-none focus:border-amber-500 transition font-mono">
+                            {% for d in departments %}
+                            <option value="{{ d.0 }}">{{ d.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Work Type & Traction Cut Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Classification of Work</label>
+                        <select name="work_type" class="w-full py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-sm focus:outline-none focus:border-amber-500 transition font-mono">
+                            {% for w in work_types %}
+                            <option value="{{ w.0 }}">{{ w.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="flex items-center pt-6">
+                        <label class="flex items-center gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="traction_cutoff" value="1" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-0">
+                            <span class="text-xs font-semibold text-slate-300">Requires 25kV OHE Power De-energization</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Spatial Kilometer Milestone Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-950 border border-slate-800">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Start Milestone (KM)</label>
+                        <input type="number" step="0.1" name="start_km" id="start-km-input" value="12.4" required
+                               hx-post="{% url 'blocks:htmx_precheck' %}" 
+                               hx-trigger="keyup changed delay:300ms" 
+                               hx-target="#conflict-preview" 
+                               hx-include="#corridor-select, #department-select, #end-km-input"
+                               class="w-full py-2 px-3 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-sm focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">End Milestone (KM)</label>
+                        <input type="number" step="0.1" name="end_km" id="end-km-input" value="18.2" required
+                               hx-post="{% url 'blocks:htmx_precheck' %}" 
+                               hx-trigger="keyup changed delay:300ms" 
+                               hx-target="#conflict-preview" 
+                               hx-include="#corridor-select, #department-select, #start-km-input"
+                               class="w-full py-2 px-3 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-sm focus:border-amber-500">
+                    </div>
+                </div>
+
+                <!-- Temporal Window Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Requested Start Time</label>
+                        <input type="datetime-local" name="start_time" value="2026-09-08T01:30" required
+                               class="w-full py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-sm focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Requested End Time</label>
+                        <input type="datetime-local" name="end_time" value="2026-09-08T04:30" required
+                               class="w-full py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-sm focus:border-amber-500">
+                    </div>
+                </div>
+
+                <!-- Description & Gang -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Possession Description & Justification</label>
+                    <textarea name="description" rows="3" placeholder="Enter detailed description of track work, tamping machine deployed, or OHE cantilever adjustments..."
+                              class="w-full py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:border-amber-500 font-sans">Ballast screening and packing with BCM Machine 104 between Sahibabad and Ghaziabad Down Main Line.</textarea>
+                </div>
+
+                <div class="pt-4 flex items-center justify-end gap-3">
+                    <a href="{% url 'blocks:timeline' %}" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
+                        Cancel
+                    </a>
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2">
+                        <i data-lucide="send" class="w-4 h-4"></i> Submit to COA & Run Sweep-Line
+                    </button>
+                </div>
+
+            </div>
+        </form>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,387 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Departmental Logistics & Crew Allocation | RailBlock AI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="{
+    activeTab: 'work_orders',
+    showCreateModal: false,
+    selectedDept: 'ALL',
+    selectedBlock: '',
+    selectedGang: '',
+    selectedEquipment: '',
+    workScope: '',
+    targetUnits: 1500
+}">
+    <!-- Header & Breadcrumbs -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 pb-6 border-b border-slate-800 gap-4">
+        <div>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
+                    <i data-lucide="wrench" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                        Departmental Logistics & Resource Service
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                            SVC-DEPT
+                        </span>
+                    </h1>
+                    <p class="text-sm text-slate-400 mt-0.5">
+                        Civil Engineering (ENG), 25kV Traction (TRD), and S&T Gang Rosters, Heavy Machinery & Safety Sign-Offs
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="flex items-center gap-3">
+            <button 
+                @click="showCreateModal = true"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-slate-950 text-sm font-semibold shadow-lg shadow-orange-500/20 transition-all cursor-pointer">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                Issue Work Order
+            </button>
+        </div>
+    </div>
+
+    <!-- Operations Metric KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Field Gangs (Crews)</span>
+                <div class="w-7 h-7 rounded-md bg-orange-500/10 text-orange-400 flex items-center justify-center">
+                    <i data-lucide="users" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-white font-mono mt-3">{{ total_crews }}</div>
+            <div class="text-xs text-slate-500 mt-1">{{ active_crew_count }} active in Delhi Division</div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Heavy Machinery Fleet</span>
+                <div class="w-7 h-7 rounded-md bg-sky-500/10 text-sky-400 flex items-center justify-center">
+                    <i data-lucide="truck" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-sky-400 font-mono mt-3">{{ total_machines }}</div>
+            <div class="text-xs text-sky-500/80 mt-1 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> {{ available_machines }} fit & available
+            </div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Active Work Orders</span>
+                <div class="w-7 h-7 rounded-md bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                    <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-amber-400 font-mono mt-3">{{ active_orders_count }}</div>
+            <div class="text-xs text-slate-500 mt-1">Pending track safety clearance</div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800/80 shadow-lg backdrop-blur">
+            <div class="flex items-center justify-between">
+                <span class="text-xs uppercase font-semibold text-slate-400 tracking-wider">Multi-Tier Safety</span>
+                <div class="w-7 h-7 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-extrabold text-emerald-400 font-mono mt-3">100%</div>
+            <div class="text-xs text-slate-500 mt-1">Digital track handback verified</div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex border-b border-slate-800 mb-6 gap-6">
+        <button 
+            @click="activeTab = 'work_orders'"
+            :class="activeTab === 'work_orders' ? 'text-orange-400 border-orange-400 font-semibold' : 'text-slate-400 hover:text-slate-300 border-transparent'"
+            class="pb-3 border-b-2 text-sm flex items-center gap-2 cursor-pointer transition-colors">
+            <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+            Work Orders & Safety Clearance ({{ work_orders.count }})
+        </button>
+        <button 
+            @click="activeTab = 'gangs'"
+            :class="activeTab === 'gangs' ? 'text-orange-400 border-orange-400 font-semibold' : 'text-slate-400 hover:text-slate-300 border-transparent'"
+            class="pb-3 border-b-2 text-sm flex items-center gap-2 cursor-pointer transition-colors">
+            <i data-lucide="users" class="w-4 h-4"></i>
+            Gang Rosters & Sections ({{ gangs.count }})
+        </button>
+        <button 
+            @click="activeTab = 'equipment'"
+            :class="activeTab === 'equipment' ? 'text-orange-400 border-orange-400 font-semibold' : 'text-slate-400 hover:text-slate-300 border-transparent'"
+            class="pb-3 border-b-2 text-sm flex items-center gap-2 cursor-pointer transition-colors">
+            <i data-lucide="cpu" class="w-4 h-4"></i>
+            Machinery Fleet & Fitness ({{ equipment.count }})
+        </button>
+    </div>
+
+    <!-- TAB 1: Work Orders & Track Safety Clearance -->
+    <div x-show="activeTab === 'work_orders'" class="space-y-6">
+        <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300 border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-950/60 text-xs uppercase font-semibold text-slate-400 tracking-wider">
+                            <th class="py-3.5 px-4">Order Number & Block</th>
+                            <th class="py-3.5 px-4">Dept</th>
+                            <th class="py-3.5 px-4">Assigned Gang</th>
+                            <th class="py-3.5 px-4">Assigned Machinery</th>
+                            <th class="py-3.5 px-4">Planned Work Scope</th>
+                            <th class="py-3.5 px-4 text-center">Status</th>
+                            <th class="py-3.5 px-4 text-right">Safety Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        {% for wo in work_orders %}
+                            {% include 'departments/partials/work_order_row.html' with wo=wo %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="py-8 text-center text-slate-500">
+                                No departmental work orders issued yet. Click "Issue Work Order" to create one.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: Gang Rosters & Section Assignments -->
+    <div x-show="activeTab === 'gangs'" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for gang in gangs %}
+            <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 shadow-lg">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                    <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold
+                        {% if gang.department.code == 'ENG' %}bg-orange-500/20 text-orange-400 border border-orange-500/30
+                        {% elif gang.department.code == 'TRD' %}bg-sky-500/20 text-sky-400 border border-sky-500/30
+                        {% else %}bg-purple-500/20 text-purple-400 border border-purple-500/30{% endif %}">
+                        {{ gang.department.code }}
+                    </span>
+                    <span class="text-xs font-mono {% if gang.is_active %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                        {% if gang.is_active %}● Active Roster{% else %}○ Inactive{% endif %}
+                    </span>
+                </div>
+                <div class="font-mono font-bold text-white text-base mb-1">{{ gang.gang_number }}</div>
+                <div class="text-xs text-slate-400 mb-3">Base: <strong class="text-slate-200">{{ gang.headquarters_station }}</strong> • Crew: <strong class="text-slate-200">{{ gang.crew_strength }} Persons</strong></div>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 text-xs">
+                    <div class="text-slate-500 uppercase text-[10px] font-semibold">Assigned Track Section</div>
+                    <div class="text-slate-300 font-mono mt-0.5">KM {{ gang.assigned_section_start_km }} ➔ KM {{ gang.assigned_section_end_km }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- TAB 3: Machinery Fleet & Fitness Tracking -->
+    <div x-show="activeTab === 'equipment'" class="space-y-6">
+        <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300 border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-950/60 text-xs uppercase font-semibold text-slate-400 tracking-wider">
+                            <th class="py-3.5 px-4">Equipment Code & Name</th>
+                            <th class="py-3.5 px-4">Department</th>
+                            <th class="py-3.5 px-4">Type</th>
+                            <th class="py-3.5 px-4">Home Depot & Location</th>
+                            <th class="py-3.5 px-4">Operational Status</th>
+                            <th class="py-3.5 px-4 text-center">Fitness Expiry</th>
+                            <th class="py-3.5 px-4 text-right">Fitness Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        {% for eq in equipment %}
+                        <tr class="hover:bg-slate-800/30 transition-colors">
+                            <td class="py-3.5 px-4">
+                                <div class="font-mono font-bold text-white text-sm">{{ eq.equipment_code }}</div>
+                                <div class="text-xs text-slate-400">{{ eq.equipment_name }}</div>
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold
+                                    {% if eq.department.code == 'ENG' %}bg-orange-500/20 text-orange-400 border border-orange-500/30
+                                    {% elif eq.department.code == 'TRD' %}bg-sky-500/20 text-sky-400 border border-sky-500/30
+                                    {% else %}bg-purple-500/20 text-purple-400 border border-purple-500/30{% endif %}">
+                                    {{ eq.department.code }}
+                                </span>
+                            </td>
+                            <td class="py-3.5 px-4 text-xs text-slate-300">{{ eq.get_equipment_type_display }}</td>
+                            <td class="py-3.5 px-4">
+                                <div class="text-xs text-slate-200">{{ eq.home_depot }}</div>
+                                <div class="text-[11px] text-slate-500 font-mono">Near KM {{ eq.current_location_km }}</div>
+                            </td>
+                            <td class="py-3.5 px-4">
+                                {% if eq.operational_status == 'AVAILABLE' %}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                        Available
+                                    </span>
+                                {% elif eq.operational_status == 'ASSIGNED' %}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                        Assigned to Block
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                        {{ eq.get_operational_status_display }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-4 text-center font-mono text-xs text-slate-300">
+                                {{ eq.fitness_expiry_date|date:"Y-m-d" }}
+                            </td>
+                            <td class="py-3.5 px-4 text-right">
+                                {% if eq.is_fit %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                        Certified Fit
+                                    </span>
+                                {% elif eq.is_fitness_expired %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                        Expired
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                        In Use
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE WORK ORDER MODAL -->
+    <div 
+        x-show="showCreateModal" 
+        x-cloak 
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+        @keydown.escape.window="showCreateModal = false">
+        
+        <div 
+            @click.outside="showCreateModal = false"
+            class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
+                        <i data-lucide="clipboard-plus" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Generate Departmental Work Order</h3>
+                        <p class="text-xs text-slate-400">FUNC-DEPT-004: Resource Reservation & Multi-Tier Allocation</p>
+                    </div>
+                </div>
+                <button @click="showCreateModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form 
+                action="{% url 'departments:work_orders' %}" 
+                method="POST" 
+                class="space-y-4"
+                @submit.prevent="
+                    fetch('{% url 'departments:work_orders' %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            block_id: selectedBlock,
+                            gang_id: selectedGang,
+                            equipment_id: selectedEquipment || null,
+                            planned_work_scope: workScope,
+                            target_metric_units: parseFloat(targetUnits)
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            window.location.reload();
+                        } else {
+                            alert(data.error ? data.error.message : 'Validation Error');
+                        }
+                    })
+                ">
+                {% csrf_token %}
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Sanctioned / Active Block</label>
+                    <select x-model="selectedBlock" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 focus:border-orange-500 focus:outline-none">
+                        <option value="">-- Select Block Possession Slot --</option>
+                        {% for block in sanctioned_blocks %}
+                        <option value="{{ block.id }}">{{ block.block_code }} ({{ block.get_department_code_display }} - {{ block.corridor.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Assigned Maintenance Gang</label>
+                        <select x-model="selectedGang" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 focus:border-orange-500 focus:outline-none">
+                            <option value="">-- Select Field Gang --</option>
+                            {% for g in gangs %}
+                            <option value="{{ g.id }}">[{{ g.department.code }}] {{ g.gang_number }} ({{ g.headquarters_station }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Machinery Allocation (Optional)</label>
+                        <select x-model="selectedEquipment" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 focus:border-orange-500 focus:outline-none">
+                            <option value="">-- Manual Crew Only (No Heavy Machinery) --</option>
+                            {% for eq in equipment %}
+                                {% if eq.is_fit %}
+                                <option value="{{ eq.id }}">{{ eq.equipment_code }} ({{ eq.get_equipment_type_display }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Planned Work Scope & Safety Briefing</label>
+                    <textarea 
+                        x-model="workScope" 
+                        required 
+                        rows="3" 
+                        placeholder="e.g. Continuous tamping and track alignment from KM 14.500 to KM 16.200 using 09-32 CSM tamper..."
+                        class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 focus:border-orange-500 focus:outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Target Metric Units (Meters / Points)</label>
+                    <input 
+                        type="number" 
+                        x-model="targetUnits" 
+                        required 
+                        min="1" 
+                        step="10"
+                        class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 font-mono focus:border-orange-500 focus:outline-none">
+                </div>
+
+                <div class="pt-3 flex justify-end gap-3 items-center">
+                    <button 
+                        type="button" 
+                        @click="showCreateModal = false"
+                        class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer">
+                        Cancel
+                    </button>
+                    <button 
+                        type="submit"
+                        class="px-5 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-slate-950 text-sm font-bold shadow-lg shadow-orange-500/20 cursor-pointer transition-all">
+                        Generate Work Order
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

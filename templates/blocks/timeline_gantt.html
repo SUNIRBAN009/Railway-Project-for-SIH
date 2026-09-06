@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}Block Possession Gantt Timeline | RailBlock AI{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2">
+                <i data-lucide="clock" class="w-5 h-5 text-amber-400"></i>
+                <h1 class="text-xl font-bold text-white">24-Hour Corridor Possession Gantt Timeline</h1>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    DECONFLICTION MATRIX
+                </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+                Visualizing multi-departmental block windows, shadow-block co-possessions, and sweep-line overlaps.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <a href="{% url 'blocks:map' %}" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="map" class="w-4 h-4 text-cyan-400"></i>
+                <span>Corridor GIS Map</span>
+            </a>
+            <a href="{% url 'blocks:propose' %}" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>Submit Proposal</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Timeline Gantt Container -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl overflow-x-auto">
+        
+        <!-- Legend Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6 text-xs">
+            <div class="flex items-center gap-4">
+                <span class="text-slate-400 font-semibold">Department Layers:</span>
+                <span class="flex items-center gap-1.5 text-orange-400"><span class="w-3 h-3 rounded bg-orange-500/30 border border-orange-500"></span> ENG (Track)</span>
+                <span class="flex items-center gap-1.5 text-cyan-400"><span class="w-3 h-3 rounded bg-cyan-500/30 border border-cyan-500"></span> TRD (OHE)</span>
+                <span class="flex items-center gap-1.5 text-purple-400"><span class="w-3 h-3 rounded bg-purple-500/30 border border-purple-500"></span> SNT (Signal)</span>
+            </div>
+            <div class="flex items-center gap-3 text-slate-400 font-mono text-[11px]">
+                <span class="flex items-center gap-1 text-cyan-300">★ Shadow Co-Possession</span>
+                <span class="flex items-center gap-1 text-rose-400">⚠ Spatial/Temporal Conflict</span>
+            </div>
+        </div>
+
+        <!-- 24-Hour Time Header Bar -->
+        <div class="min-w-[900px]">
+            <div class="grid grid-cols-24 border-b border-slate-800 text-[11px] font-mono text-slate-500 pb-2 text-center" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr));">
+                <span>00:00</span><span>01:00</span><span>02:00</span><span>03:00</span><span>04:00</span><span>05:00</span>
+                <span>06:00</span><span>07:00</span><span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span>
+                <span>12:00</span><span>13:00</span><span>14:00</span><span>15:00</span><span>16:00</span><span>17:00</span>
+                <span>18:00</span><span>19:00</span><span>20:00</span><span>21:00</span><span>22:00</span><span>23:00</span>
+            </div>
+
+            <!-- Block Rows -->
+            <div class="divide-y divide-slate-800/40 mt-4 space-y-4">
+                {% for b in blocks %}
+                <div class="py-2">
+                    <div class="flex items-center justify-between text-xs mb-1.5">
+                        <div class="flex items-center gap-2 font-mono">
+                            <span class="font-bold text-white">{{ b.block_code }}</span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] 
+                                        {% if b.department_code == 'ENG' %}bg-orange-500/10 text-orange-400 border border-orange-500/30
+                                        {% elif b.department_code == 'TRD' %}bg-cyan-500/10 text-cyan-400 border border-cyan-500/30
+                                        {% else %}bg-purple-500/10 text-purple-400 border border-purple-500/30{% endif %}">
+                                {{ b.department_code }}
+                            </span>
+                            <span class="text-slate-400 font-sans text-[11px]">{{ b.get_work_type_display }}</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-[11px] font-mono">
+                            <span class="text-slate-400">{{ b.scheduled_start_time|date:"H:i" }} - {{ b.scheduled_end_time|date:"H:i" }} ({{ b.duration_hours }} hrs)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold
+                                        {% if b.status == 'SANCTIONED' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30
+                                        {% elif b.status == 'COORDINATED' %}bg-cyan-500/10 text-cyan-400 border border-cyan-500/30
+                                        {% elif b.status == 'CONFLICT_DETECTED' %}bg-rose-500/10 text-rose-400 border border-rose-500/30
+                                        {% else %}bg-amber-500/10 text-amber-400 border border-amber-500/30{% endif %}">
+                                {{ b.status }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 24-Hour Bar Representation -->
+                    <div class="w-full h-8 rounded-lg bg-slate-950 border border-slate-800 relative overflow-hidden flex items-center">
+                        <div class="h-6 rounded-md px-2 flex items-center justify-between text-[10px] font-mono font-bold shadow-md
+                                    {% if b.department_code == 'ENG' %}bg-orange-600/60 border border-orange-500/80 text-orange-100
+                                    {% elif b.department_code == 'TRD' %}bg-cyan-600/60 border border-cyan-500/80 text-cyan-100
+                                    {% else %}bg-purple-600/60 border border-purple-500/80 text-purple-100{% endif %}"
+                             style="margin-left: calc({{ b.scheduled_start_time.hour }} / 24 * 100%); width: calc({{ b.duration_hours|default:3 }} / 24 * 100%); min-width: 120px;">
+                            <span class="truncate">{{ b.corridor.code }} (KM {{ b.start_km }}-{{ b.end_km }})</span>
+                            {% if b.status == 'COORDINATED' %}
+                            <span class="text-cyan-300" title="Shadow Co-Possession Active">★</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-8 text-slate-500 text-xs font-mono">
+                    No block possession records found for this operational cycle.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

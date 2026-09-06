@@ -1,0 +1,64 @@
+<tr id="wo-row-{{ wo.id }}" class="hover:bg-slate-800/30 transition-colors">
+    <td class="py-3 px-4">
+        <div class="font-mono font-bold text-white text-sm">{{ wo.order_number }}</div>
+        <div class="text-xs text-slate-400">Block: <span class="font-mono text-sky-400">{{ wo.block.block_code }}</span></div>
+    </td>
+    <td class="py-3 px-4">
+        <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold
+            {% if wo.department.code == 'ENG' %}bg-orange-500/20 text-orange-400 border border-orange-500/30
+            {% elif wo.department.code == 'TRD' %}bg-sky-500/20 text-sky-400 border border-sky-500/30
+            {% else %}bg-purple-500/20 text-purple-400 border border-purple-500/30{% endif %}">
+            {{ wo.department.code }}
+        </span>
+    </td>
+    <td class="py-3 px-4">
+        <div class="text-xs text-slate-200 font-semibold font-mono">{{ wo.gang.gang_number }}</div>
+        <div class="text-[11px] text-slate-500">{{ wo.gang.headquarters_station }} ({{ wo.gang.crew_strength }} crew)</div>
+    </td>
+    <td class="py-3 px-4">
+        {% if wo.equipment %}
+            <div class="text-xs text-slate-200 font-mono font-semibold">{{ wo.equipment.equipment_code }}</div>
+            <div class="text-[11px] text-slate-400 truncate max-w-[160px]">{{ wo.equipment.equipment_name }}</div>
+        {% else %}
+            <span class="text-xs text-slate-500 italic">Manual Crew Only</span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4">
+        <div class="text-xs text-slate-300 truncate max-w-[200px]" title="{{ wo.planned_work_scope }}">{{ wo.planned_work_scope }}</div>
+        <div class="text-[11px] text-slate-400 font-mono">Target: {{ wo.target_metric_units }}m {% if wo.actual_metric_units %}• Actual: <span class="text-emerald-400 font-bold">{{ wo.actual_metric_units }}m</span>{% endif %}</div>
+    </td>
+    <td class="py-3 px-4 text-center">
+        {% if wo.status == 'SAFETY_CLEARANCE_SIGNED' %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Cleared
+            </span>
+        {% elif wo.status == 'WORK_COMPLETED' %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                Completed
+            </span>
+        {% elif wo.status == 'ON_SITE' %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                On Site
+            </span>
+        {% else %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                Pending
+            </span>
+        {% endif %}
+    </td>
+    <td class="py-3 px-4 text-right">
+        {% if wo.status != 'SAFETY_CLEARANCE_SIGNED' %}
+            <button 
+                hx-post="{% url 'departments:htmx_clearance' wo.id %}"
+                hx-target="#wo-row-{{ wo.id }}"
+                hx-swap="outerHTML"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/20 cursor-pointer transition-all">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Sign Clearance
+            </button>
+        {% else %}
+            <div class="text-[11px] text-emerald-400/80 font-mono">
+                Track Safe • {{ wo.safety_clearance_timestamp|date:"H:i" }}
+            </div>
+        {% endif %}
+    </td>
+</tr>

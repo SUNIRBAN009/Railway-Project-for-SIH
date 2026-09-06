@@ -1,43 +1,153 @@
 {% extends 'base.html' %}
-{% block title %}Sign In | RailConnect AI{% endblock %}
+{% block title %}Personnel Authentication | RailBlock AI (PS 26027){% endblock %}
 
 {% block content %}
-<div class="container flex justify-center items-center" style="padding-top: 3.5rem; padding-bottom: 4rem;">
-    <div class="card" style="width: 100%; max-width: 440px; padding: 2.25rem;">
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <div class="brand-icon" style="margin: 0 auto 1rem; width: 44px; height: 44px;">
-                <i data-lucide="lock"></i>
+<div class="max-w-xl mx-auto py-10 px-4 sm:px-6" x-data="{
+    tab: 'login',
+    selectedRole: 'coa',
+    roles: {
+        coa: { username: 'coa_delhi_chief', dept: 'OPERATIONS', title: 'Chief Controller (COA)', color: 'emerald' },
+        eng: { username: 'eng_track_pway', dept: 'ENG', title: 'Track Engineer (P-Way)', color: 'orange' },
+        trd: { username: 'trd_ohe_power', dept: 'TRD', title: 'OHE Traction Engineer', color: 'cyan' },
+        snt: { username: 'snt_signal_telecom', dept: 'SNT', title: 'Signal & Telecom Engineer', color: 'purple' },
+        admin: { username: 'admin_sysops', dept: 'HQ', title: 'System Administrator', color: 'amber' }
+    },
+    populateRole(roleKey) {
+        this.selectedRole = roleKey;
+        document.getElementById('username-input').value = this.roles[roleKey].username;
+        document.getElementById('password-input').value = 'railway@123';
+    }
+}">
+
+    <!-- Gateway Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 relative overflow-hidden">
+        
+        <!-- Header Glow Accent -->
+        <div class="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <!-- Portal Header -->
+        <div class="text-center mb-8">
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
             </div>
-            <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Sign In to RailConnect</h2>
-            <p style="color: var(--text-muted); font-size: 0.85rem;">Access the passenger grievance & operational matrix</p>
+            <h1 class="text-xl sm:text-2xl font-black text-white tracking-tight">Indian Railways Terminal Login</h1>
+            <p class="text-xs text-slate-400 mt-1">AI Automatic Block Planning Platform (PS 26027) • RBAC Gateway</p>
         </div>
 
-        <form method="POST">
+        <!-- Interactive Department Selector (Alpine.js Tabs) -->
+        <div class="mb-6">
+            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                Quick Department Preset (SIH Evaluation)
+            </label>
+            <div class="grid grid-cols-5 gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800 text-center">
+                <button type="button" @click="populateRole('coa')" 
+                        :class="selectedRole === 'coa' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50' : 'text-slate-400 hover:text-white border-transparent'"
+                        class="px-2 py-2 rounded-lg border text-xs font-semibold transition">
+                    <div class="text-[10px] text-slate-500">OPS</div>
+                    <div>COA</div>
+                </button>
+                <button type="button" @click="populateRole('eng')" 
+                        :class="selectedRole === 'eng' ? 'bg-orange-500/20 text-orange-300 border-orange-500/50' : 'text-slate-400 hover:text-white border-transparent'"
+                        class="px-2 py-2 rounded-lg border text-xs font-semibold transition">
+                    <div class="text-[10px] text-slate-500">TMS</div>
+                    <div>ENG</div>
+                </button>
+                <button type="button" @click="populateRole('trd')" 
+                        :class="selectedRole === 'trd' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' : 'text-slate-400 hover:text-white border-transparent'"
+                        class="px-2 py-2 rounded-lg border text-xs font-semibold transition">
+                    <div class="text-[10px] text-slate-500">TDMS</div>
+                    <div>TRD</div>
+                </button>
+                <button type="button" @click="populateRole('snt')" 
+                        :class="selectedRole === 'snt' ? 'bg-purple-500/20 text-purple-300 border-purple-500/50' : 'text-slate-400 hover:text-white border-transparent'"
+                        class="px-2 py-2 rounded-lg border text-xs font-semibold transition">
+                    <div class="text-[10px] text-slate-500">SMMS</div>
+                    <div>SNT</div>
+                </button>
+                <button type="button" @click="populateRole('admin')" 
+                        :class="selectedRole === 'admin' ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' : 'text-slate-400 hover:text-white border-transparent'"
+                        class="px-2 py-2 rounded-lg border text-xs font-semibold transition">
+                    <div class="text-[10px] text-slate-500">ROOT</div>
+                    <div>ADMIN</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- HTMX Inline Feedback Target -->
+        <div id="login-feedback"></div>
+
+        <!-- Standard / HTMX Login Form -->
+        <form method="POST" action="{% url 'accounts:login' %}" hx-post="{% url 'accounts:login' %}" hx-target="#login-feedback" hx-swap="innerHTML">
             {% csrf_token %}
-            <div class="form-group">
-                <label class="form-label">Username</label>
-                <input type="text" name="username" class="form-input" placeholder="Enter your username" required autofocus>
-            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Official Username / HRMS ID</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 pointer-events-none">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" 
+                               name="username" 
+                               id="username-input"
+                               value="coa_delhi_chief" 
+                               required 
+                               class="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500 transition font-mono">
+                    </div>
+                </div>
 
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-input" placeholder="Enter your password" required>
-            </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 pointer-events-none">
+                            <i data-lucide="lock" class="w-4 h-4"></i>
+                        </span>
+                        <input type="password" 
+                               name="password" 
+                               id="password-input"
+                               value="railway@123" 
+                               required 
+                               class="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500 transition font-mono">
+                    </div>
+                </div>
 
-            <button type="submit" class="btn btn-primary w-full" style="margin-top: 1rem;">
-                <i data-lucide="log-in"></i> Sign In
-            </button>
+                <button type="submit" 
+                        class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2 mt-2">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    <span>Authenticate & Access Matrix</span>
+                </button>
+            </div>
         </form>
 
-        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem; text-align: center;">
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
-                Don't have an account? <a href="{% url 'accounts:register' %}">Register Here</a>
+        <!-- SIH Fast 1-Click Evaluation Buttons -->
+        <div class="mt-8 pt-6 border-t border-slate-800">
+            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>⚡ Instant Evaluation Direct Jump:</span>
+                <span class="text-amber-400 font-mono">Bypass Credentials</span>
             </div>
-            <div style="background: rgba(245, 158, 11, 0.08); border: 1px dashed var(--border-accent); border-radius: var(--radius-sm); padding: 0.75rem; text-align: left; font-size: 0.75rem; color: var(--text-muted);">
-                <strong style="color: var(--primary);">⚡ Hackathon Quick Evaluation:</strong><br>
-                Use the <strong>"Demo Role"</strong> dropdown in the top header to log in instantly as Passenger, Station Master, RPF Officer, Maintenance Engineer, or Admin!
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                <a href="{% url 'accounts:demo_switch' 'coa' %}" class="p-2 rounded-lg bg-slate-950 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-950/30 transition text-center font-medium">
+                    🚦 Chief Controller (COA)
+                </a>
+                <a href="{% url 'accounts:demo_switch' 'eng' %}" class="p-2 rounded-lg bg-slate-950 border border-orange-500/30 text-orange-300 hover:bg-orange-950/30 transition text-center font-medium">
+                    🛤️ Track Engineer (ENG)
+                </a>
+                <a href="{% url 'accounts:demo_switch' 'trd' %}" class="p-2 rounded-lg bg-slate-950 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-950/30 transition text-center font-medium">
+                    ⚡ OHE Engineer (TRD)
+                </a>
+                <a href="{% url 'accounts:demo_switch' 'snt' %}" class="p-2 rounded-lg bg-slate-950 border border-purple-500/30 text-purple-300 hover:bg-purple-950/30 transition text-center font-medium">
+                    📡 Signal Engineer (SNT)
+                </a>
+                <a href="{% url 'accounts:demo_switch' 'controller' %}" class="p-2 rounded-lg bg-slate-950 border border-blue-500/30 text-blue-300 hover:bg-blue-950/30 transition text-center font-medium">
+                    🚉 Section Controller
+                </a>
+                <a href="{% url 'accounts:demo_switch' 'admin' %}" class="p-2 rounded-lg bg-slate-950 border border-amber-500/30 text-amber-300 hover:bg-amber-950/30 transition text-center font-medium">
+                    ⚙️ System Admin
+                </a>
             </div>
         </div>
+
     </div>
 </div>
 {% endblock %}

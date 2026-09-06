@@ -1,143 +1,114 @@
 {% extends 'base.html' %}
-{% block title %}{{ train.train_number }} - {{ train.name }} | RailConnect AI{% endblock %}
+{% load static %}
+
+{% block title %}{{ train.train_number }} - {{ train.train_name }} | RailBlock AI{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Top Nav -->
-    <div class="flex justify-between items-center" style="margin-bottom: 1.5rem;">
-        <a href="{% url 'trains:list' %}" class="btn btn-secondary btn-sm">
-            <i data-lucide="arrow-left"></i> Back to Fleet
+    <div class="flex justify-between items-center mb-6">
+        <a href="{% url 'trains:dashboard' %}" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Train Operations
         </a>
         <div class="flex items-center gap-2">
-            <a href="{% url 'trains:live_status' %}?train_number={{ train.train_number }}" class="btn btn-primary btn-sm">
-                <i data-lucide="radio"></i> Live Radar Position
+            <a href="{% url 'trains:dashboard' %}?q={{ train.train_number }}" class="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 px-3 py-1.5 rounded-lg bg-sky-950/60 border border-sky-500/30">
+                <i data-lucide="map-pin" class="w-4 h-4"></i> Live GIS Radar
             </a>
         </div>
     </div>
 
     <!-- Hero Card -->
-    <div class="card" style="margin-bottom: 2rem; border-color: var(--border-accent);">
-        <div class="flex justify-between items-center" style="margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 mb-8 shadow-2xl backdrop-blur">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-slate-800 gap-4">
             <div>
-                <div class="flex items-center gap-2" style="margin-bottom: 0.25rem;">
-                    <span class="badge badge-warning" style="font-size: 1rem;">{{ train.train_number }}</span>
-                    <span class="badge badge-purple">{{ train.get_train_type_display }}</span>
-                    {% if train.delay_minutes > 0 %}
-                        <span class="badge badge-danger">Delayed {{ train.delay_minutes }} mins</span>
-                    {% else %}
-                        <span class="badge badge-success">Running On Time</span>
-                    {% endif %}
+                <div class="flex items-center gap-2.5 mb-2">
+                    <span class="px-2.5 py-0.5 rounded font-mono font-bold text-sm bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        {{ train.train_number }}
+                    </span>
+                    <span class="px-2.5 py-0.5 rounded text-xs font-semibold
+                        {% if train.is_prestige %}bg-purple-500/20 text-purple-300 border border-purple-500/30
+                        {% elif train.is_freight %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30
+                        {% else %}bg-blue-500/20 text-blue-300 border border-blue-500/30{% endif %}">
+                        {{ train.get_train_type_display }}
+                    </span>
+                    <span class="px-2 py-0.5 rounded text-xs font-mono text-slate-400 bg-slate-800">
+                        Priority Rank #{{ train.priority_rank }}
+                    </span>
                 </div>
-                <h1 style="font-size: 1.85rem; color: #fff;">{{ train.name }}</h1>
+                <h1 class="text-2xl font-extrabold text-white">{{ train.train_name }}</h1>
             </div>
 
-            <div style="text-align: right;">
-                <div style="font-size: 0.8rem; color: var(--text-subtle);">Operating Days:</div>
-                <strong style="color: var(--primary);">{{ train.runs_on }}</strong>
+            <div class="text-left md:text-right">
+                <div class="text-xs text-slate-400">Traction & Max Speed</div>
+                <div class="text-base font-bold text-sky-400 font-mono">{{ train.get_traction_type_display }} • {{ train.max_speed_kmh }} km/h</div>
             </div>
         </div>
 
-        <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); background: rgba(255,255,255,0.02); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.9rem;">
-            <div>Origin: <strong style="color: #fff;">{{ train.source_station.name }} ({{ train.source_station.code }})</strong></div>
-            <div>Destination: <strong style="color: #fff;">{{ train.destination_station.name }} ({{ train.destination_station.code }})</strong></div>
-            <div>Total Coaches: <strong style="color: #fff;">{{ train.total_coaches }} Coaches</strong></div>
-            <div>Avg Fleet Occupancy: <strong style="color: var(--secondary);">{{ overall_occupancy_pct }}%</strong></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 text-xs">
+            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                <div class="text-slate-500 uppercase font-semibold">Origin Station</div>
+                <div class="text-sm font-bold text-white mt-0.5 font-mono">{{ train.source_station }}</div>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                <div class="text-slate-500 uppercase font-semibold">Destination Station</div>
+                <div class="text-sm font-bold text-white mt-0.5 font-mono">{{ train.destination_station }}</div>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                <div class="text-slate-500 uppercase font-semibold">Rake Length</div>
+                <div class="text-sm font-bold text-white mt-0.5 font-mono">{{ train.length_meters }} meters</div>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                <div class="text-slate-500 uppercase font-semibold">Live Operational Status</div>
+                {% if live %}
+                    <div class="text-sm font-bold mt-0.5
+                        {% if live.delay_minutes <= 0 %}text-emerald-400
+                        {% elif live.delay_minutes <= 15 %}text-amber-400
+                        {% else %}text-rose-400{% endif %}">
+                        {{ live.status }} (+{{ live.delay_minutes }}m)
+                    </div>
+                {% else %}
+                    <div class="text-sm text-slate-400 mt-0.5 italic">Scheduled</div>
+                {% endif %}
+            </div>
         </div>
     </div>
 
-    <div class="grid gap-6" style="grid-template-columns: 1fr 1fr;">
-        <!-- Schedule & Stops Table -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="clock" style="color: var(--secondary);"></i> Route Timetable & Halts
-                </div>
-            </div>
-
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Station</th>
-                            <th>Arr</th>
-                            <th>Dep</th>
-                            <th>Halt</th>
-                            <th>Dist (km)</th>
-                            <th>Pf</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for s in schedules %}
-                            <tr>
-                                <td>{{ s.stop_number }}</td>
-                                <td>
-                                    <strong style="color: #fff;">{{ s.station.name }}</strong>
-                                    <span style="font-size: 0.75rem; color: var(--text-subtle);">({{ s.station.code }})</span>
-                                </td>
-                                <td>{{ s.arrival_time|default:"Origin" }}</td>
-                                <td>{{ s.departure_time|default:"Terminus" }}</td>
-                                <td>{{ s.halt_minutes }}m</td>
-                                <td>{{ s.distance_km }}</td>
-                                <td><span class="badge badge-warning">{{ s.platform_number }}</span></td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="7" style="text-align: center; color: var(--text-subtle); padding: 1.5rem;">No route schedule data loaded.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+    <!-- Timetable & Station Stoppage Progression -->
+    <div class="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl p-6">
+        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-800">
+            <i data-lucide="calendar" class="w-5 h-5 text-sky-400"></i>
+            <h2 class="text-lg font-bold text-white">Station Stoppage Sequence & Timetable</h2>
         </div>
 
-        <!-- Coach Crowd Density & Composition Visualizer -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="users" style="color: var(--primary);"></i> Coach Crowd Density & Cleanliness
-                </div>
-            </div>
-
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-                Live AI sensor estimation based on reservation matrix, ticketing turnstiles, and CCTV optical density.
-            </p>
-
-            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
-                {% for coach in coaches %}
-                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem;">
-                        <div class="flex justify-between items-center" style="margin-bottom: 0.4rem;">
-                            <div>
-                                <strong style="color: #fff; font-size: 0.95rem;">Coach {{ coach.coach_number }}</strong>
-                                <span style="font-size: 0.8rem; color: var(--text-subtle);">({{ coach.coach_type }})</span>
-                            </div>
-                            <div>
-                                {% if coach.crowd_level == 'LOW' %}
-                                    <span class="badge badge-success">🟢 Low Density</span>
-                                {% elif coach.crowd_level == 'MODERATE' %}
-                                    <span class="badge badge-info">🟡 Moderate</span>
-                                {% elif coach.crowd_level == 'HIGH' %}
-                                    <span class="badge badge-high">🟠 High Crowding</span>
-                                {% else %}
-                                    <span class="badge badge-critical">🔴 Overcrowded</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Progress Bar -->
-                        <div style="background: rgba(255,255,255,0.06); height: 8px; border-radius: var(--radius-full); overflow: hidden; margin-bottom: 0.5rem;">
-                            <div style="width: {% widthratio coach.current_occupancy coach.capacity 100 %}%; height: 100%; background: {% if coach.crowd_level == 'OVERCROWDED' %}var(--accent-ruby){% elif coach.crowd_level == 'HIGH' %}var(--primary){% else %}var(--accent-emerald){% endif %};"></div>
-                        </div>
-
-                        <div class="flex justify-between items-center" style="font-size: 0.75rem; color: var(--text-muted);">
-                            <span>Occupancy: {{ coach.current_occupancy }} / {{ coach.capacity }} seats</span>
-                            <span>Cleanliness Rating: <strong>{{ coach.cleanliness_score }} / 5.0 ⭐</strong></span>
-                        </div>
-                    </div>
-                {% empty %}
-                    <p style="color: var(--text-subtle); text-align: center; padding: 1.5rem;">Coach occupancy data currently syncing...</p>
-                {% endfor %}
-            </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300 border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 bg-slate-950/60 text-xs uppercase font-semibold text-slate-400 tracking-wider">
+                        <th class="py-3 px-4 text-center">Seq #</th>
+                        <th class="py-3 px-4">Station Code</th>
+                        <th class="py-3 px-4">Milestone</th>
+                        <th class="py-3 px-4">Scheduled Arrival</th>
+                        <th class="py-3 px-4">Scheduled Departure</th>
+                        <th class="py-3 px-4 text-center">Platform</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                    {% for s in schedules %}
+                    <tr class="hover:bg-slate-800/30 transition-colors">
+                        <td class="py-3 px-4 text-center font-mono text-slate-400">#{{ s.station_sequence }}</td>
+                        <td class="py-3 px-4 font-semibold text-white font-mono">{{ s.station_code }}</td>
+                        <td class="py-3 px-4 font-mono text-slate-300">KM {{ s.km_milestone }}</td>
+                        <td class="py-3 px-4 font-mono text-slate-300">{{ s.scheduled_arrival_time|default:"Start" }}</td>
+                        <td class="py-3 px-4 font-mono text-slate-300">{{ s.scheduled_departure_time }}</td>
+                        <td class="py-3 px-4 text-center font-mono font-bold text-sky-400">Pf {{ s.platform_number|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-6 text-center text-slate-500">No stoppage timetable records available for this service.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

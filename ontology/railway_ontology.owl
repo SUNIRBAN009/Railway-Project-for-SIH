@@ -1,0 +1,139 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://railblock.ir.gov.in/ontology/railway#"
+     xml:base="http://railblock.ir.gov.in/ontology/railway"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <owl:Ontology rdf:about="http://railblock.ir.gov.in/ontology/railway">
+        <rdfs:comment>Indian Railways Semantic Digital Twin OWL 2 DL Ontology for AI Automatic Block Planning (PS 26027)</rdfs:comment>
+        <owl:versionInfo>2.0.0</owl:versionInfo>
+    </owl:Ontology>
+
+    <!-- Top-Level Concepts -->
+    <owl:Class rdf:about="#RailwayEntity"/>
+
+    <!-- Infrastructure Classes -->
+    <owl:Class rdf:about="#RailwayAsset">
+        <rdfs:subClassOf rdf:resource="#RailwayEntity"/>
+    </owl:Class>
+    <owl:Class rdf:about="#TrackSection">
+        <rdfs:subClassOf rdf:resource="#RailwayAsset"/>
+    </owl:Class>
+    <owl:Class rdf:about="#TrackSegment">
+        <rdfs:subClassOf rdf:resource="#TrackSection"/>
+    </owl:Class>
+    <owl:Class rdf:about="#TractionOHE">
+        <rdfs:subClassOf rdf:resource="#RailwayAsset"/>
+    </owl:Class>
+    <owl:Class rdf:about="#OHEZone">
+        <rdfs:subClassOf rdf:resource="#TractionOHE"/>
+    </owl:Class>
+    <owl:Class rdf:about="#SignalPoint">
+        <rdfs:subClassOf rdf:resource="#RailwayAsset"/>
+    </owl:Class>
+    <owl:Class rdf:about="#SignalAspect">
+        <rdfs:subClassOf rdf:resource="#SignalPoint"/>
+    </owl:Class>
+    <owl:Class rdf:about="#TractionSubstation">
+        <rdfs:subClassOf rdf:resource="#RailwayAsset"/>
+    </owl:Class>
+
+    <!-- Operations & Rolling Stock -->
+    <owl:Class rdf:about="#Train">
+        <rdfs:subClassOf rdf:resource="#RailwayEntity"/>
+    </owl:Class>
+    <owl:Class rdf:about="#ElectricTrain">
+        <rdfs:subClassOf rdf:resource="#Train"/>
+    </owl:Class>
+    <owl:Class rdf:about="#DieselTrain">
+        <rdfs:subClassOf rdf:resource="#Train"/>
+    </owl:Class>
+    <owl:Class rdf:about="#TrainPath">
+        <rdfs:subClassOf rdf:resource="#RailwayEntity"/>
+    </owl:Class>
+
+    <!-- Maintenance Block Possessions -->
+    <owl:Class rdf:about="#MaintenanceBlock">
+        <rdfs:subClassOf rdf:resource="#RailwayEntity"/>
+    </owl:Class>
+    <owl:Class rdf:about="#BlockPossession">
+        <rdfs:subClassOf rdf:resource="#MaintenanceBlock"/>
+    </owl:Class>
+    <owl:Class rdf:about="#TractionPowerCutBlock">
+        <rdfs:subClassOf rdf:resource="#MaintenanceBlock"/>
+    </owl:Class>
+    <owl:Class rdf:about="#CivilTrackPossession">
+        <rdfs:subClassOf rdf:resource="#MaintenanceBlock"/>
+    </owl:Class>
+    <owl:Class rdf:about="#SignalInterlockingPossession">
+        <rdfs:subClassOf rdf:resource="#MaintenanceBlock"/>
+    </owl:Class>
+
+    <!-- Operational & Safety Hazards -->
+    <owl:Class rdf:about="#OperationalHazard">
+        <rdfs:subClassOf rdf:resource="#RailwayEntity"/>
+    </owl:Class>
+    <owl:Class rdf:about="#SafetyHazard">
+        <rdfs:subClassOf rdf:resource="#OperationalHazard"/>
+    </owl:Class>
+    <owl:Class rdf:about="#StrandedElectricTrainHazard">
+        <rdfs:subClassOf rdf:resource="#SafetyHazard"/>
+    </owl:Class>
+    <owl:Class rdf:about="#CrossoverPointsDeadlock">
+        <rdfs:subClassOf rdf:resource="#SafetyHazard"/>
+    </owl:Class>
+    <owl:Class rdf:about="#SignalOverlapInvasion">
+        <rdfs:subClassOf rdf:resource="#SafetyHazard"/>
+    </owl:Class>
+    <owl:Class rdf:about="#FeederIsolationConcurrency">
+        <rdfs:subClassOf rdf:resource="#OperationalHazard"/>
+    </owl:Class>
+
+    <!-- Object Properties -->
+    <owl:ObjectProperty rdf:about="#occupiesTrack">
+        <rdfs:domain rdf:resource="#Train"/>
+        <rdfs:range rdf:resource="#TrackSection"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#blocksSection">
+        <rdfs:domain rdf:resource="#MaintenanceBlock"/>
+        <rdfs:range rdf:resource="#TrackSection"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#reservesTrack">
+        <rdfs:domain rdf:resource="#MaintenanceBlock"/>
+        <rdfs:range rdf:resource="#TrackSection"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#depowersOHE">
+        <rdfs:domain rdf:resource="#TractionPowerCutBlock"/>
+        <rdfs:range rdf:resource="#TractionOHE"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#cutsPowerTo">
+        <rdfs:domain rdf:resource="#MaintenanceBlock"/>
+        <rdfs:range rdf:resource="#TractionOHE"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#electrifies">
+        <rdfs:domain rdf:resource="#TractionOHE"/>
+        <rdfs:range rdf:resource="#TrackSection"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#interlocksWith">
+        <rdfs:domain rdf:resource="#SignalPoint"/>
+        <rdfs:range rdf:resource="#TrackSection"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#hasHazard">
+        <rdfs:domain rdf:resource="#MaintenanceBlock"/>
+        <rdfs:range rdf:resource="#OperationalHazard"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#affectsTrain">
+        <rdfs:domain rdf:resource="#OperationalHazard"/>
+        <rdfs:range rdf:resource="#Train"/>
+    </owl:ObjectProperty>
+</rdf:RDF>

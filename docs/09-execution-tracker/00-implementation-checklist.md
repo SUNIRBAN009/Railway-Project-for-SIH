@@ -163,10 +163,10 @@
 - [x] `TSK-P4-004`: Implement PDF report export engine using WeasyPrint / ReportLab.
 - [x] `TSK-P4-005`: Implement master demo data seeder command (`seed_railway_demo.py`).
 - [x] `TSK-P4-006`: Execute k6 load test script at 1,000 concurrent virtual users.
-- [ ] `TSK-P4-007`: Execute E2E integration test suite for all 5 critical scenarios.
-- [ ] `TSK-P4-008`: Configure Prometheus exporter and Grafana corridor monitoring dashboards.
-- [ ] `TSK-P4-009`: Perform security vulnerability scan (OWASP ZAP, Bandit, Safety).
-- [ ] `TSK-P4-010`: Deploy production Docker Compose stack to Railway / Cloud server.
+- [x] `TSK-P4-007`: Execute E2E integration test suite for all 5 critical scenarios.
+- [x] `TSK-P4-008`: Configure Prometheus exporter and Grafana corridor monitoring dashboards.
+- [x] `TSK-P4-009`: Perform security vulnerability scan (OWASP ZAP, Bandit, Safety).
+- [x] `TSK-P4-010`: Deploy production Docker Compose stack to Railway / Cloud server.
 
 ---
 

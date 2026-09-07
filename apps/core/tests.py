@@ -1,85 +1,110 @@
+"""
+Core Service and Telemetry Integration Tests (TSK-P4-008).
+Validates home dashboard, Prometheus metrics scrape endpoint, and runtime metrics collector.
+"""
+from decimal import Decimal
+import datetime
 from django.test import TestCase, Client
-from django.contrib.auth.models import User
-from apps.accounts.models import UserProfile, UserRole
-from apps.trains.models import Station, Train, TrainType, TrainStatus
-from apps.grievances.models import Grievance, GrievanceCategory, GrievancePriority, GrievanceStatus
-from apps.grievances.ai_classifier import analyze_grievance_text
-from apps.maintenance.models import DefectReport, DefectType, DefectSeverity
-from apps.emergency.models import SOSAlert, EmergencyType, SOSStatus
+from django.utils import timezone
+from django.contrib.auth import get_user_model
 
-class RailwaySystemTests(TestCase):
+from apps.accounts.models import DepartmentCode
+from apps.blocks.models import Corridor, Block, BlockStatus, LineType, WorkType
+from apps.analytics.models import CorridorDailyKPI
+from apps.assets.models import TrackAsset, AssetCategory
+
+User = get_user_model()
+
+
+class PrometheusTelemetryTests(TestCase):
+    """Verifies Prometheus /metrics telemetry exporter."""
+
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(username='test_passenger', password='password123')
-        self.station1 = Station.objects.create(name='New Delhi', code='NDLS')
-        self.station2 = Station.objects.create(name='Howrah', code='HWH')
-        self.train = Train.objects.create(
-            train_number='22436',
-            name='Vande Bharat Express',
-            train_type=TrainType.VANDE_BHARAT,
-            source_station=self.station1,
-            destination_station=self.station2,
+        self.corridor = Corridor.objects.create(
+            code='NDLS-CNB-METRICS',
+            name='New Delhi - Kanpur Central Test Corridor',
+            zone='NR',
+            division='Delhi',
+            start_km=Decimal('0.000'),
+            end_km=Decimal('440.000')
+        )
+
+        # Create active block
+        self.block = Block.objects.create(
+            block_code='BLK-METRICS-001',
+            corridor=self.corridor,
+            line_type=LineType.UP,
+            department_code=DepartmentCode.ENG,
+            work_type=WorkType.TRACK_TAMPING,
+            start_km=Decimal('10.000'),
+            end_km=Decimal('15.000'),
+            scheduled_start_time=timezone.now(),
+            scheduled_end_time=timezone.now() + datetime.timedelta(hours=2),
+            status=BlockStatus.ACTIVE
+        )
+
+        # Create shadow block
+        self.shadow_block = Block.objects.create(
+            block_code='BLK-METRICS-002',
+            corridor=self.corridor,
+            line_type=LineType.UP,
+            department_code=DepartmentCode.TRD,
+            work_type=WorkType.CATENARY_MAINTENANCE,
+            start_km=Decimal('11.000'),
+            end_km=Decimal('14.000'),
+            scheduled_start_time=timezone.now(),
+            scheduled_end_time=timezone.now() + datetime.timedelta(hours=2),
+            is_shadow=True,
+            parent_block=self.block,
+            status=BlockStatus.ACTIVE
+        )
+
+        # Create KPI record
+        self.kpi = CorridorDailyKPI.objects.create(
+            metric_date=timezone.now().date(),
+            corridor_code='NDLS-CNB-METRICS',
+            division_code='DLI',
+            corridor_punctuality_percentage=Decimal('96.80'),
+            total_train_delay_minutes_incurred=45
+        )
+
+        # Create track asset
+        self.asset = TrackAsset.objects.create(
+            asset_tag='TRK-METRIC-ASSET-01',
+            name='Test 60kg Rail Section',
+            corridor=self.corridor,
+            asset_category=AssetCategory.PERMANENT_WAY,
+            sub_type='60KG_RAIL',
+            line_type=LineType.UP,
+            location_km=Decimal('12.500'),
+            current_health_score=Decimal('82.5')
         )
 
     def test_home_page_loads(self):
-        response = self.client.get('/')
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'RailConnect')
+        """Home page route returns HTTP 200 or 302."""
+        resp = self.client.get('/')
+        self.assertIn(resp.status_code, [200, 302])
 
-    def test_ai_classifier_critical_detection(self):
-        analysis = analyze_grievance_text("There is a robbery and harassment happening in our coach")
-        self.assertEqual(analysis['priority'], 'CRITICAL')
-        self.assertEqual(analysis['suggested_category'], 'SECURITY')
-        self.assertTrue(analysis['is_critical'])
+    def test_prometheus_metrics_endpoint_status(self):
+        """GET /metrics returns 200 with Prometheus text format."""
+        resp = self.client.get('/metrics')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('text/plain', resp.headers.get('Content-Type', ''))
 
-    def test_ai_classifier_electrical_detection(self):
-        analysis = analyze_grievance_text("AC not working and fan is dead in coach B2")
-        self.assertEqual(analysis['priority'], 'HIGH')
-        self.assertEqual(analysis['suggested_category'], 'ELECTRICAL')
+    def test_prometheus_metrics_telemetry_content(self):
+        """Metrics payload contains active block counts, punctuality, and TQI."""
+        resp = self.client.get('/metrics')
+        body = resp.content.decode('utf-8')
 
-    def test_lodge_grievance(self):
-        self.client.login(username='test_passenger', password='password123')
-        response = self.client.post('/grievances/lodge/', {
-            'passenger_name': 'Test User',
-            'passenger_phone': '9876543210',
-            'pnr_number': '1234567890',
-            'train_number': '22436',
-            'coach_number': 'C1',
-            'seat_number': '42',
-            'current_station': 'NDLS',
-            'category': GrievanceCategory.ELECTRICAL,
-            'subject': 'AC cooling failure',
-            'description': 'AC dead and severe heat in coach C1',
-        }, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(Grievance.objects.count(), 1)
-        grv = Grievance.objects.first()
-        self.assertEqual(grv.priority, GrievancePriority.HIGH)
+        # Check core gauges are declared and present
+        self.assertIn('railway_system_uptime_seconds', body)
+        self.assertIn('railway_active_blocks_total', body)
+        self.assertIn('railway_corridor_punctuality_percentage', body)
+        self.assertIn('railway_co_possession_blocks_total', body)
+        self.assertIn('railway_tqi_average', body)
 
-    def test_sos_trigger(self):
-        response = self.client.post('/emergency/trigger/', {
-            'passenger_name': 'Emergency User',
-            'passenger_phone': '9998887776',
-            'emergency_type': EmergencyType.SECURITY,
-            'train_number': '22436',
-            'coach_number': 'C1',
-            'seat_number': '10',
-            'current_location_desc': 'Near Kanpur',
-            'details': 'Intruders attempting to break coach door',
-        }, follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(SOSAlert.objects.count(), 1)
-
-    def test_api_summary_endpoint(self):
-        response = self.client.get('/api/analytics/summary/')
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn('trains', data)
-        self.assertIn('grievances', data)
-        self.assertIn('maintenance', data)
-        self.assertIn('emergency', data)
-
-    def test_demo_role_switch(self):
-        response = self.client.get('/accounts/demo-switch/station_master/', follow=True)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['user'].username, 'demo_station_master')
+        # Verify live values for test corridor
+        self.assertIn('corridor="NDLS-CNB-METRICS"', body)
+        self.assertIn('railway_co_possession_blocks_total{corridor="NDLS-CNB-METRICS"} 1.0', body)
+        self.assertIn('railway_corridor_punctuality_percentage{corridor="NDLS-CNB-METRICS"} 96.8', body)

@@ -7,8 +7,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from apps.core.metrics import prometheus_metrics_view
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('metrics', prometheus_metrics_view, name='prometheus_metrics'),
     path('', include('apps.core.urls', namespace='core')),
     path('accounts/', include('apps.accounts.urls', namespace='accounts')),
     path('api/', include('apps.api.urls', namespace='api')),

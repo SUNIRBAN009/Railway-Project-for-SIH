@@ -1,4 +1,4 @@
-﻿services:
+services:
   db:
     image: postgis/postgis:15-3.3
     container_name: railway_db
@@ -10,6 +10,11 @@
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U railway_user -d railway_sih"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - railway_network
 
@@ -20,6 +25,11 @@
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - railway_network
 
@@ -36,8 +46,10 @@
       DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - .:/app
     networks:
@@ -54,16 +66,74 @@
       DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - .:/app
     networks:
       - railway_network
 
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: railway_celery_beat
+    command: celery -A railway_sih beat -l info
+    environment:
+      DEBUG: "False"
+      DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+      - railway_network
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: railway_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - railway_network
+    depends_on:
+      - daphne
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: railway_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - railway_network
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   railway_network:

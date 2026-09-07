@@ -147,11 +147,11 @@
 
 ### Real-Time Dispatch & WebSockets (`SVC-NOTIF`)
 
-- [ ] `TSK-P3-010`: Implement Daphne WebSocket consumer (`apps.notifications.consumers.CorridorConsumer`).
-- [ ] `TSK-P3-011`: Implement Redis Channel Layer push-to-invalidate dispatcher.
-- [ ] `TSK-P3-012`: Implement Indian Railways CDAC SMS gateway client with retry queue.
-- [ ] `TSK-P3-013`: Implement in-app notification bell, audio chime, and critical modal alerts.
-- [ ] `TSK-P3-014`: Integrate Django Templates frontend with Daphne WebSocket and HTMX/Alpine.js live updates.
+- [x] `TSK-P3-010`: Implement Daphne WebSocket consumer (`apps.notifications.consumers.CorridorConsumer`).
+- [x] `TSK-P3-011`: Implement Redis Channel Layer push-to-invalidate dispatcher.
+- [x] `TSK-P3-012`: Implement Indian Railways CDAC SMS gateway client with retry queue.
+- [x] `TSK-P3-013`: Implement in-app notification bell, audio chime, and critical modal alerts.
+- [x] `TSK-P3-014`: Integrate Django Templates frontend with Daphne WebSocket and HTMX/Alpine.js live updates.
 
 ---
 

@@ -232,6 +232,11 @@
                     </div>
                 </div>
 
+                <!-- Real-Time Notification Bell & Live Stream (SVC-NOTIF) -->
+                {% if user.is_authenticated %}
+                    {% include 'components/notification_bell.html' %}
+                {% endif %}
+
                 <!-- User Profile Context / Sign In -->
                 {% if user.is_authenticated %}
                     <div class="flex items-center gap-2">

@@ -173,6 +173,18 @@ CELERY_TASK_QUEUES = {
 }
 CELERY_TASK_DEFAULT_QUEUE = "default"
 
+# Celery Beat Periodic Tasks Schedule (TSK-P4-003)
+CELERY_BEAT_SCHEDULE = {
+    "nightly-corridor-kpi-rollup": {
+        "task": "apps.analytics.tasks.rollup_corridor_daily_kpis_task",
+        "schedule": 86400.0,  # Runs daily
+    },
+    "purge-stale-notifications": {
+        "task": "apps.notifications.tasks.purge_old_notifications_task",
+        "schedule": 86400.0 * 7,  # Runs weekly
+    },
+}
+
 # JWT Token Configuration (SVC-AUTH)
 JWT_ACCESS_TOKEN_LIFETIME_MINUTES = 15
 JWT_REFRESH_TOKEN_LIFETIME_DAYS = 7

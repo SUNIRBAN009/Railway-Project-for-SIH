@@ -157,12 +157,12 @@
 
 ## 6. Phase 4: Operations Analytics, Hardening & Deployment
 
-- [ ] `TSK-P4-001`: Implement `corridor_daily_kpis` OLAP aggregation tables.
-- [ ] `TSK-P4-002`: Implement `FUNC-ANA-001`: Corridor operations dashboard summary API.
-- [ ] `TSK-P4-003`: Implement nightly Celery Beat aggregation rollup task.
-- [ ] `TSK-P4-004`: Implement PDF report export engine using WeasyPrint.
-- [ ] `TSK-P4-005`: Implement master demo data seeder command (`seed_railway_demo.py`).
-- [ ] `TSK-P4-006`: Execute k6 load test script at 1,000 concurrent virtual users.
+- [x] `TSK-P4-001`: Implement `corridor_daily_kpis` OLAP aggregation tables.
+- [x] `TSK-P4-002`: Implement `FUNC-ANA-001`: Corridor operations dashboard summary API.
+- [x] `TSK-P4-003`: Implement nightly Celery Beat aggregation rollup task.
+- [x] `TSK-P4-004`: Implement PDF report export engine using WeasyPrint / ReportLab.
+- [x] `TSK-P4-005`: Implement master demo data seeder command (`seed_railway_demo.py`).
+- [x] `TSK-P4-006`: Execute k6 load test script at 1,000 concurrent virtual users.
 - [ ] `TSK-P4-007`: Execute E2E integration test suite for all 5 critical scenarios.
 - [ ] `TSK-P4-008`: Configure Prometheus exporter and Grafana corridor monitoring dashboards.
 - [ ] `TSK-P4-009`: Perform security vulnerability scan (OWASP ZAP, Bandit, Safety).

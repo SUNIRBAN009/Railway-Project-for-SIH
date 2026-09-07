@@ -442,6 +442,117 @@ def run_seeder():
     print(f"  [OK] Work Order issued: {wo2.order_number} ({wo2.status})")
     print(f"  [OK] Work Order issued: {wo3.order_number} ({wo3.status})")
 
+    # ------------------------------------------------------------------------
+    # 8. Seed Asset Inventory & Health (SVC-AST)
+    # ------------------------------------------------------------------------
+    print("\n[8/10] Seeding physical track assets & ultrasonic defect logs...")
+    from apps.assets.models import TrackAsset, AssetDefectLog, AssetCategory, DefectSeverity, DefectType
+
+    assets_data = [
+        ('TRK-NDLS-GZB-01', 'Continuous Welded Rail (60kg UIC)', AssetCategory.PERMANENT_WAY, '60kg_90UTS_RAIL', Decimal('12.400'), Decimal('88.5'), Decimal('22.4')),
+        ('PNT-GZB-E104', 'High-Speed Thick Web Turnout 1:12', AssetCategory.PERMANENT_WAY, 'TURNOUT_1_IN_12', Decimal('28.200'), Decimal('92.0'), Decimal('18.0')),
+        ('OHE-CAN-NDLS-14', '25kV AC Cantilever Assembly Mast 14', AssetCategory.OHE_TRACTION, 'OHE_CANTILEVER', Decimal('14.200'), Decimal('95.0'), Decimal('12.0')),
+        ('SIG-TC-NDLS-09', 'High-Frequency Digital Track Circuit', AssetCategory.SIGNAL_INTERLOCKING, 'TRACK_CIRCUIT_AF', Decimal('15.500'), Decimal('78.0'), Decimal('32.0')),
+    ]
+
+    target_corridor = corridor_map.get('NDLS-GZB-UP') or Corridor.objects.first()
+    for tag, name, cat, subtype, loc_km, health, tqi in assets_data:
+        asset, created = TrackAsset.objects.update_or_create(
+            asset_tag=tag,
+            defaults={
+                'name': name,
+                'corridor': target_corridor,
+                'asset_category': cat,
+                'sub_type': subtype,
+                'line_type': LineType.UP,
+                'location_km': loc_km,
+                'current_health_score': health,
+                'tqi_index': tqi,
+                'is_operational': True,
+            }
+        )
+        act = "Created" if created else "Updated"
+        print(f"  [OK] {act} Track Asset: {tag} ({cat} - Health: {health})")
+
+    # ------------------------------------------------------------------------
+    # 9. Seed Historical Analytics Mart (SVC-ANA)
+    # ------------------------------------------------------------------------
+    print("\n[9/10] Seeding 14-day historical OLAP KPI mart & block efficiency logs...")
+    from apps.analytics.models import CorridorDailyKPI, BlockEfficiencyRecord
+
+    corridors_to_seed = ['NDLS-CNB', 'NDLS-AGC']
+    for c_code in corridors_to_seed:
+        for i in range(14):
+            day_date = (now - datetime.timedelta(days=i)).date()
+            base_punctuality = Decimal('96.20') - Decimal(str(i % 3 * 0.8))
+            blocks_sanctioned = 8 + (i % 4)
+            actual_mins = blocks_sanctioned * 180 + (i * 12)
+            sanctioned_mins = blocks_sanctioned * 190
+            co_possessions = 2 + (i % 3)
+
+            CorridorDailyKPI.objects.update_or_create(
+                metric_date=day_date,
+                division_code='DLI',
+                corridor_code=c_code,
+                defaults={
+                    'total_blocks_requested': blocks_sanctioned + 2,
+                    'total_blocks_sanctioned': blocks_sanctioned,
+                    'total_blocks_executed': blocks_sanctioned - (1 if i % 5 == 0 else 0),
+                    'total_sanctioned_duration_minutes': sanctioned_mins,
+                    'total_actual_duration_minutes': actual_mins,
+                    'total_possession_hours': Decimal(str(round(actual_mins / 60.0, 2))),
+                    'co_possession_blocks_count': co_possessions,
+                    'total_train_delay_minutes_incurred': 25 + (i * 8),
+                    'corridor_punctuality_percentage': base_punctuality,
+                    'conflict_mitigation_rate_pct': Decimal('91.50') + Decimal(str((i % 5) * 0.5)),
+                    'shadow_blocks_count': co_possessions,
+                }
+            )
+
+    # Seed Block Efficiency Audit Records
+    for blk_code, p_hrs, a_hrs, burst in [('26027-BLK-01', 4.0, 4.0, 0.0), ('26027-BLK-02', 3.5, 3.5, 0.0), ('26027-BLK-03', 4.0, 4.4, 0.4)]:
+        BlockEfficiencyRecord.objects.update_or_create(
+            block_id=blk_code,
+            defaults={
+                'corridor_code': 'NDLS-CNB',
+                'planned_hours': Decimal(str(p_hrs)),
+                'actual_hours': Decimal(str(a_hrs)),
+                'burst_hours': Decimal(str(burst)),
+                'gang_utilization_score': Decimal('95.00') if burst == 0 else Decimal('82.50'),
+                'trains_delayed_count': 1 if burst > 0 else 0,
+                'total_delay_minutes': int(burst * 60),
+            }
+        )
+    print("  [OK] 14-day CorridorDailyKPI mart and BlockEfficiencyRecords seeded.")
+
+    # ------------------------------------------------------------------------
+    # 10. Seed Operational Notifications (SVC-NOTIF)
+    # ------------------------------------------------------------------------
+    print("\n[10/10] Seeding operational dispatch notifications & alerts...")
+    from apps.notifications.services.dispatcher import NotificationDispatcher
+    from apps.notifications.models import NotificationPriority, NotificationCategory
+
+    dispatcher = NotificationDispatcher()
+    dispatcher.dispatch(
+        title="Block Sanctioned: Up Line Tamping",
+        message_body="Block 26027-BLK-01 sanctioned KM 12.0 - 16.0. Caution Order 45 km/h enforced.",
+        recipient_user=staff_map.get('coa_delhi_chief'),
+        recipient_role='CHIEF_CONTROLLER',
+        priority=NotificationPriority.URGENT_ACTION,
+        category=NotificationCategory.BLOCK_SANCTIONED,
+        corridor_code='NDLS-CNB',
+    )
+    dispatcher.dispatch(
+        title="Integrated Shadow Block Coordinated",
+        message_body="TRD OHE inspection block 26027-BLK-02 successfully bundled inside ENG window.",
+        recipient_user=staff_map.get('trd_ohe_power'),
+        recipient_role='DEPT_ENGINEER',
+        priority=NotificationPriority.ROUTINE_INFO,
+        category=NotificationCategory.GENERAL_INFO,
+        corridor_code='NDLS-CNB',
+    )
+    print("  [OK] Operational notifications and WebSocket events initialized.")
+
     print("\n" + "=" * 70)
     print("[DONE] MASTER SEEDING COMPLETE! RailBlock AI Platform is fully primed.")
     print("   Credentials: username='coa_delhi_chief' | password='railway@123'")
@@ -453,3 +564,4 @@ def run_seeder():
 
 if __name__ == '__main__':
     run_seeder()
+

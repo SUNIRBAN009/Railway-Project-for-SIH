@@ -141,9 +141,9 @@
 
 ### Asset Condition Monitoring (`SVC-AST`)
 
-- [ ] `TSK-P3-007`: Implement `TrackAsset` and `AssetDefectLog` models.
-- [ ] `TSK-P3-008`: Implement Track Quality Index (TQI) and Asset Degradation Score calculations.
-- [ ] `TSK-P3-009`: Implement automated emergency block generation when critical rail defect detected.
+- [x] `TSK-P3-007`: Implement `TrackAsset` and `AssetDefectLog` models.
+- [x] `TSK-P3-008`: Implement Track Quality Index (TQI) and Asset Degradation Score calculations.
+- [x] `TSK-P3-009`: Implement automated emergency block generation when critical rail defect detected.
 
 ### Real-Time Dispatch & WebSockets (`SVC-NOTIF`)
 

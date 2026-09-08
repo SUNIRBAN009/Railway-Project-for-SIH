@@ -1,0 +1,55 @@
+@import 'mapbox-gl/dist/mapbox-gl.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --control-bg: #0a0e1a;
+    --control-panel: #111827;
+    --control-border: #1f2937;
+    --control-text: #e5e7eb;
+    --control-muted: #6b7280;
+  }
+
+  html:not(.dark) {
+    --control-bg: #f8fafc;
+    --control-panel: #ffffff;
+    --control-border: #cbd5e1;
+    --control-text: #0f172a;
+    --control-muted: #475569;
+  }
+
+  body {
+    @apply bg-control-bg text-control-text font-sans antialiased m-0 p-0 overflow-x-hidden transition-colors duration-200;
+  }
+  
+  /* Indian Railways Operations Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-control-bg;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-control-border rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-control-muted;
+  }
+}
+
+@layer components {
+  .control-panel {
+    @apply bg-control-panel border border-control-border rounded-lg p-4 shadow-lg;
+  }
+  
+  .status-indicator {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold;
+  }
+}

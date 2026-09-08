@@ -106,3 +106,59 @@ def global_search_view(request):
     return render(request, 'core/search_results.html', {
         'query': query,
     })
+
+
+def api_health_check_view(request):
+    """
+    Health check endpoint for container orchestrators and monitoring probes.
+    Verifies PostGIS database and Redis broker connections.
+    """
+    from django.http import JsonResponse
+    from django.utils import timezone
+    from django.db import connection
+    from django.conf import settings
+    import redis
+
+    health = {
+        'status': 'healthy',
+        'timestamp': timezone.now().isoformat(),
+        'services': {
+            'database': 'unknown',
+            'redis': 'unknown',
+        }
+    }
+    status_code = 200
+
+    # 1. Database check
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+            row = cursor.fetchone()
+            if row and row[0] == 1:
+                health['services']['database'] = 'connected'
+            else:
+                health['services']['database'] = 'unexpected_response'
+                health['status'] = 'degraded'
+                status_code = 503
+    except Exception as e:
+        health['services']['database'] = f'error: {str(e)}'
+        health['status'] = 'unhealthy'
+        status_code = 503
+
+    # 2. Redis check
+    try:
+        redis_url = getattr(settings, 'CELERY_BROKER_URL', 'redis://redis:6379/0')
+        r = redis.Redis.from_url(redis_url, socket_timeout=2)
+        if r.ping():
+            health['services']['redis'] = 'connected'
+        else:
+            health['services']['redis'] = 'no_ping'
+            health['status'] = 'degraded'
+            status_code = 503
+    except Exception as e:
+        health['services']['redis'] = f'error: {str(e)}'
+        health['status'] = 'unhealthy'
+        status_code = 503
+
+    return JsonResponse(health, status=status_code)
+

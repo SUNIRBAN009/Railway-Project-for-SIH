@@ -35,6 +35,7 @@ from apps.departments.models import (
     WorkOrder,
     WorkOrderStatus,
 )
+from apps.trains.models import Station
 from apps.trains.tasks import ingest_coa_feed
 
 
@@ -64,7 +65,7 @@ def run_seeder():
             'email': f"{username}@railnet.gov.in",
             'is_staff': True,
         })
-        user.set_password('railway@123')
+        user.set_password('Sunirban#2003')
         user.save()
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.employee_id = empid
@@ -124,6 +125,28 @@ def run_seeder():
         )
         dept_map[d_conf['code']] = dept_obj
         print(f"  [OK] Department ready: {dept_obj.code} - {dept_obj.name}")
+
+    # ------------------------------------------------------------------------
+    # 2.5 Seed Geographical Stations
+    # ------------------------------------------------------------------------
+    print("\n[2.5/7] Seeding corridor stations (NDLS, DLI, SBB, GZB, DER, ALJN, TDL, CNB, TKD)...")
+    stations_data = [
+        {'code': 'NDLS', 'name': 'New Delhi', 'zone': 'NR', 'division': 'Delhi', 'latitude': 28.6415, 'longitude': 77.2207, 'km_from_source': Decimal('0.000'), 'number_of_platforms': 16},
+        {'code': 'DLI',  'name': 'Old Delhi Junction', 'zone': 'NR', 'division': 'Delhi', 'latitude': 28.6606, 'longitude': 77.2289, 'km_from_source': Decimal('3.500'), 'number_of_platforms': 16},
+        {'code': 'SBB',  'name': 'Sahibabad Junction', 'zone': 'NR', 'division': 'Delhi', 'latitude': 28.6722, 'longitude': 77.3475, 'km_from_source': Decimal('18.000'), 'number_of_platforms': 5},
+        {'code': 'GZB',  'name': 'Ghaziabad Junction', 'zone': 'NR', 'division': 'Delhi', 'latitude': 28.6678, 'longitude': 77.4338, 'km_from_source': Decimal('28.500'), 'number_of_platforms': 6},
+        {'code': 'DER',  'name': 'Dadri', 'zone': 'NCR', 'division': 'Prayagraj', 'latitude': 28.5528, 'longitude': 77.5583, 'km_from_source': Decimal('45.000'), 'number_of_platforms': 3},
+        {'code': 'ALJN', 'name': 'Aligarh Junction', 'zone': 'NCR', 'division': 'Prayagraj', 'latitude': 27.8974, 'longitude': 78.0772, 'km_from_source': Decimal('126.000'), 'number_of_platforms': 7},
+        {'code': 'TDL',  'name': 'Tundla Junction', 'zone': 'NCR', 'division': 'Prayagraj', 'latitude': 27.2081, 'longitude': 78.2396, 'km_from_source': Decimal('204.000'), 'number_of_platforms': 5},
+        {'code': 'CNB',  'name': 'Kanpur Central', 'zone': 'NCR', 'division': 'Prayagraj', 'latitude': 26.4547, 'longitude': 80.3507, 'km_from_source': Decimal('435.000'), 'number_of_platforms': 10},
+        {'code': 'TKD',  'name': 'Tughlakabad', 'zone': 'NR', 'division': 'Delhi', 'latitude': 28.5097, 'longitude': 77.2886, 'km_from_source': Decimal('15.000'), 'number_of_platforms': 4},
+    ]
+    for stn in stations_data:
+        stn_obj, created = Station.objects.update_or_create(
+            code=stn['code'],
+            defaults=stn
+        )
+        print(f"  [OK] Station ready: {stn_obj.code} - {stn_obj.name}")
 
     # ------------------------------------------------------------------------
     # 3. Seed Corridors

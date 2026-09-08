@@ -1,0 +1,911 @@
+# 🎨 Frontend Development Learning Roadmap — Complete Guide
+
+I’ll break down exactly what you need to learn for your project’s frontend, which topics are most important, and how deeply you should study each one.
+
+---
+
+## 📊 Learning Priority Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  FRONTEND LEARNING PRIORITY MATRIX                              │
+├─────────────────────────────────────────────────────────────────┤
+│  🔴 CRITICAL (Must Learn — 70% of time)                         │
+│  ├─ JavaScript ES6+ (Core Language)                            │
+│  ├─ React 18 (UI Framework)                                    │
+│  └─ Mapbox GL JS (Railway Map)                                 │
+│                                                                 │
+│  🟡 IMPORTANT (Should Learn — 20% of time)                      │
+│  ├─ Tailwind CSS (Styling)                                     │
+│  ├─ Zustand (State Management)                                 │
+│  └─ WebSocket (Real-time Updates)                              │
+│                                                                 │
+│  🟢 NICE TO HAVE (Optional but Recommended — 10% of time)       │
+│  ├─ TypeScript (Optional but recommended)                      │
+│  ├─ TanStack Query (Advanced Caching)                          │
+│  └─ Vite (Build Tool Basics)                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔴 1. JavaScript ES6+ (Most Important — 2 Weeks)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **Variables** (`let`, `const`) | Basic | Modern variable declaration |
+| **Arrow Functions** | Basic | Used in React components |
+| **Destructuring** | ⭐⭐⭐⭐⭐ | Handling API responses, props |
+| **Spread/Rest Operator** | ⭐⭐⭐⭐ | State updates, array manipulation |
+| **Promises & Async/Await** | ⭐⭐⭐⭐⭐ | API calls, WebSocket handling |
+| **Array Methods** (`map`, `filter`, `reduce`) | ⭐⭐⭐⭐⭐ | Data transformation |
+| **Modules** (`import`/`export`) | ⭐⭐⭐⭐ | Code organization |
+| **Template Literals** | Basic | Dynamic strings |
+| **Optional Chaining** (`?.`) | ⭐⭐⭐ | Safe property access |
+| **Nullish Coalescing** (`??`) | ⭐⭐⭐ | Default values |
+
+### Where It Will Be Used:
+
+```javascript
+// 1. Destructuring — Extract data from API response
+const { success, data, message } = await api.get('/blocks/');
+
+// 2. Async/Await — Calling backend APIs
+const fetchBlocks = async () => {
+  try {
+    const response = await fetch('/api/v1/blocks/');
+    const { data } = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch blocks:', error);
+  }
+};
+
+// 3. Array Methods — Filtering block list
+const criticalBlocks = blocks.filter(block => block.severity === 'CRITICAL');
+const blockCodes = blocks.map(block => block.block_code);
+
+// 4. Optional Chaining — Safe property access
+const userName = user?.profile?.name ?? 'Unknown User';
+```
+
+### Recommended Learning Resources:
+- **JavaScript.info** (Best resource — free)
+- **MDN Web Docs** (Official documentation)
+- **FreeCodeCamp** (Interactive exercises)
+
+---
+
+## 🔴 2. React 18 (Core Framework — 3 Weeks)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **Components** (Functional) | ⭐⭐⭐⭐⭐ | Building UI blocks |
+| **JSX Syntax** | ⭐⭐⭐⭐⭐ | HTML-like syntax in JavaScript |
+| **Props** | ⭐⭐⭐⭐⭐ | Component communication |
+| **State** (`useState`) | ⭐⭐⭐⭐⭐ | Managing component-level state |
+| **Effects** (`useEffect`) | ⭐⭐⭐⭐⭐ | Side effects, API calls |
+| **Event Handling** | ⭐⭐⭐⭐ | User interactions |
+| **Conditional Rendering** | ⭐⭐⭐⭐ | Dynamic UI logic |
+| **Lists & Keys** | ⭐⭐⭐⭐ | Rendering arrays |
+| **Forms** (Controlled) | ⭐⭐⭐⭐ | Block request form |
+| **Context API** | ⭐⭐⭐ | Global state (basic level) |
+| **Custom Hooks** | ⭐⭐⭐⭐⭐ | Reusable logic |
+| **React Router** | ⭐⭐⭐⭐ | Navigation between pages |
+
+### How It Will Be Used in Your Project:
+
+```jsx
+// 1. Block List Component
+function BlockList({ blocks }) {
+  return (
+    <div className="space-y-4">
+      {blocks.map(block => (
+        <BlockCard key={block.id} block={block} />
+      ))}
+    </div>
+  );
+}
+
+// 2. Block Card with State
+function BlockCard({ block }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  return (
+    <div className="bg-gray-800 p-4 rounded-lg">
+      <h3>{block.block_code}</h3>
+      <p>Status: {block.status}</p>
+      <button onClick={() => setIsExpanded(!isExpanded)}>
+        {isExpanded ? 'Collapse' : 'Expand'}
+      </button>
+      {isExpanded && <BlockDetails block={block} />}
+    </div>
+  );
+}
+
+// 3. Custom Hook — Fetch Blocks
+function useBlocks(corridorId) {
+  const [blocks, setBlocks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetch(`/api/v1/blocks/?corridor=${corridorId}`)
+      .then(res => res.json())
+      .then(data => {
+        setBlocks(data.data);
+        setLoading(false);
+      });
+  }, [corridorId]);
+  
+  return { blocks, loading };
+}
+
+// 4. React Router — Page Navigation
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/coa" element={<ControlRoomDashboard />} />
+        <Route path="/blocks/:id" element={<BlockDetailPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+### Recommended Learning Resources:
+- **React Official Docs** (react.dev — modern, excellent)
+- **Scrimba React Course** (Interactive, free)
+- **Codevolution YouTube** (Clear explanations in Bengali-friendly style)
+
+---
+
+## 🔴 3. Mapbox GL JS (Railway Map — 2 Weeks)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **Map Initialization** | ⭐⭐⭐⭐⭐ | Setting up a basic map |
+| **Markers** | ⭐⭐⭐⭐⭐ | Displaying station locations |
+| **Layers** (Line, Fill, Circle) | ⭐⭐⭐⭐⭐ | Showing track lines, block sections |
+| **Sources** (GeoJSON) | ⭐⭐⭐⭐⭐ | Loading railway network data |
+| **Event Listeners** | ⭐⭐⭐⭐ | Click, hover interactions |
+| **Popups** | ⭐⭐⭐⭐ | Showing station/block information |
+| **Animations** | ⭐⭐⭐⭐ | Simulating train movement |
+| **Dark Theme** | ⭐⭐⭐⭐⭐ | Matching control room aesthetic |
+| **3D Buildings** | ⭐⭐⭐ | Visualizing station areas |
+| **Custom Controls** | ⭐⭐⭐ | Zoom controls, layer toggles |
+
+### How It Will Be Used in Your Project:
+
+```jsx
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+function RailwayMap() {
+  const mapContainer = useRef(null);
+  const map = useRef(null);
+  
+  useEffect(() => {
+    // 1. Initialize Map with Dark Theme
+    mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/dark-v11', // Dark theme
+      center: [88.35, 22.58], // Howrah coordinates
+      zoom: 11,
+      pitch: 45 // 3D tilt
+    });
+    
+    // 2. Add Railway Track Line
+    map.current.on('load', () => {
+      map.current.addSource('railway-track', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [88.35, 22.58], // Howrah
+              [88.30, 22.55], // Santragachi
+              [88.15, 22.40]  // Kharagpur
+            ]
+          }
+        }
+      });
+      
+      map.current.addLayer({
+        id: 'track-line',
+        type: 'line',
+        source: 'railway-track',
+        paint: {
+          'line-color': '#00ff88', // Green for free section
+          'line-width': 5,
+          'line-blur': 2
+        }
+      });
+      
+      // 3. Add Station Markers
+      const stations = [
+        { name: 'Howrah Jn', coords: [88.35, 22.58], type: 'major' },
+        { name: 'Santragachi', coords: [88.30, 22.55], type: 'minor' },
+        { name: 'Kharagpur', coords: [88.15, 22.40], type: 'major' }
+      ];
+      
+      stations.forEach(station => {
+        new mapboxgl.Marker({
+          color: station.type === 'major' ? '#ff4444' : '#4488ff'
+        })
+          .setLngLat(station.coords)
+          .setPopup(new mapboxgl.Popup().setHTML(`
+            <strong>${station.name}</strong><br>
+            Status: Operational
+          `))
+          .addTo(map.current);
+      });
+      
+      // 4. Animate Train Movement
+      const train = new mapboxgl.Marker({ color: '#ffd700' })
+        .setLngLat([88.32, 22.56])
+        .addTo(map.current);
+      
+      let progress = 0;
+      function animateTrain() {
+        progress += 0.003;
+        if (progress > 1) progress = 0;
+        
+        // Interpolate position along track
+        const lng = 88.35 + (88.15 - 88.35) * progress;
+        const lat = 22.58 + (22.40 - 22.58) * progress;
+        
+        train.setLngLat([lng, lat]);
+        requestAnimationFrame(animateTrain);
+      }
+      animateTrain();
+    });
+    
+  }, []);
+  
+  return <div ref={mapContainer} style={{ width: '100%', height: '600px' }} />;
+}
+```
+
+### Recommended Learning Resources:
+- **Mapbox Official Docs** (docs.mapbox.com)
+- **Mapbox GL JS Examples** (Many ready-to-use examples)
+- **YouTube: "Mapbox GL JS Tutorial"** (Traversy Media)
+
+---
+
+## 🟡 4. Tailwind CSS (Styling — 1 Week)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **Utility Classes** | ⭐⭐⭐⭐⭐ | Fast, efficient styling |
+| **Flexbox** | ⭐⭐⭐⭐⭐ | Layout design |
+| **Grid** | ⭐⭐⭐⭐ | Complex layouts |
+| **Responsive Design** | ⭐⭐⭐⭐ | Mobile, tablet, desktop compatibility |
+| **Dark Mode** | ⭐⭐⭐⭐⭐ | Matches control room theme |
+| **Custom Colors** | ⭐⭐⭐⭐ | Brand-specific colors |
+| **Animations** | ⭐⭐⭐ | Smooth transitions |
+
+### How It Will Be Used in Your Project:
+
+```jsx
+// 1. Dark Theme Control Room Card
+<div className="bg-gray-900 border border-gray-700 rounded-lg p-6 shadow-lg">
+  <h2 className="text-2xl font-bold text-cyan-400 mb-4">
+    Block Control Panel
+  </h2>
+  <div className="space-y-3">
+    <div className="flex justify-between items-center">
+      <span className="text-gray-400">Free Sections:</span>
+      <span className="text-green-400 font-mono font-bold">12</span>
+    </div>
+    <div className="flex justify-between items-center">
+      <span className="text-gray-400">Blocked:</span>
+      <span className="text-red-400 font-mono font-bold">3</span>
+    </div>
+  </div>
+</div>
+
+// 2. Status Badge
+<span className={`
+  inline-flex items-center px-3 py-1 rounded-full text-xs font-bold
+  ${status === 'FREE' ? 'bg-green-500/20 text-green-400' : ''}
+  ${status === 'BLOCKED' ? 'bg-red-500/20 text-red-400' : ''}
+  ${status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400' : ''}
+`}>
+  {status}
+</span>
+
+// 3. Responsive Layout
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {blocks.map(block => <BlockCard key={block.id} block={block} />)}
+</div>
+```
+
+### Recommended Learning Resources:
+- **Tailwind Official Docs** (tailwindcss.com — excellent)
+- **Tailwind Labs YouTube** (Official channel)
+
+---
+
+## 🟡 5. Zustand (State Management — 3–4 Days)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **Basic Store** | ⭐⭐⭐⭐⭐ | Managing global state |
+| **Actions** | ⭐⭐⭐⭐⭐ | Updating state |
+| **Selectors** | ⭐⭐⭐⭐ | Performance optimization |
+| **Persistence** | ⭐⭐⭐ | Sync with localStorage |
+
+### How It Will Be Used in Your Project:
+
+```javascript
+// stores/authStore.js
+import { create } from 'zustand';
+
+export const useAuthStore = create((set) => ({
+  user: null,
+  accessToken: null,
+  isAuthenticated: false,
+  
+  login: (user, token) => set({ 
+    user, 
+    accessToken: token, 
+    isAuthenticated: true 
+  }),
+  
+  logout: () => set({ 
+    user: null, 
+    accessToken: null, 
+    isAuthenticated: false 
+  })
+}));
+
+// stores/uiStore.js
+export const useUIStore = create((set) => ({
+  sidebarOpen: true,
+  emergencyAlert: null,
+  
+  toggleSidebar: () => set((state) => ({ 
+    sidebarOpen: !state.sidebarOpen 
+  })),
+  
+  setEmergencyAlert: (alert) => set({ emergencyAlert: alert })
+}));
+
+// Component usage
+function Dashboard() {
+  const { user, isAuthenticated } = useAuthStore();
+  const { emergencyAlert } = useUIStore();
+  
+  if (!isAuthenticated) return <LoginPage />;
+  
+  return (
+    <div>
+      <h1>Welcome, {user.name}</h1>
+      {emergencyAlert && <EmergencyModal alert={emergencyAlert} />}
+    </div>
+  );
+}
+```
+
+---
+
+## 🟡 6. WebSocket (Real-time Updates — 1 Week)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **WebSocket API** | ⭐⭐⭐⭐⭐ | Real-time connection |
+| **Event Handling** | ⭐⭐⭐⭐⭐ | Processing incoming messages |
+| **Reconnection Logic** | ⭐⭐⭐⭐ | Maintaining stable connection |
+| **JSON Parsing** | ⭐⭐⭐⭐ | Handling message format |
+
+### How It Will Be Used in Your Project:
+
+```javascript
+// hooks/useCorridorSocket.js
+import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+
+export function useCorridorSocket(corridorCode) {
+  const ws = useRef(null);
+  const queryClient = useQueryClient();
+  
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    ws.current = new WebSocket(
+      `ws://localhost:8001/ws/v1/corridor/${corridorCode}/?token=${token}`
+    );
+    
+    ws.current.onopen = () => {
+      console.log('WebSocket connected');
+    };
+    
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'INVALIDATE_CACHE') {
+        // Invalidate TanStack Query cache
+        queryClient.invalidateQueries({ 
+          queryKey: ['blocks', data.entity_id] 
+        });
+      }
+      
+      if (data.type === 'EMERGENCY_ALERT') {
+        // Show emergency modal
+        useUIStore.getState().setEmergencyAlert(data.payload);
+      }
+    };
+    
+    ws.current.onclose = () => {
+      console.log('WebSocket disconnected');
+      // Reconnection logic
+      setTimeout(() => {
+        // Reconnect after 3 seconds
+      }, 3000);
+    };
+    
+    return () => {
+      ws.current?.close();
+    };
+  }, [corridorCode]);
+}
+```
+
+---
+
+## 🟢 7. TanStack Query (Advanced Caching — 1 Week)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **useQuery** | ⭐⭐⭐⭐⭐ | Fetching data |
+| **useMutation** | ⭐⭐⭐⭐⭐ | Updating data |
+| **Cache Invalidation** | ⭐⭐⭐⭐⭐ | Real-time synchronization |
+| **Optimistic Updates** | ⭐⭐⭐⭐ | Instant UI feedback |
+| **Query Keys** | ⭐⭐⭐⭐ | Organizing cache |
+
+### How It Will Be Used in Your Project:
+
+```javascript
+// hooks/useBlocks.js
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../services/api';
+
+export function useBlocks(corridorId) {
+  return useQuery({
+    queryKey: ['blocks', corridorId],
+    queryFn: async () => {
+      const response = await api.get(`/blocks/?corridor=${corridorId}`);
+      return response.data.data;
+    },
+    staleTime: 30000, // 30 seconds
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useSanctionBlock() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (blockId) => api.post(`/blocks/${blockId}/sanction/`),
+    onSuccess: () => {
+      // Invalidate blocks cache
+      queryClient.invalidateQueries({ queryKey: ['blocks'] });
+    },
+  });
+}
+
+// Component usage
+function BlockList({ corridorId }) {
+  const { data: blocks, isLoading } = useBlocks(corridorId);
+  const sanctionMutation = useSanctionBlock();
+  
+  if (isLoading) return <LoadingSpinner />;
+  
+  return (
+    <div>
+      {blocks.map(block => (
+        <BlockCard 
+          key={block.id} 
+          block={block}
+          onSanction={() => sanctionMutation.mutate(block.id)}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## 🟢 8. Vite (Build Tool — 2–3 Days)
+
+### What You Need to Learn:
+
+| Topic | Depth Level | Why It's Needed |
+|-------|-------------|----------------|
+| **Project Setup** | ⭐⭐⭐⭐ | Initial configuration |
+| **Dev Server** | ⭐⭐⭐⭐ | Hot Module Replacement |
+| **Build Configuration** | ⭐⭐⭐ | Production build |
+| **Environment Variables** | ⭐⭐⭐ | API URLs, tokens |
+
+### How It Will Be Used in Your Project:
+
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:8001',
+        ws: true,
+      },
+    },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+  },
+});
+
+// .env
+VITE_API_URL=http://localhost:8000/api/v1
+VITE_WS_URL=ws://localhost:8001
+VITE_MAPBOX_TOKEN=pk.eyJ1...
+```
+
+---
+
+## 📅 Learning Timeline (8 Weeks)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  WEEK 1-2: JavaScript ES6+ Foundation                          │
+│  ├─ Variables, Functions, Objects                              │
+│  ├─ Async/Await, Promises                                      │
+│  ├─ Array Methods, Destructuring                               │
+│  └─ Practice: 20+ exercises                                    │
+├─────────────────────────────────────────────────────────────────┤
+│  WEEK 3-5: React 18 Deep Dive                                  │
+│  ├─ Components, Props, State                                   │
+│  ├─ Hooks (useState, useEffect, custom hooks)                  │
+│  ├─ React Router                                               │
+│  └─ Practice: Build 5 small apps                               │
+├─────────────────────────────────────────────────────────────────┤
+│  WEEK 6: Mapbox GL JS                                          │
+│  ├─ Map initialization, markers, layers                        │
+│  ├─ GeoJSON, animations                                        │
+│  └─ Practice: Build railway map                                │
+├─────────────────────────────────────────────────────────────────┤
+│  WEEK 7: Tailwind CSS + Zustand                                │
+│  ├─ Utility classes, dark theme                                │
+│  ├─ State management                                           │
+│  └─ Practice: Style dashboard                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  WEEK 8: WebSocket + TanStack Query + Integration              │
+│  ├─ Real-time updates                                          │
+│  ├─ API caching                                                │
+│  └─ Practice: Connect to backend                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🎯 Final Recommendations
+
+### ✅ Must Learn:
+1. **JavaScript ES6+** — Foundation for everything
+2. **React 18** — Core UI framework
+3. **Mapbox GL JS** — Railway map visualization
+4. **Tailwind CSS** — Styling and layout
+
+### ⚠️ Should Learn:
+1. **Zustand** — State management
+2. **WebSocket** — Real-time updates
+3. **TanStack Query** — Efficient API caching
+
+### 🟢 Optional (Nice to Have):
+1. **TypeScript** — Type safety (recommended but not mandatory)
+2. **Vite** — Build tool basics
+
+---
+
+## 🚀 Next Steps
+
+Would you like me to start immediately with one of the following?
+
+**Option 1:** A complete tutorial on JavaScript ES6+ (with practical examples)?
+
+**Option 2:** Step-by-step guide to React 18?
+
+**Option 3:** Implementation of Mapbox GL JS for a railway map?
+
+**Option 4:** Full frontend project setup (folder structure, dependencies)?
+
+Let me know which one you’d like to begin with! 🎨🚀
+
+
+I've reviewed your old files. Now I'm providing you with a complete roadmap:
+
+---
+
+## 📊 Current Project Status
+
+```
+✅ Phase 0-6: Backend Complete (Django + PostgreSQL + Redis + WebSocket + Ontology)
+❌ Phase 7: Frontend (React + Mapbox) - Not started yet
+```
+
+---
+
+## 🔍 Step 1: Backend Testing (Let's Check This First)
+
+### 1.1 Check if Docker Containers Are Running
+
+```powershell
+# Navigate to project folder
+cd railway-ai-block-platform
+
+# Check status of all containers
+docker-compose ps
+```
+
+**Expected Output:**
+```
+NAME                      STATUS
+railway_postgres          Up (healthy)
+railway_redis             Up (healthy)
+railway_backend           Up
+railway_channels          Up
+railway_celery_high       Up
+railway_celery_notify     Up
+railway_celery_ontology   Up
+railway_celery_default    Up
+railway_celery_beat       Up
+```
+
+If any container shows `Down`:
+```powershell
+docker-compose up -d
+```
+
+### 1.2 Check Database Migrations
+
+```powershell
+# Enter Django container
+docker-compose exec backend bash
+
+# Inside the container, check migrations
+python manage.py showmigrations
+
+# Ensure all migrations are applied (all should be marked with [X])
+```
+
+If any migration is pending:
+```bash
+python manage.py migrate
+```
+
+### 1.3 API Health Check
+
+```powershell
+# Test backend API health
+curl http://localhost:8000/api/v1/health/
+
+# Expected response:
+# {"status": "alive", "timestamp": "...", "version": "1.0.0"}
+```
+
+### 1.4 Verify Demo Data in Database
+
+```powershell
+docker-compose exec backend python manage.py shell
+```
+
+```python
+# Inside the shell
+from apps.blocks.models import Corridor, Block
+from apps.trains.models import Train
+
+print(f"Corridors: {Corridor.objects.count()}")
+print(f"Blocks: {Block.objects.count()}")
+print(f"Trains: {Train.objects.count()}")
+
+# If output is 0, demo data needs to be seeded
+exit()
+```
+
+To seed demo data:
+```powershell
+docker-compose exec backend python manage.py shell < scripts/seed_demo_data.py
+```
+
+---
+
+## 🎨 Step 2: Frontend Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FRONTEND DEVELOPMENT ROADMAP                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Phase 7.1: Project Setup (Day 1)                                  │
+│  ├─ Create React 18 + Vite project                                │
+│  ├─ Set up Tailwind CSS + Dark theme                              │
+│  ├─ Create folder structure                                       │
+│  └─ Basic routing setup                                           │
+│                                                                     │
+│  Phase 7.2: Authentication (Days 1–2)                              │
+│  ├─ Build Login page                                              │
+│  ├─ JWT token management (Zustand store)                          │
+│  ├─ Axios interceptor setup                                       │
+│  └─ Role-based redirect (ENG/TRD/SNT/COA)                         │
+│                                                                     │
+│  Phase 7.3: Core Pages (Days 2–3)                                  │
+│  ├─ Department Dashboard (ENG/TRD/SNT)                            │
+│  ├─ Block Request Form                                            │
+│  ├─ Block List + Approval UI                                      │
+│  └─ Control Room Dashboard (COA)                                  │
+│                                                                     │
+│  Phase 7.4: Map Integration (Days 3–4)                             │
+│  ├─ Set up Mapbox GL JS                                           │
+│  ├─ West Bengal rail lines (GeoJSON)                              │
+│  ├─ Block overlay (color-coded)                                   │
+│  └─ Animated train markers                                        │
+│                                                                     │
+│  Phase 7.5: Real-time Features (Days 4–5)                          │
+│  ├─ WebSocket connection (useCorridorSocket hook)                 │
+│  ├─ Live block status updates                                     │
+│  ├─ Emergency alert modal + audio chime                           │
+│  └─ Notification bell                                             │
+│                                                                     │
+│  Phase 7.6: Polish + Demo (Days 5–6)                               │
+│  ├─ Big screen mode                                               │
+│  ├─ PDF report export                                             │
+│  ├─ Demo data injection                                           │
+│  └─ End-to-end testing                                            │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Step 3: Pre-Frontend Setup Checklist
+
+### ✅ Backend Ready Checklist:
+
+```
+□ All Docker containers running
+□ PostgreSQL migrations applied
+□ API health check passing
+□ Demo data seeded (corridors, blocks, trains)
+□ WebSocket server (Daphne) running on port 8001
+□ CORS configured for localhost:3000
+```
+
+### ✅ Frontend Setup Checklist:
+
+```
+□ Node.js 18+ installed (will be inside Docker)
+□ React 18 + Vite project created
+□ Tailwind CSS configured
+□ Mapbox access token ready
+□ Backend API URL configured
+□ WebSocket URL configured
+```
+
+---
+
+## 📁 Step 4: Frontend Folder Structure
+
+```
+railway-ai-block-platform/
+├── backend/                    # ✅ Already exists
+├── frontend/                   # 🆕 To be created
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ui/            # Button, Badge, Card, Modal
+│   │   │   ├── layout/        # Sidebar, Header, Footer
+│   │   │   ├── map/           # RailMap, TrainMarker, BlockOverlay
+│   │   │   └── common/        # Loader, ErrorBoundary
+│   │   ├── pages/
+│   │   │   ├── LoginPage.jsx
+│   │   │   ├── EngDashboard.jsx
+│   │   │   ├── TrdDashboard.jsx
+│   │   │   ├── SntDashboard.jsx
+│   │   │   ├── ControlRoomDashboard.jsx
+│   │   │   ├── BlockRequestPage.jsx
+│   │   │   ├── BlockDetailPage.jsx
+│   │   │   └── NetworkMapPage.jsx
+│   │   ├── hooks/
+│   │   │   ├── useAuth.js
+│   │   │   ├── useCorridorSocket.js
+│   │   │   ├── useBlocks.js
+│   │   │   └── useNotifications.js
+│   │   ├── stores/
+│   │   │   ├── authStore.js   # Zustand
+│   │   │   ├── uiStore.js
+│   │   │   └── mapStore.js
+│   │   ├── services/
+│   │   │   ├── api.js         # Axios instance
+│   │   │   ├── authService.js
+│   │   │   ├── blockService.js
+│   │   │   └── trainService.js
+│   │   ├── utils/
+│   │   │   ├── formatters.js
+│   │   │   └── validators.js
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── public/
+│   │   └── vite.svg
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   └── Dockerfile
+├── docker-compose.yml          # ✅ Add frontend service
+└── .env                        # ✅ Add VITE_API_URL, VITE_WS_URL
+```
+
+---
+
+## 🎯 What Should You Do Now?
+
+I’m offering you **3 options**:
+
+### Option 1: First, Test the Backend (Recommended) ⭐  
+- Check Docker containers  
+- Run API health check  
+- Verify demo data  
+- Then start frontend development  
+
+### Option 2: Start Frontend Setup Immediately  
+- Create React + Vite project  
+- Set up Tailwind CSS  
+- Build basic folder structure  
+
+### Option 3: Do Both Simultaneously  
+- Run backend tests while setting up frontend in parallel  
+
+---
+
+## ❓ Your Decision
+
+**Which one do you prefer?**
+
+1️⃣ **First, test the backend** – I’ll guide you step by step with commands
+
+2️⃣ **Start frontend right away** – I’ll set up the React project immediately
+
+3️⃣ **Do both at once** – Backend testing + Frontend setup in parallel
+
+**Tell me which option you’d like — I’ll get started right away!** 🚂🚀

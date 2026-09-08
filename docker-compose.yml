@@ -1,100 +1,296 @@
+# ============================================
+# Railway AI Platform - Master Docker Compose Setup
+# Multi-Service Architecture: Backend, Frontend,
+# PostgreSQL + PostGIS, Redis, Channels, Celery & Observability
+# ============================================
+
 services:
-  db:
+  # ============================================
+  # PostgreSQL 15 + PostGIS 3.3 (Spatial Database)
+  # ============================================
+  postgres:
     image: postgis/postgis:15-3.3
-    container_name: railway_db
+    container_name: railway_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: railway_sih
-      POSTGRES_USER: railway_user
-      POSTGRES_PASSWORD: railway_password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME:-railway_sih}
+      POSTGRES_USER: ${DB_USER:-railway_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-railway_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_postgres.sh:/docker-entrypoint-initdb.d/init_postgres.sh:ro
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U railway_user -d railway_sih"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-railway_user} -d ${DB_NAME:-railway_sih}"]
+      interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - railway_network
 
+  # ============================================
+  # Redis 7 (Cache, Channel Layer & Task Broker)
+  # ============================================
   redis:
-    image: redis:7.2-alpine
+    image: redis:7-alpine
     container_name: railway_redis
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - railway_network
 
-  daphne:
+  # ============================================
+  # Django Backend (REST API Server)
+  # ============================================
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: railway_daphne
-    command: python -m daphne -b 0.0.0.0 -p 8000 railway_sih.asgi:application
+    container_name: railway_backend
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn railway_sih.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120 --reload"
+    volumes:
+      - .:/app
+      - backend_static:/app/staticfiles
+      - backend_media:/app/media
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      DEBUG: "True"
-      DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
-      REDIS_URL: redis://redis:6379/0
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - .:/app
     networks:
       - railway_network
 
-  celery:
+  # ============================================
+  # Daphne ASGI Server (Real-Time WebSockets)
+  # ============================================
+  channels:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: railway_celery
-    command: celery -A railway_sih worker -l info
+    container_name: railway_channels
+    restart: unless-stopped
+    command: python -m daphne -b 0.0.0.0 -p 8001 railway_sih.asgi:application
+    volumes:
+      - .:/app
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
     environment:
-      DEBUG: "False"
-      DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
-      REDIS_URL: redis://redis:6379/0
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - .:/app
     networks:
       - railway_network
 
+  # ============================================
+  # Celery Worker - High Priority (Conflict Detection)
+  # ============================================
+  celery-high:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: railway_celery_high
+    restart: unless-stopped
+    command: celery -A railway_sih worker -Q high -c 4 -l info -n worker_high@%h
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - railway_network
+
+  # ============================================
+  # Celery Worker - Notifications (SMS & WebSockets)
+  # ============================================
+  celery-notify:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: railway_celery_notify
+    restart: unless-stopped
+    command: celery -A railway_sih worker -Q notify -c 4 -l info -n worker_notify@%h
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - railway_network
+
+  # ============================================
+  # Celery Worker - Ontology (HermiT Reasoner)
+  # ============================================
+  celery-ontology:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: railway_celery_ontology
+    restart: unless-stopped
+    command: celery -A railway_sih worker -Q ontology -c 2 -l info -n worker_ontology@%h
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    networks:
+      - railway_network
+
+  # ============================================
+  # Celery Worker - Default & Low Priority
+  # ============================================
+  celery-default:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: railway_celery_default
+    restart: unless-stopped
+    command: celery -A railway_sih worker -Q default,low -c 4 -l info -n worker_default@%h
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - railway_network
+
+  # ============================================
+  # Celery Beat (Scheduled Operational Rollups)
+  # ============================================
   celery-beat:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: railway_celery_beat
+    restart: unless-stopped
     command: celery -A railway_sih beat -l info
-    environment:
-      DEBUG: "False"
-      DATABASE_URL: postgresql://railway_user:railway_password@db:5432/railway_sih
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
       - .:/app
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - railway_network
 
+  # ============================================
+  # React Frontend (Vite Dev Server)
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: railway_frontend
+    restart: unless-stopped
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+      - VITE_WS_URL=ws://localhost:8001
+      - VITE_MAPBOX_TOKEN=${MAPBOX_ACCESS_TOKEN:-}
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+      - channels
+    networks:
+      - railway_network
+
+  # ============================================
+  # Nginx Reverse Proxy (Production Profile)
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: railway_nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - backend_static:/var/www/static:ro
+      - backend_media:/var/www/media:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - channels
+      - frontend
+    networks:
+      - railway_network
+    profiles:
+      - production
+
+  # ============================================
+  # Prometheus Exporter & Grafana Observability
+  # ============================================
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: railway_prometheus
@@ -109,13 +305,13 @@ services:
     networks:
       - railway_network
     depends_on:
-      - daphne
+      - backend
 
   grafana:
-    image: grafana/grafana:10.2.2
+    image: grafana:10.2.2
     container_name: railway_grafana
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -131,9 +327,17 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+  backend_static:
+    driver: local
+  backend_media:
+    driver: local
   prometheus_data:
+    driver: local
   grafana_data:
+    driver: local
 
 networks:
   railway_network:

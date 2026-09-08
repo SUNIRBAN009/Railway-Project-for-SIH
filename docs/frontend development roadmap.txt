@@ -1,0 +1,202 @@
+You're absolutely right! Our specification files do include **frontend architecture** (`01-tech-infra/01-frontend-core.md`), but we don’t have a detailed, **phase-by-phase, task-based frontend development roadmap**—similar to what we have for the backend.
+
+Right now, I’m creating a complete **Frontend Development Roadmap** for you:
+
+---
+
+# 🎨 Frontend Development Roadmap — Complete Breakdown
+
+## 📊 Master Frontend Progress Tracker
+
+| Phase | Title | Status | Tasks | % Complete |
+|-------|-------|--------|-------|------------|
+| **FE-Phase 0** | Environment & Project Setup | ⬜ Not Started | 8 | 0% |
+| **FE-Phase 1** | Core Infrastructure & Auth | ⬜ Not Started | 10 | 0% |
+| **FE-Phase 2** | Layout & Navigation Shell | ⬜ Not Started | 6 | 0% |
+| **FE-Phase 3** | Department Dashboards (ENG/TRD/SNT) | ⬜ Not Started | 12 | 0% |
+| **FE-Phase 4** | Control Room Dashboard (COA) | ⬜ Not Started | 10 | 0% |
+| **FE-Phase 5** | Interactive Map & Visualization | ⬜ Not Started | 8 | 0% |
+| **FE-Phase 6** | Real-Time WebSocket Integration | ⬜ Not Started | 6 | 0% |
+| **FE-Phase 7** | Advanced Features & Polish | ⬜ Not Started | 8 | 0% |
+
+**Total Frontend Tasks: 68**
+
+---
+
+## 🚀 FE-Phase 0: Environment & Project Setup (Day 1, Morning)
+
+### Task List:
+- [ ] `FE-TSK-001`: Initialize React 18 + Vite project with TypeScript
+- [ ] `FE-TSK-002`: Install core dependencies (React Router, Zustand, TanStack Query, Axios)
+- [ ] `FE-TSK-003`: Install UI dependencies (Tailwind CSS, Lucide React icons, date-fns)
+- [ ] `FE-TSK-004`: Install map dependencies (Mapbox GL JS)
+- [ ] `FE-TSK-005`: Configure Tailwind with dark theme tokens (control-bg, status colors, dept colors)
+- [ ] `FE-TSK-006`: Setup Vite proxy configuration (backend API + WebSocket)
+- [ ] `FE-TSK-007`: Create folder structure (components, pages, hooks, stores, services, utils)
+- [ ] `FE-TSK-008`: Configure ESLint + Prettier for code quality
+
+### Deliverables:
+- ✅ Working React app with `npm run dev`
+- ✅ Tailwind dark theme active
+- ✅ Folder structure ready
+- ✅ Proxy to backend working
+
+---
+
+## 🔐 FE-Phase 1: Core Infrastructure & Authentication (Day 1, Afternoon)
+
+### Task List:
+- [ ] `FE-TSK-009`: Create Axios instance with JWT interceptor (`services/api.ts`)
+- [ ] `FE-TSK-010`: Create auth store with Zustand (`stores/authStore.ts`)
+- [ ] `FE-TSK-011`: Implement token refresh logic (auto-refresh on 401)
+- [ ] `FE-TSK-012`: Create UI store for global state (`stores/uiStore.ts`)
+- [ ] `FE-TSK-013`: Create map store for map state (`stores/mapStore.ts`)
+- [ ] `FE-TSK-014`: Build Login page with role selector (`pages/LoginPage.tsx`)
+- [ ] `FE-TSK-015`: Implement role-based redirect after login
+- [ ] `FE-TSK-016`: Create ProtectedRoute component with role guards
+- [ ] `FE-TSK-017`: Create AuthContext provider
+- [ ] `FE-TSK-018`: Setup React Query client with default options
+
+### Deliverables:
+- ✅ Login page working
+- ✅ JWT token management
+- ✅ Role-based routing
+- ✅ Protected routes
+
+---
+
+## 🧭 FE-Phase 2: Layout & Navigation Shell (Day 2, Morning)
+
+### Task List:
+- [ ] `FE-TSK-019`: Build Sidebar component with department menu
+- [ ] `FE-TSK-020`: Build Header component with user profile + notifications bell
+- [ ] `FE-TSK-021`: Create DepartmentLayout wrapper (ENG/TRD/SNT)
+- [ ] `FE-TSK-022`: Create ControlRoomLayout wrapper (COA big screen)
+- [ ] `FE-TSK-023`: Build NotificationBell component with unread count
+- [ ] `FE-TSK-024`: Create NotificationPanel slide-over component
+
+### Deliverables:
+- ✅ Sidebar navigation
+- ✅ Header with notifications
+- ✅ Layout wrappers for different roles
+
+---
+
+## 🏢 FE-Phase 3: Department Dashboards (ENG/TRD/SNT) (Day 2, Afternoon – Day 3)
+
+### Task List:
+- [ ] `FE-TSK-025`: Build EngDashboard page with block request stats
+- [ ] `FE-TSK-026`: Build TrdDashboard page with OHE maintenance stats
+- [ ] `FE-TSK-027`: Build SntDashboard page with signal maintenance stats
+- [ ] `FE-TSK-028`: Create BlockRequestForm component (multi-step wizard)
+- [ ] `FE-TSK-029`: Create BlockList component with filters (status, date, corridor)
+- [ ] `FE-TSK-030`: Create BlockDetailPage with timeline + conflicts
+- [ ] `FE-TSK-031`: Create BlockTimeline Gantt chart component
+- [ ] `FE-TSK-032`: Create CrewAssignment component
+- [ ] `FE-TSK-033`: Create MaterialInventory component
+- [ ] `FE-TSK-034`: Create Calendar view for scheduled blocks
+- [ ] `FE-TSK-035`: Implement block approval workflow UI (JE → SE → COA)
+- [ ] `FE-TSK-036`: Create ConflictAlert component with AI resolution display
+
+### Deliverables:
+- ✅ 3 department dashboards
+- ✅ Block request form
+- ✅ Block list + detail pages
+- ✅ Timeline visualization
+
+---
+
+## 🎛️ FE-Phase 4: Control Room Dashboard (COA) (Day 3, Afternoon – Day 4)
+
+### Task List:
+- [ ] `FE-TSK-037`: Build ControlRoomDashboard page with live stats
+- [ ] `FE-TSK-038`: Create PendingBlocksQueue component (real-time updates)
+- [ ] `FE-TSK-039`: Create BlockSanctionPanel with one-click approval
+- [ ] `FE-TSK-040`: Create ConflictResolutionPanel with AI suggestions
+- [ ] `FE-TSK-041`: Create TrainImpactPanel showing affected trains
+- [ ] `FE-TSK-042`: Create EmergencyBlockButton with confirmation modal
+- [ ] `FE-TSK-043`: Create CoPossessionOptimizer component
+- [ ] `FE-TSK-044`: Create DepartmentChatRoom component (WebSocket)
+- [ ] `FE-TSK-045`: Create WeatherAdvisoryPanel component
+- [ ] `FE-TSK-046`: Build BigScreenMode page (fullscreen control room)
+
+### Deliverables:
+- ✅ COA dashboard with all panels
+- ✅ Real-time block queue
+- ✅ One-click sanction
+- ✅ Big screen mode
+
+---
+
+## 🗺️ FE-Phase 5: Interactive Map & Visualization (Day 4, Afternoon – Day 5)
+
+### Task List:
+- [ ] `FE-TSK-047`: Create RailMap component with Mapbox GL JS
+- [ ] `FE-TSK-048`: Load West Bengal railway network GeoJSON
+- [ ] `FE-TSK-049`: Create SectionLayer component (color-coded status)
+- [ ] `FE-TSK-050`: Create TrainMarker component (animated)
+- [ ] `FE-TSK-051`: Create BlockOverlay component (highlight active blocks)
+- [ ] `FE-TSK-052`: Create MapPopup component (click for details)
+- [ ] `FE-TSK-053`: Build NetworkMapPage with full controls
+- [ ] `FE-TSK-054`: Create HeatmapLayer for block density
+
+### Deliverables:
+- ✅ Interactive railway map
+- ✅ Animated train markers
+- ✅ Color-coded sections
+- ✅ Block overlays
+
+---
+
+## 📡 FE-Phase 6: Real-Time WebSocket Integration (Day 5, Afternoon)
+
+### Task List:
+- [ ] `FE-TSK-055`: Create useCorridorSocket custom hook
+- [ ] `FE-TSK-056`: Implement WebSocket connection with JWT auth
+- [ ] `FE-TSK-057`: Handle cache invalidation frames (push-to-invalidate)
+- [ ] `FE-TSK-058`: Handle block update events
+- [ ] `FE-TSK-059`: Handle conflict alert events
+- [ ] `FE-TSK-060`: Handle emergency broadcast events
+
+### Deliverables:
+- ✅ WebSocket connection
+- ✅ Real-time updates
+- ✅ Cache invalidation
+
+---
+
+## ✨ FE-Phase 7: Advanced Features & Polish (Day 6)
+
+### Task List:
+- [ ] `FE-TSK-061`: Create AudioChime component for emergency alerts
+- [ ] `FE-TSK-062`: Create EmergencyModal component (full-screen)
+- [ ] `FE-TSK-063`: Build PDF report download functionality
+- [ ] `FE-TSK-064`: Create CSV export functionality
+- [ ] `FE-TSK-065`: Implement dark/light theme toggle
+- [ ] `FE-TSK-066`: Add loading skeletons for all pages
+- [ ] `FE-TSK-067`: Add error boundaries
+- [ ] `FE-TSK-068`: Final UI polish + responsive design
+
+### Deliverables:
+- ✅ Emergency alerts with audio
+- ✅ PDF/CSV export
+- ✅ Loading states
+- ✅ Error handling
+
+---
+
+## 📋 Frontend File Creation Sequence
+
+Now I’ll guide you through **creating one file at a time**, just like we did with the backend:
+
+### Let’s start with **FE-Phase 0**?
+
+**First file:** `frontend/package.json`
+
+Creating this file will kickstart your React project setup.
+
+**Would you like me to begin right away with `package.json`?**
+
+Or would you prefer that I first create a **Frontend Architecture Diagram** showing which components belong to which pages, and which stores manage which data?
+
+Let me know which one you’d like to start with! 🚂🎨

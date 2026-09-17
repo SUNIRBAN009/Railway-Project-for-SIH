@@ -87,11 +87,11 @@ if USE_POSTGIS:
     DATABASES = {
         "default": {
             "ENGINE": "django.contrib.gis.db.backends.postgis",
-            "NAME": config("POSTGRES_DB", default="railway_sih"),
-            "USER": config("POSTGRES_USER", default="railway_user"),
-            "PASSWORD": config("POSTGRES_PASSWORD", default="railway_password"),
-            "HOST": config("POSTGRES_HOST", default="db"),
-            "PORT": config("POSTGRES_PORT", default="5432"),
+            "NAME": config("POSTGRES_DB", default=config("DB_NAME", default="railway_sih")),
+            "USER": config("POSTGRES_USER", default=config("DB_USER", default="railway_user")),
+            "PASSWORD": config("POSTGRES_PASSWORD", default=config("DB_PASSWORD", default="railway_password")),
+            "HOST": config("POSTGRES_HOST", default=config("DB_HOST", default="postgres")),
+            "PORT": config("POSTGRES_PORT", default=config("DB_PORT", default="5432")),
         }
     }
 else:

@@ -11,6 +11,56 @@
 
 ---
 
+## 0. Quick Start Guide: New Machine Setup & Single-Command Startup
+
+### Process 1: Setup on a New System (Step-by-Step)
+1. **Prerequisites Installation**:
+   - Install **Docker Desktop**: [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) (Enable WSL2 backend on Windows). Ensure Docker Desktop is running.
+   - Install **Git**: [git-scm.com](https://git-scm.com/)
+2. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/SUNIRBAN009/Railway-Project-for-SIH.git
+   cd Railway-Project-for-SIH
+   ```
+3. **Environment Configuration**:
+   - The startup script auto-copies `.env.example` to `.env`. If doing manually:
+     ```powershell
+     Copy-Item .env.example .env
+     ```
+4. **First-Time Build & Automated Priming**:
+   - Execute the startup engine:
+     ```powershell
+     .\scripts\start.ps1
+     ```
+     *(Or double click `Run Railway Project.bat` on your Desktop / in `scripts`)*
+
+---
+
+### Process 2: Running the Project (Single Command)
+Anytime you want to start all platform microservices, run:
+
+```powershell
+.\scripts\start.ps1
+```
+*(Or Linux/macOS: `./scripts/start.sh` | Or Docker native: `docker compose up -d`)*
+
+#### Access URLs & Service Dashboard:
+- **Frontend SPA (Vite + React)**: [http://localhost:3000](http://localhost:3000)
+- **Backend REST API**: [http://localhost:8000](http://localhost:8000)
+- **Interactive Swagger Docs**: [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
+- **Django Admin Console**: [http://localhost:8000/admin/](http://localhost:8000/admin/) (`admin` / `admin123`)
+- **Real-Time WebSocket ASGI**: `ws://localhost:8001/ws/`
+- **Grafana Observability**: [http://localhost:3001](http://localhost:3001) (`admin` / `admin`)
+- **Prometheus Metrics**: [http://localhost:9090](http://localhost:9090)
+
+#### Pre-Seeded Demonstration Staff Credentials (Password: `railway@123`):
+- `coa_delhi_chief` (Chief Controller - Operations)
+- `eng_track_pway` (Department Engineer - Civil/P-Way)
+- `trd_ohe_power` (Department Engineer - Electrical/OHE)
+- `snt_signal_telecom` (Department Engineer - S&T)
+
+---
+
 ## 1. Master Progress Dashboard
 
 | Phase Code  | Phase Title                                                            |    Status    | Completed | Total Tasks | % Complete |

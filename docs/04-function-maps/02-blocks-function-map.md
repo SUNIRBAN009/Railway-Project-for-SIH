@@ -63,34 +63,36 @@
 - **Task Signature:** `apps.blocks.tasks.sweep_conflicts(block_id: str) -> dict`
 - **Queue:** `high`
 - **Processing Logic:**
-  1. Fetch block record with spatial geometry from MySQL.
-  2. **Spatial-Temporal Database Query:** Find intersecting candidate train schedules:
+  1. Fetch block record with spatial geometry from PostgreSQL.
+  2. **Spatial-Temporal Database Query (PostGIS):** Find intersecting candidate train schedules:
      ```sql
      SELECT ts.id, ts.train_id, ts.scheduled_arrival_time, ts.scheduled_departure_time, t.train_number, t.train_type
-     FROM train_schedules ts
-     JOIN trains t ON ts.train_id = t.id
+     FROM trains_trainschedule ts
+     JOIN trains_train t ON ts.train_id = t.id
      WHERE ts.km_milestone BETWEEN :start_km AND :end_km
-       AND ts.scheduled_departure_time >= TIME(:scheduled_start_time)
-       AND ts.scheduled_arrival_time <= TIME(:scheduled_end_time);
+       AND ts.scheduled_departure_time >= :scheduled_start_time
+       AND ts.scheduled_arrival_time <= :scheduled_end_time;
      ```
-  3. **Parallel Block Overlap Query:**
+  3. **Parallel Block Overlap Query (PostGIS):**
      ```sql
      SELECT id, block_code, department_code, work_type
-     FROM blocks
+     FROM blocks_block
      WHERE corridor_id = :corridor_id
        AND line_type = :line_type
        AND id != :block_id
        AND status IN ('PENDING_APPROVAL', 'COORDINATED', 'SANCTIONED', 'ACTIVE')
        AND scheduled_start_time < :scheduled_end_time
        AND scheduled_end_time > :scheduled_start_time
-       AND ST_Intersects(corridor_geometry, :corridor_geom);
+       AND ST_Intersects(spatial_extent, :block_geom);
      ```
-  4. For each conflict detected, evaluate severity:
-     - If conflicting train is `PRESTIGE_SUPERFAST` (Rajdhani/Shatabdi) -> Severity: `CRITICAL`.
-     - If conflicting train is `PASSENGER_EXPRESS` -> Severity: `HIGH`.
-     - If parallel block is from another department -> Check if co-possession possible. If co-possession compatible (ENG tamping + TRD OHE inspection on same slot) -> Mark as `CO_POSSESSION_OPPORTUNITY`. Otherwise -> Severity: `HIGH`.
-  5. Insert detected conflicts into `block_conflicts`.
-  6. Emit `blocks.conflict.detected` event over Redis.
+  4. **Expert System AI - PriorityScorer:** For each conflict detected, evaluate severity and priority score:
+     - `PriorityScorer.score_train(train_type)` vs `PriorityScorer.score_block(block)`
+     - Train: PRESTIGE (100) -> CRITICAL, EXPRESS (75) -> HIGH, FREIGHT (40) -> MEDIUM.
+  5. **Expert System AI - ResolutionEngine:** Pipe unresolved conflicts into the strategy engine:
+     - Apply `CoPossessionStrategy` (Feature #98 Shadow Block).
+     - Apply `TimeSplitStrategy`, `DiversionStrategy`, or `RescheduleStrategy`.
+  6. Insert/Update detected conflicts into `blocks_blockconflict` with resolutions.
+  7. Emit `blocks.conflict.detected` or `blocks.conflict.resolved` event over Redis.
 
 ---
 

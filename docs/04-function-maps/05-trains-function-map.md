@@ -2,9 +2,9 @@
 
 > **File Sequence:** 30/45  
 > **Service:** `SVC-TRN` (`apps.trains`)  
-> **Previous Document:** [04-function-maps/04-ontology-function-map.md](04-ontology-function-map.md)  
-> **Next Document:** [04-function-maps/06-assets-function-map.md](06-assets-function-map.md)  
-> **Context:** Exhaustive function mapping, schemas, and algorithms for Train Operations & Timetable Punctuality.
+> **Previous Document:** [04-function-maps/04-ontology-function-map.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/04-function-maps/04-ontology-function-map.md)  
+> **Next Document:** [04-function-maps/06-assets-function-map.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/04-function-maps/06-assets-function-map.md)  
+> **Context:** Exhaustive function mapping, schemas, and algorithms for Train Operations, Timetable Punctuality, and COA/FOIS Ingestion.
 
 ---
 
@@ -14,12 +14,20 @@
 |---|---|:---:|---|---|---|:---:|
 | `FUNC-TRN-001` | Query Train Master Timetable | `GET` | `/api/v1/trains/` | Query Parameters | `PaginatedTrainsResponseDTO` | < 50ms |
 | `FUNC-TRN-002` | Get Live Train Running Positions | `GET` | `/api/v1/trains/live/` | `?corridor=NDLS-CNB` | `LiveTrainPositionsCollectionDTO` | < 45ms |
-| `FUNC-TRN-003` | Ingest COA Timetable Feed | Celery | `trains.tasks.ingest_coa_feed` | `{"feed_url": "..."}` | `IngestionSummaryDTO` | < 500ms |
+| `FUNC-TRN-003` | Ingest COA Timetable Feed (AI Ground-Truth) | Celery | `trains.tasks.ingest_coa_feed` | `{"feed_url": "..."}` | `IngestionSummaryDTO` | < 500ms |
 | `FUNC-TRN-004` | Simulate Train Delay Cascade | `POST` | `/api/v1/trains/simulate-delay/` | `DelaySimulationRequestDTO` | `DelaySimulationResponseDTO` | < 110ms |
 
 ---
 
 ## 2. Detailed Function Implementation Specifications
+
+### `FUNC-TRN-002`: Get Live Train Running Positions (PostGIS)
+- **Controller Class:** `apps.trains.views.LiveTrainPositionsView`
+- **Permissions:** `IsAuthenticated`
+- **Processing Logic:**
+  - Query `trains_livelocation` using PostGIS spatial functions to return active trains within a bounding box.
+  - Return `GeoJSON` FeatureCollection to power the frontend React Gantt charts.
+  - **AI Integration:** This function provides the spatial-temporal ground truth used by `SVC-BLK`'s `PriorityScorer` and `ConflictDetector`.
 
 ### `FUNC-TRN-004`: Simulate Train Delay Cascade
 - **Controller Class:** `apps.trains.views.DelayCascadeSimulationView`

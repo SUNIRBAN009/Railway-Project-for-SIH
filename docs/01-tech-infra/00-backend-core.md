@@ -1,485 +1,360 @@
 # 00-backend-core.md
 
 > **ফাইল ক্রম:** ৪/৪৫  
+> **ডিরেক্টরি:** `01-tech-infra/`  
 > **পূর্ববর্তী ফাইল:** `00-master-high-level/02-glossary.md` (টার্ম সংজ্ঞা)  
-> **পরবর্তী ফাইল:** `01-tech-infra/01-frontend-core.md`  
-> **সংযোগ:** এই ফাইলে ব্যবহৃত `JWT`, `RBAC`, `DRF`, `ASGI`, `WSGI`, `Middleware`, `Celery`, `Idempotency` ইত্যাদি টার্ম `02-glossary.md`-এ সংজ্ঞায়িত। `01-frontend-core.md`-এ Frontend-এর API Client, Auth Flow, এবং State Management এই backend architecture-র উপর নির্ভরশীল।
+> **পরবর্তী ফাইল:** `01-tech-infra/01-frontend-core.md` (ফ্রন্টএন্ড ক্লায়েন্ট আর্কিটেকচার)  
+> **কন্টেন্ট সোর্স:** `RailBlock_Feature_Master_Plan_PS26027(1).xlsx` (১২২টি ফিচার, ৪টি মূল সমস্যা স্তম্ভ, ১৫টি সেফটি ফিচার, ৬টি ডেমো ডেটা সিস্টেম), `ai-project-spec-generator (1).md`।  
+> **ডাটাবেস ও এআই নীতি:** **PostgreSQL 15/16 + PostGIS 3.3** (নো MySQL) এবং **Neuro-Symbolic Hybrid AI** (`Owlready2` + `HermiT` ↔ `Gemini 1.5 Flash`)।
 
 ---
 
 ## 1. Service Architecture Pattern
 
-**Pattern:** Modular Monolith (Django Apps as Bounded Contexts)
+**প্যাটার্ন:** Modular Clean Architecture (Django Monolith with Bounded Context Apps)
 
-**Justification:**  
-PS 26027 হ্যাকাথন MVP (৩ দিন, ১০০ concurrent users)। ৮টি logical domain (`accounts`, `blocks`, `departments`, `ontology`, `trains`, `assets`, `analytics`, `notifications`) আছে কিন্তু প্রতিটির resource requirement এবং team size ছোট। Microservices-এর operational overhead (service discovery, distributed tracing, inter-service auth, separate DB per service) এই timeline-এ justify করে না।
+### 1.1 আর্কিটেকচারাল যৌক্তিকতা
+PS 26027 হ্যাকাথন ও ডিভিশনাল রেলওয়ে কন্ট্রোল রুমে (Eastern ও South Eastern Railway) সিস্টেমটির জন্য চরম নির্ভরযোগ্যতা, শূন্য ডেটা অসঙ্গতি (Zero Data Inconsistency) এবং স্থানিক ট্রানজ্যাকশন গ্যারান্টি আবশ্যক। ডিস্ট্রিবিউটেড মাইক্রোসার্ভিসের পরিবর্তে একটি মডিউলার মোনোলিথ কাঠামো গ্রহণ করা হয়েছে কারণ:
+1. **ACID ট্রানজ্যাকশন গ্যারান্টি:** একই সেকশনে ট্র্যাক (ENGG), সিগন্যাল (S&T) এবং বিদ্যুৎ (TRD)-এর যৌথ কাজকে একটি একক **Combined Block Window (#98 USP)**-এ লক করার জন্য একক ডেটাবেস ট্রানজ্যাকশন অপরিহার্য।
+2. **পোস্টজিআইএস স্থানিক ইন্টিগ্রেশন:** ট্র্যাক লাইনস্ট্রিং জিওমেট্রি ও চেইনেজ হিসাবের জন্য আলাদা কোনো স্প্যাশিয়াল সার্ভিসের প্রয়োজন নেই; সরাসরি PostgreSQL-এর PostGIS এক্সটেনশন ব্যবহার করা যায়।
+3. **শূন্য নেটওয়ার্ক ল্যাটেন্সি:** অভ্যন্তরীণ ডোমেনগুলোর মধ্যে ইন-মেমোরি ফাংশন কলের মাধ্যমে সাব-মিলিসেকেন্ড ল্যাটেন্সিতে কনফ্লিক্ট ডিটেকশন ও রুল যাচাই।
 
-**Django Apps as Modules:**
+### 1.2 Bounded Context মডিউল মানচিত্র (`apps/`)
 
 ```
-railway_ai/                 # Project configuration
-├── accounts/               # AUTH bounded context
-├── blocks/                 # BLK bounded context
-├── departments/            # DEPT bounded context
-├── ontology/               # ONTO bounded context
-├── trains/                 # TRN bounded context
-├── assets/                 # AST bounded context
-├── analytics/              # ANA bounded context
-└── notifications/          # NOTIF bounded context
+apps/
+├── accounts/               # AUTH Bounded Context: JWT, RBAC (#112), ডিভিশন ও ইউজার রোল
+├── assets/                 # AST Bounded Context: PostGIS ট্র্যাক, স্টেশন, সিগন্যাল ও OHE ক্যাটেনারি
+├── blocks/                 # BLK Bounded Context: ব্লক রিকোয়েস্ট, কম্বাইন্ড উইন্ডো (#98), অপ্টিমাইজেশন
+├── departments/            # DEPT Bounded Context: গ্যাং, হোম-বেস রাউটিং (#100), ইকুইপমেন্ট ও মেটেরিয়াল (#101)
+├── emergency/              # EMG Bounded Context: জরুরি ব্রেকডাউন (#79), ট্র্যাক ব্রিচ ও ডিট্যুর রাউটিং
+├── maintenance/            # MAINT Bounded Context: TMS/SMMS/TDMS ডিফেক্ট লগ, CoF×LoF রিস্ক (#92), এজিং (#93)
+├── notifications/          # NOTIF Bounded Context: Channels ওয়েবসকেট ও Twilio/CDAC SMS গেটওয়ে
+├── ontology/               # ONTO Bounded Context: Owlready2 + HermiT সিম্বলিক ডিজিটাল টুইন
+├── trains/                 # TRN Bounded Context: টাইমটেবিল (#114), NTES লাইভ ডিলে (#116), ক্যাসকেড ক্যালকুলেটর (#115)
+└── analytics/              # ANA Bounded Context: অ্যাসেট অ্যাভেইলেবিলিটি (#50), ভ্যারিয়েন্স (#109), PDF জেন (#107)
 ```
 
-**Cross-App Communication Rule:**  
-- ✅ Allowed: Import models from other apps via Django's `apps.get_model()` or direct import (same DB, same transaction)
-- ✅ Allowed: Django Signals for decoupled event propagation (e.g., `post_save` on Block → Ontology sync)
-- ❌ Forbidden: Direct HTTP call between apps (unnecessary overhead, same process)
-- ❌ Forbidden: Circular imports between app service layers
+**আন্তঃ-মডিউল যোগাযোগের নিয়মাবলী:**
+- ✅ **অনুমোদিত:** সার্ভিস লেয়ারের মাধ্যমে সরাসরি মেথড কল অথবা Django Signals (`post_save`) ব্যবহার করে ডিকাপল্ড ইভেন্ট সিঙ্ক (যেমন: ব্লক এপ্রুভ হলে সেলিরি কিউতে টোকেন জেনারেট)।
+- ✅ **অনুমোদিত:** `core/models.py`-এর মাধ্যমে বেস অডিট ও ইউআইডি (UUID) ফিল্ড শেয়ার।
+- ❌ **নিষিদ্ধ:** মডিউলগুলোর মধ্যে আন্তঃ-প্রসেস HTTP রিকোয়েস্ট পাঠানো (অপ্রয়োজনীয় ওভারহেড)।
+- ❌ **নিষিদ্ধ:** সাইক্লিক ইমপোর্ট (সার্ভিস লেয়ারে সরাসরি অন্য অ্যাপের ইন্টারনাল মেথড কল না করে ইন্টারফেস বা সিগন্যাল ব্যবহার আবশ্যক)।
 
 ---
 
-## 2. API Gateway & Routing
+## 2. API Gateway, Routing & Rate Limiting
 
-Django-এ built-in URL router (not a separate API Gateway) ব্যবহার করা হবে, কিন্তু enterprise pattern অনুসরণ করে centralized routing এবং cross-cutting concerns handle করা হবে।
+সিস্টেমটি একটি সেন্ট্রালাইজড **Nginx 1.25 Reverse Proxy** গেটওয়ে দিয়ে পরিচালিত হয় যা ইনবাউন্ড ট্র্যাফিককে সঠিক প্রসেসে রাউট করে:
+- `/api/v1/*` ➔ **Gunicorn WSGI Application Server** (Port 8000)
+- `/ws/*` ➔ **Daphne ASGI WebSocket Server** (Port 8001)
+- `/media/*` ও `/static/*` ➔ **Nginx Local Disk Cache**
 
-### 2.1 URL Routing Table
+### 2.1 Master URL Routing Table
 
-| Endpoint Prefix | App | DRF Router | Version | Auth Required |
-|----------------|-----|-----------|---------|---------------|
-| `/api/v1/auth/` | accounts | AuthViewSet, TokenRefreshView | v1 | Partial (login/register public) |
-| `/api/v1/users/` | accounts | UserViewSet | v1 | Yes (COA only for list) |
-| `/api/v1/blocks/` | blocks | BlockRequestViewSet | v1 | Yes (All roles) |
-| `/api/v1/blocks/pending/` | blocks | PendingBlockView | v1 | Yes (COA, SE) |
-| `/api/v1/blocks/approve/` | blocks | ApprovalView | v1 | Yes (COA only) |
-| `/api/v1/blocks/emergency/` | blocks | EmergencyBlockView | v1 | Yes (All roles) |
-| `/api/v1/blocks/conflicts/` | blocks | ConflictListView | v1 | Yes (COA) |
-| `/api/v1/ontology/sync/` | ontology | OntologySyncView | v1 | Yes (System/Admin) |
-| `/api/v1/ontology/reason/` | ontology | ReasoningView | v1 | Yes (COA) |
-| `/api/v1/trains/` | trains | TrainViewSet | v1 | Yes (All roles) |
-| `/api/v1/trains/impact/` | trains | ImpactCalculatorView | v1 | Yes (COA) |
-| `/api/v1/crews/` | departments | CrewViewSet | v1 | Yes (All roles) |
-| `/api/v1/materials/` | departments | MaterialViewSet | v1 | Yes (All roles) |
-| `/api/v1/reports/` | analytics | ReportViewSet | v1 | Yes (COA) |
-| `/api/v1/reports/pdf/` | analytics | PDFReportView | v1 | Yes (COA) |
-| `/api/v1/notifications/` | notifications | NotificationViewSet | v1 | Yes (Own only) |
-| `/api/v1/health/` | railway_ai | HealthCheckView | v1 | No |
+| API Endpoint Prefix | Owning App | Primary ViewSet / View | Version | Authentication & RBAC Scope |
+|:---|:---|:---|:---:|:---|
+| `/api/v1/auth/` | `accounts` | `TokenObtainPairView`, `TokenRefreshView` | v1 | Public (Login) / Anonymous |
+| `/api/v1/users/` | `accounts` | `UserViewSet` | v1 | Authenticated (Admin, COA) |
+| `/api/v1/blocks/` | `blocks` | `BlockRequestViewSet` | v1 | Authenticated (All Railway Staff) |
+| `/api/v1/blocks/pending/` | `blocks` | `PendingBlockApprovalViewSet` | v1 | Authenticated (COA Chief Controller, SSE) |
+| `/api/v1/blocks/combined/` | `blocks` | `CombinedBlockOptimizerViewSet` | v1 | Authenticated (COA, Planners) — Feature #98 |
+| `/api/v1/blocks/{id}/approve/` | `blocks` | `BlockApprovalActionView` | v1 | Authenticated (COA Chief Controller) |
+| `/api/v1/blocks/emergency/` | `emergency`| `EmergencyBlockOverrideView` | v1 | Authenticated (All Roles with Audit) |
+| `/api/v1/safety/token/` | `blocks` | `DigitalTokenExchangeViewSet` | v1 | Authenticated (Field Supervisor, COA) — Feature #71 |
+| `/api/v1/safety/loto/` | `blocks` | `LOTOSafetyGateViewSet` | v1 | Authenticated (TRD JE, Safety Officer) — Feature #74 |
+| `/api/v1/safety/clearance/`| `blocks` | `SectionClearanceCertViewSet` | v1 | Authenticated (Field Supervisor, COA) — Feature #80 |
+| `/api/v1/trains/live/` | `trains` | `LiveTrainStatusViewSet` | v1 | Authenticated (All Roles) — Feature #114 |
+| `/api/v1/trains/cascade/` | `trains` | `DelayCascadeRecalculatorView` | v1 | Authenticated (COA) — Feature #115 |
+| `/api/v1/maintenance/defects/`| `maintenance`|`DefectLogIngestionViewSet` | v1 | Authenticated (TMS/SMMS/TDMS Ingestion) |
+| `/api/v1/demo/scenario/` | `core` | `DemoScenarioInjectorView` | v1 | Authenticated (Demo Mode Only) — Feature #120 |
+| `/api/v1/reports/sanction-pdf/`| `analytics`| `SanctionOrderPDFView` | v1 | Authenticated (COA, Field Supervisors) — Feature #107 |
+| `/api/v1/health/` | `core` | `SystemHealthCheckView` | v1 | Public (Docker Healthcheck & Uptime) |
 
-### 2.2 Rate Limiting (DRF Throttling)
+### 2.2 Rate Limiting Architecture (DRF Redis Throttling)
 
-| Scope | Rate | Class | Applies To |
-|-------|------|-------|------------|
-| Anonymous | 30 req/min | `AnonRateThrottle` | Login, health check |
-| Authenticated | 100 req/min | `UserRateThrottle` | General API usage |
-| Block Creation | 5 req/min | `BlockRateThrottle` | `POST /api/v1/blocks/` |
-| Emergency | 2 req/min | `EmergencyRateThrottle` | `POST /api/v1/blocks/emergency/` |
-| Gemini AI | 10 req/min | `AIRateThrottle` | `POST /api/v1/blocks/resolve/` |
-| Admin/COA | 500 req/min | `AdminRateThrottle` | Dashboard, reports |
+সিস্টেম ডস (DoS) আক্রমণ এবং ডেমো পরিবেশের অতিরিক্ত লোড থেকে সুরক্ষিত থাকতে Redis-ব্যাকড রেট লিমিটার ব্যবহার করে:
 
-### 2.3 Request Transformation
-
-- **Content Negotiation:** JSON only (`DEFAULT_RENDERER_CLASSES` = JSONRenderer)
-- **Pagination:** Limit-offset (`PAGE_SIZE = 20`, max `limit = 100`)
-- **Input Sanitization:** DRF Serializers + Django `escape` for text fields
-- **Datetime Format:** ISO 8601 (`2026-09-02T14:30:00+05:30`)
-- **Distance Format:** Decimal kilometers (e.g., `15.250` for KM)
+| Scope | Allowed Limit | Throttle Class | Context & Target |
+|:---|:---|:---|:---|
+| **Anonymous** | ৩০ রিকোয়েস্ট / মিনিট | `AnonRateThrottle` | লগইন স্ক্রিন ও সিস্টেম হেলথ চেক |
+| **Authenticated (Default)**| ১৫০ রিকোয়েস্ট / মিনিট | `UserRateThrottle` | সাধারণ ব্রাউজিং ও ডেটাবেস কোয়েরি |
+| **Block Creation** | ১০ রিকোয়েস্ট / মিনিট | `ScopedRateThrottle` (`block_create`) | স্প্যাম ব্লক সাবমিশন রোধ |
+| **Emergency Trigger** | ৫ রিকোয়েস্ট / মিনিট | `ScopedRateThrottle` (`emergency`) | ভুলবশত অতিরিক্ত ইমার্জেন্সি জারি রোধ |
+| **Neural AI Explainability** | ১৫ রিকোয়েস্ট / মিনিট | `ScopedRateThrottle` (`ai_explain`) | Gemini API ফ্রি কোটা সুরক্ষা (#94) |
+| **COA Control Room Screen** | ৬০০ রিকোয়েস্ট / মিনিট | `ScopedRateThrottle` (`control_room`) | বড় স্ক্রিন ড্যাশবোর্ডের উচ্চ রিফ্রেশ রেট |
 
 ---
 
-## 3. Middleware Execution Order
+## 3. Middleware Execution Pipeline
 
-Django `MIDDLEWARE` stack (top to bottom = request enters, bottom to top = response exits):
+রিকোয়েস্ট প্রসেসিংয়ের জন্য Django `MIDDLEWARE` পাইপলাইন কঠোর ক্রমানুসারে কনফিগার করা হয়েছে:
 
 ```python
+# config/settings.py
 MIDDLEWARE = [
-    # Layer 1: Security & CORS
-    "django.middleware.security.SecurityMiddleware",           # HSTS, XSS filter, content-type nosniff
-    "corsheaders.middleware.CorsMiddleware",                   # CORS preflight handling
+    # Layer 1: Security & Networking
+    "django.middleware.security.SecurityMiddleware",           # HSTS, XSS Filter, Content-Type Nosniff
+    "corsheaders.middleware.CorsMiddleware",                   # CORS Header handling for Vite Dev / Prod
     
-    # Layer 2: Request ID & Logging
-    "railway_ai.middleware.RequestIDMiddleware",               # X-Request-ID header injection
-    "railway_ai.middleware.StructuredLoggingMiddleware",       # JSON log start
+    # Layer 2: Tracing & Observability
+    "apps.core.middleware.RequestTracingMiddleware",           # Injects unique `X-Request-ID` (UUID4)
+    "apps.core.middleware.StructuredLoggingMiddleware",        # Initiates structlog JSON access logging
     
-    # Layer 3: Rate Limiting
-    "railway_ai.middleware.RateLimitMiddleware",               # Custom throttle (before auth to save DB hit)
+    # Layer 3: Rate Limiting Guard
+    "apps.core.middleware.RedisRateLimiterMiddleware",         # Fast fail before hitting database
     
-    # Layer 4: Authentication
-    "django.contrib.sessions.middleware.SessionMiddleware",    # Session (fallback)
-    "django.middleware.common.CommonMiddleware",               # URL normalization
-    "django.contrib.auth.middleware.AuthenticationMiddleware", # Django auth
-    "railway_ai.middleware.JWTAuthMiddleware",                 # DRF SimpleJWT validation
+    # Layer 4: Authentication & Context
+    "django.middleware.common.CommonMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware", # Populates request.user
+    "apps.accounts.middleware.JWTAuthenticationMiddleware",    # Extracts Bearer Token & checks Redis Blacklist
+    "apps.accounts.middleware.SpatialRBACContextMiddleware",    # Populates user's authorized Division & Section
     
-    # Layer 5: Authorization & Context
-    "railway_ai.middleware.RoleContextMiddleware",             # Attach role/dept to request.user
-    "railway_ai.middleware.DepartmentIsolationMiddleware",     # Filter queryset by dept (for JE roles)
+    # Layer 5: Integrity & Framing
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",  # DENY framing
     
-    # Layer 6: Body & Validation
-    "django.middleware.csrf.CsrfViewMiddleware",               # CSRF (for browsable API/admin)
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",  # Clickjacking protection
-    
-    # Layer 7: Error Handling & Audit
-    "railway_ai.middleware.ErrorHandlingMiddleware",           # Catch-all → JSON error response
-    "railway_ai.middleware.AuditLogMiddleware",                # Log response status, duration
+    # Layer 6: Global Exception Handling & Audit
+    "apps.core.middleware.GlobalErrorHandlingMiddleware",      # Catches unhandled exceptions -> Standard Envelope
+    "apps.core.middleware.AuditTrailLoggerMiddleware",         # Records mutating actions to PostgreSQL audit table
 ]
 ```
 
+---
 
-## 4. Request Lifecycle
+## 4. End-to-End Request Lifecycle
+
+নিচের ডায়াগ্রামে একটি সাধারণ ক্লায়েন্ট রিকোয়েস্টের জীবনচক্র দেখানো হয়েছে:
 
 ```
-┌─────────────┐
-│   Client    │
-│  (React)    │
-└──────┬──────┘
-       │ HTTPS (TLS 1.3)
-       ▼
-┌─────────────┐     ┌─────────────────────────────────────────────────────────────┐
-│   Nginx     │────►│ Reverse Proxy (Railway/Render)                            │
-│  (Port 80)  │     │ • SSL termination                                           │
-└──────┬──────┘     │ • Static file serve (/static/, /media/)                     │
-       │             └─────────────────────────────────────────────────────────────┘
-       ▼
-┌─────────────┐     ┌─────────────────────────────────────────────────────────────┐
-│   Daphne    │────►│ ASGI Server (WebSocket + HTTP/1.1)                        │
-│  (Port 8001)│     │ • Long-lived connections (WebSocket)                        │
-└──────┬──────┘     │ • Routes to Django Channels Consumer or Django view         │
-       │             └─────────────────────────────────────────────────────────────┘
-       ▼
-┌─────────────┐     ┌─────────────────────────────────────────────────────────────┐
-│   Gunicorn  │────►│ WSGI Server (HTTP REST API)                               │
-│  (Port 8000)│     │ • Sync worker processes (4 workers)                         │
-└──────┬──────┘     │ • Pre-fork model                                            │
-       │             └─────────────────────────────────────────────────────────────┘
-       ▼
-┌─────────────┐     ┌─────────────────────────────────────────────────────────────┐
-│   Django    │────►│ Middleware Stack (see Section 3)                          │
-│   Routing   │     │ • Security → CORS → Request ID → Rate Limit → Auth → ...   │
-└──────┬──────┘     └─────────────────────────────────────────────────────────────┘
-       ▼
-┌─────────────┐     ┌─────────────────────────────────────────────────────────────┐
-│   DRF       │────►│ ViewSet / APIView                                         │
-│   View      │     │ • Permission check (RBAC)                                 │
-│             │     │ • Throttle check                                          │
-│             │     │ • Input validation (Serializer)                           │
-└──────┬──────┘     └─────────────────────────────────────────────────────────────┘
-       ▼
-┌─────────────┐     ┌─────────────────────────────────────────────────────────────┐
-│   Service   │────►│ Business Logic Layer                                      │
-│   Layer     │     │ • BlockService, ConflictEngine, AIResolverService         │
-│             │     │ • Pure Python, no Django ORM dependency (testable)        │
-└──────┬──────┘     └─────────────────────────────────────────────────────────────┘
-       ▼
-┌─────────────┐     ┌─────────────────────────────────────────────────────────────┐
-│ Repository  │────►│ Data Access Layer                                         │
-│   Layer     │     │ • Django ORM queries                                      │
-│             │     │ • Raw SQL for complex analytics (if needed)               │
-│             │     │ • Ontology manager (Owlready2) calls                      │
-└──────┬──────┘     └─────────────────────────────────────────────────────────────┘
-       ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              Data Stores                                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │    MySQL     │  │    Redis     │  │  Owlready2   │  │   External APIs      │ │
-│  │  (Primary)   │  │  (Cache/     │  │  (Quadstore) │  │   • Gemini           │ │
-│  │              │  │   Queue/     │  │              │  │   • Twilio           │ │
-│  │  • Users     │  │   PubSub)    │  │  • RDF Graph │  │   • Open-Meteo       │ │
-│  │  • Blocks    │  │              │  │  • Reasoner  │  │                      │ │
-│  │  • Trains    │  │  • Sessions  │  │              │  │                      │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────────┘
-       │
-       ▼ (Response bubbles up through middleware in reverse order)
-┌─────────────┐
-│   JSON      │
-│  Response   │
-└─────────────┘
+┌─────────────────┐
+│ Client Browser  │
+│ React 18 + Vite │
+└────────┬────────┘
+         │ 1. HTTPS POST /api/v1/blocks/ (JSON Payload + JWT Bearer Token)
+         ▼
+┌─────────────────┐
+│ Nginx Gateway   │ (SSL Termination, Rate Limit, Proxy Headers)
+└────────┬────────┘
+         │ 2. Reverse Proxy HTTP to 127.0.0.1:8000
+         ▼
+┌─────────────────┐
+│ Gunicorn (WSGI) │ (Pre-fork master worker pool)
+└────────┬────────┘
+         │ 3. Enters Django Middleware Pipeline (RequestID -> CORS -> JWT -> Spatial RBAC)
+         ▼
+┌─────────────────┐
+│ DRF ViewSet     │ (Permission check: IsAuthenticated & CanCreateBlock)
+└────────┬────────┘
+         │ 4. Serializer Validation (Data types, ISO 8601 timestamps, PostGIS Section ID)
+         ▼
+┌─────────────────┐
+│ Service Layer   │ ──► CombinedBlockOptimizerSvc (#98)
+│ (Business Logic)│ ──► ConflictDetectionEngine (PostGIS ST_Intersects)
+└────────┬────────┘ ──► CoF_LoF_RiskEngine (#92)
+         │
+         ├───► [Celery Task Enqueued] ──► `symbolic_ai` queue (HermiT Reasoner verification)
+         │
+         │ 5. Repository Layer (Django ORM + PostGIS)
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│ PostgreSQL 15 + PostGIS Spatial Database                    │
+│ • Inserts into `blocks_blockrequest` (ACID Committed)       │
+│ • Computes spatial line overlap via PostGIS GiST index      │
+└────────┬────────────────────────────────────────────────────┘
+         │
+         │ 6. Response Formatter (Standard JSON Envelope)
+         ▼
+┌─────────────────┐
+│ Channels (Redis)│ ──► WebSocket Broadcast: "NEW_BLOCK_SUBMITTED" to COA Dashboard
+└────────┬────────┘
+         │
+         │ 7. HTTP 201 Created Returned to React Client
+         ▼
+┌─────────────────┐
+│ React Frontend  │ (TanStack Query cache invalidated, UI Toast displayed)
+└─────────────────┘
 ```
 
-## 5. Error Handling Strategy
+---
 
-Centralized error handling — `ErrorHandlingMiddleware` + DRF custom exception handler.
+## 5. Centralized Error Handling Strategy
 
-### 5.1 Error Response Envelope
+সিস্টেমের প্রতিটি এপিআই রেসপন্স একটি সুনির্দিষ্ট ও অপরিবর্তনীয় **Standard JSON Envelope** অনুসরণ করে। কোনো অবস্থাতেই র কাঁচা ট্রেসব্যাক বা এইচটিএমএল এরর ক্লায়েন্টে পাঠানো হয় না।
+
+### 5.1 Error Response Envelope Specification
 
 ```json
 {
   "success": false,
   "data": null,
-  "message": "Conflict detected with existing block",
-  "error_code": "BLK-409-001",
-  "request_id": "req_abc123xyz",
-  "timestamp": "2026-09-02T14:35:00+05:30",
+  "message": "Section is already occupied by a higher-priority Rajdhani Express.",
+  "error_code": "BLK-409-002",
+  "request_id": "REQ-7b8f9e12-4c3a-4a21-9a7f-9b0d2a8b3c4d",
+  "timestamp": "2026-09-18T09:15:00.123+05:30",
   "details": {
-    "conflict_with": "BLK-20260902-045",
-    "suggested_resolution": "Split block: ENG 02:00-04:00, TRD 04:30-06:30"
+    "section_id": "HWH-BWN-L1",
+    "clash_train_no": "12301",
+    "clash_time_range": "02:15 - 03:00",
+    "suggested_action": "Reschedule block after 03:30 or merge into Combined Window B-402"
   }
 }
 ```
 
-### 5.2 Exception Mapping
+### 5.2 Core Domain Exception to Error Code Mapping
 
-| Exception Class | HTTP Status | Error Code | Message | Retryable? |
-|-----------------|-------------|------------|---------|------------|
-| `AuthenticationFailed` | 401 | `AUTH-401-001` | Invalid credentials | No |
-| `TokenError` | 401 | `AUTH-401-002` | Token expired or invalid | Yes (refresh) |
-| `PermissionDenied` | 403 | `AUTH-403-001` | Insufficient permissions | No |
-| `ValidationError` | 400 | `BLK-400-001` | Invalid block time range | No |
-| `ValidationError` | 400 | `BLK-400-002` | Section does not exist | No |
-| `ConflictDetected` | 409 | `BLK-409-001` | Conflict with existing block | No |
-| `NotFound` | 404 | `BLK-404-001` | Block not found | No |
-| `PermissionDenied` | 403 | `BLK-403-001` | Only COA can approve blocks | No |
-| `OntologyLoadError` | 500 | `ONTO-500-001` | Ontology file load failed | Yes |
-| `SPARQLExecutionError` | 500 | `ONTO-500-002` | SPARQL query failed | Yes |
-| `NotFound` | 404 | `ONTO-404-001` | Entity not found in ontology | No |
-| `GeminiAPIError` | 503 | `AI-503-001` | AI service temporarily unavailable | Yes (fallback to local) |
-| `TwilioAPIError` | 503 | `NOTIF-500-001` | SMS sending failed | Yes |
-| `WebSocketError` | 500 | `NOTIF-500-002` | Real-time broadcast failed | Yes |
-| `Throttled` | 429 | `GEN-429-001` | Rate limit exceeded | Yes (after delay) |
+| Internal Exception Class | HTTP Status | Error Code | Operational Meaning | Retryable? |
+|:---|:---:|:---:|:---|:---:|
+| `AuthenticationFailed` | 401 | `AUTH-401-001` | টোকেন অনুপস্থিত বা অবৈধ ক্রেডেনশিয়াল | No |
+| `TokenExpiredSignature` | 401 | `AUTH-401-002` | JWT টোকেনের মেয়াদ উত্তীর্ণ হয়েছে | Yes (Refresh) |
+| `SpatialRBACViolation` | 403 | `AUTH-403-002` | ইঞ্জিনিয়ার তার নির্ধারিত ডিভিশন/সেকশনের বাইরে কাজ করছেন | No |
+| `InvalidTimeRangeException` | 400 | `BLK-400-001` | সমাপ্তির সময় শুরুর সময়ের পূর্বে | No |
+| `SectionNotFoundException` | 404 | `BLK-404-001` | পোস্টজিআইএস সেকশন আইডি ডেটাবেসে নেই | No |
+| `BlockConflictDetected` | 409 | `BLK-409-001` | অন্য বিভাগের ব্লকের সাথে ওভারল্যাপ (কনফ্লিক্ট ডিটেক্টেড) | Yes (Auto-Resolve) |
+| `TrainClashConflict` | 409 | `BLK-409-002` | হাই-প্রায়োরিটি ট্রেনের সাথে সরাসরি স্থানিক ক্ল্যাশ | Yes (Re-plan #108) |
+| `DigitalTokenInvalid` | 403 | `SAFE-403-001` | ভুল বা মেয়াদোত্তীর্ণ ডিজিটাল সেফটি টোকেন | No |
+| `OHEPowerIsolationMissing`| 412 | `SAFE-412-001` | TRD পাওয়ার আইসোলেশন ব্যতীত কাজের অনুমতি বাতিল | Yes (Isolate TRD) |
+| `HermiTReasoningFailure` | 500 | `ONTO-500-001` | সিম্বলিক ডিজিটাল টুইন রিজনারে অসঙ্গতি শনাক্ত | No |
+| `GeminiQuotaThrottled` | 503 | `AI-503-001` | নিউরাল এআই সার্ভিস ব্যস্ত (ফলব্যাক রুল সক্রিয়) | Yes (Local Rule) |
+| `RateLimitExceeded` | 429 | `GEN-429-001` | অনুমোদিত এপিআই রিকোয়েস্ট সীমা অতিক্রম | Yes (Delay Backoff) |
 
-### 5.3 Middleware Error Catcher
+---
 
-```python
-# railway_ai/middleware.py
-class ErrorHandlingMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
+## 6. Configuration & Environment Management
 
-    def __call__(self, request):
-        try:
-            response = self.get_response(request)
-            return response
-        except Exception as exc:
-            return self.process_exception(request, exc)
+কনফিগারেশনের জন্য `python-decouple` ও `django-environ` ব্যবহার করা হয়। কোনো সিক্রেট বা পাসওয়ার্ড সোর্স কোডে হার্ডকোড করা নিষিদ্ধ।
 
-    def process_exception(self, request, exception):
-        # Map to known error codes or generic GEN-500-001
-        error_mapping = {
-            ConflictDetected: ("BLK-409-001", 409),
-            OntologyLoadError: ("ONTO-500-001", 500),
-            # ... etc
-        }
-        # Log structured error
-        # Return JSONResponse with envelope
+### 6.1 Production Environment Variables (`.env`)
+
+```ini
+# Core Django
+DEBUG=False
+SECRET_KEY=railway_production_super_secret_cryptographic_key_9823471
+ALLOWED_HOSTS=localhost,127.0.0.1,railway-block-ai.gov.in
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://railway-block-ai.gov.in
+
+# Primary Spatial Database (PostgreSQL 15/16 + PostGIS 3.3)
+DB_ENGINE=django.contrib.gis.db.backends.postgis
+DB_NAME=railway_sih
+DB_USER=railway_user
+DB_PASSWORD=railway_secure_password_2026
+DB_HOST=postgres
+DB_PORT=5432
+
+# In-Memory Cache, Channel Layer & Broker
+REDIS_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/1
+CELERY_RESULT_BACKEND=redis://redis:6379/2
+
+# Security & Tokens
+JWT_ACCESS_LIFETIME_MINS=15
+JWT_REFRESH_LIFETIME_DAYS=7
+
+# Source Adapter Mode (Feature #121: MOCK for demo, REAL for production)
+DATA_SOURCE_MODE=MOCK
+DEMO_SEED_NUMBER=26027
+
+# External Integrations (Optional in Mock Mode)
+GEMINI_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_SENDER_NUMBER=
+OPEN_METEO_BASE_URL=https://api.open-meteo.com/v1/forecast
 ```
 
-## 6. Configuration Management
+---
 
-### 6.1 Environment Variables (`.env`)
+## 7. Dependency Injection & Service Layer Pattern
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DEBUG` | Yes | `False` | Django debug mode |
-| `SECRET_KEY` | Yes | — | Django cryptographic signing |
-| `DATABASE_URL` | Yes | — | `mysql://user:pass@host:port/db` |
-| `REDIS_URL` | Yes | — | `redis://host:port/0` |
-| `ALLOWED_HOSTS` | Yes | `localhost` | Comma-separated domains |
-| `CORS_ALLOWED_ORIGINS` | Yes | `http://localhost:5173` | Frontend origin |
-| `GEMINI_API_KEY` | No | `""` | Google AI API key |
-| `TWILIO_ACCOUNT_SID` | No | `""` | Twilio SID |
-| `TWILIO_AUTH_TOKEN` | No | `""` | Twilio token |
-| `TWILIO_PHONE_NUMBER` | No | `""` | Twilio sender number |
-| `MAPBOX_ACCESS_TOKEN` | Yes | — | Mapbox public token |
-| `CELERY_BROKER_URL` | Yes | `REDIS_URL` | Celery uses Redis |
-| `CELERY_RESULT_BACKEND` | Yes | `REDIS_URL` | Task results in Redis |
-| `ONTOLOGY_FILE_PATH` | Yes | `./ontology/railway_digital_twin.owl` | OWL file location |
-| `JWT_ACCESS_TOKEN_LIFETIME` | No | `3600` | Seconds (60 min) |
-| `JWT_REFRESH_TOKEN_LIFETIME` | No | `86400` | Seconds (1 day) |
-
-### 6.2 Validation Schema
+পরীক্ষণযোগ্যতা (Unit Testability) ও আলগা সংযোগ (Loose Coupling) নিশ্চিত করতে ভিউসেটগুলো সরাসরি ডেটাবেস কোয়েরি চালায় না। সমস্ত বিজনেস লজিক **Service Layer Pattern**-এ আবদ্ধ:
 
 ```python
-# settings.py uses django-environ
-import environ
+# apps/blocks/services.py
+from apps.ontology.services import HermiTReasonerService
+from apps.maintenance.services import RiskPriorityCalculatorService
+from apps.analytics.services import GeminiExplainableService
 
-env = environ.Env(
-    DEBUG=(bool, False),
-    JWT_ACCESS_TOKEN_LIFETIME=(int, 3600),
-    # ... etc
-)
+class BlockOptimizationService:
+    def __init__(
+        self,
+        risk_calculator=None,
+        reasoner_service=None,
+        explainable_service=None
+    ):
+        # Dependency Injection via Constructor
+        self.risk_calculator = risk_calculator or RiskPriorityCalculatorService()
+        self.reasoner = reasoner_service or HermiTReasonerService()
+        self.explainer = explainable_service or GeminiExplainableService()
 
-# Raises ImproperlyConfigured if required var missing
+    def process_block_request(self, block_data, requesting_user):
+        """
+        1. Calculate CoF x LoF Risk Score
+        2. Detect spatial conflicts with PostGIS
+        3. Check combined block window opportunities (#98)
+        4. Validate with HermiT Reasoner (Symbolic AI)
+        5. Generate explanation via Gemini (Neural AI)
+        """
+        # Business logic implementation here
+        pass
 ```
 
-### 6.3 Secrets Management
-- **Development:** `.env` file (gitignored), loaded via `django-environ`
-- **Production:** Railway/Render environment variables (encrypted at rest)
-- **Rotation:** API keys (Gemini, Twilio) ৯০ দিনে rotate করার recommendation (manual for hackathon)
-- **Leak Detection:** `.env.example` রেপোতে রাখা হবে (no real values), `git-secrets` pre-commit hook recommended
+---
 
-## 7. Dependency Injection Pattern
+## 8. Locked Python Core Dependencies
 
-Django-তে traditional DI container (like Spring) নেই। পরিবর্তে Service Layer Pattern + Django App Registry ব্যবহার করা হবে।
+প্রজেক্টের রুট `requirements.txt`-এর সাথে সম্পূর্ণ সংগতিপূর্ণ ডিপেন্ডেন্সি তালিকা:
 
-### 7.1 Service Layer Pattern
+| Package Name | Locked Version | Architectural Purpose in PS 26027 |
+|:---|:---:|:---|
+| `Django` | `>=5.0,<6.0` | কোর এন্টারপ্রাইজ ওয়েব ফ্রেমওয়ার্ক ও ওআরএম |
+| `djangorestframework` | `>=3.14.0` | সিকিউর RESTful API আর্কিটেকচার |
+| `django-cors-headers` | `>=4.3.1` | ফ্রন্টএন্ড Vite ক্লায়েন্টের জন্য CORS ম্যানেজমেন্ট |
+| `psycopg2-binary` | `>=2.9.6` | PostgreSQL + PostGIS হাই-পারফরম্যান্স ড্রাইভার |
+| `daphne` | `>=4.0.0` | ASGI ওয়েবসকেট সার্ভার |
+| `channels` | `>=4.0.0` | ইভেন্ট-চালিত রিয়েল-টাইম আর্কিটেকচার |
+| `channels_redis` | `>=4.1.0` | চ্যানেলস পাব/সাব ব্যাকএন্ড লেয়ার |
+| `redis` | `>=5.0.0` | ক্যাশ, সেশন ও সেলিরি মেসেজ ব্রোকার |
+| `celery` | `>=5.3.0` | ৪টি ডেডিকেটেড কিউ যুক্ত অ্যাসিঙ্ক্রোনাস প্রসেসর |
+| `owlready2` | `>=0.46` | OWL 2 ডিজিটাল টুইন ও HermiT রিজনার ইন্টারফেস |
+| `rdflib` | `>=7.0.0` | SPARQL কোয়েরি ও ট্রিপলস্টোর পরিচালনা |
+| `pyshacl` | `>=0.25.0` | সেফটি কনস্ট্রেইন্ট শেপ ভ্যালিডেশন |
+| `google-generativeai` | `>=0.7.0` | Gemini 1.5 Flash এক্সপ্লেনেবল এআই ক্লায়েন্ট |
+| `reportlab` | `>=4.0.0` | অফিসিয়াল স্যাংশন অর্ডার PDF জেনারেটর (#107) |
+| `pybreaker` | `>=1.0.0` | এক্সটার্নাল এপিআইয়ের জন্য সার্কিট ব্রেকার |
+| `structlog` | `>=24.1.0` | স্ট্যান্ডার্ডাইজড সিঙ্গেল-লাইন JSON লগার |
+| `PyJWT` | `>=2.8.0` | স্টেটলেস অথেনটিকেশন টোকেন ভ্যালিডেশন |
 
-```python
-# blocks/services.py
-class BlockService:
-    def __init__(self, repository=None, conflict_engine=None, ai_resolver=None):
-        self.repo = repository or BlockRepository()
-        self.conflict = conflict_engine or ConflictEngine()
-        self.ai = ai_resolver or AIResolverService()
-    
-    def create_block(self, data, user):
-        # Business logic
-        block = self.repo.create(data, user)
-        conflicts = self.conflict.detect(block)
-        if conflicts:
-            resolution = self.ai.resolve(conflicts, block)
-            return block, resolution
-        return block, None
+---
 
-# blocks/views.py
-class BlockRequestViewSet(viewsets.ModelViewSet):
-    def get_serializer_class(self):
-        return BlockRequestSerializer
-    
-    def perform_create(self, serializer):
-        service = BlockService()  # Default dependencies injected
-        block, resolution = service.create_block(
-            serializer.validated_data, 
-            self.request.user
-        )
-        # ... handle response
-```
+## 9. Structured JSON Logging Standards
 
-### 7.2 Django App Registry (Loose Coupling)
-
-```python
-# signals.py (decoupled communication)
-from django.dispatch import receiver
-from django.db.models.signals import post_save
-
-@receiver(post_save, sender='blocks.BlockRequest')
-def sync_block_to_ontology(sender, instance, created, **kwargs):
-    # Lazy import to avoid circular dependency
-    from ontology.manager import DigitalTwinManager
-    manager = DigitalTwinManager()
-    manager.sync_block(instance)
-```
-
-## 8. Key Dependencies & Versions
-
-| Package | Version | Purpose | License |
-|---------|---------|---------|---------|
-| Django | 5.0.6 | Web framework | BSD |
-| djangorestframework | 3.15.1 | REST API toolkit | BSD |
-| djangorestframework-simplejwt | 5.3.1 | JWT authentication | MIT |
-| django-cors-headers | 4.3.1 | CORS handling | MIT |
-| django-channels | 4.1.0 | WebSocket support | BSD |
-| channels-redis | 4.2.0 | Channels layer backend | BSD |
-| celery | 5.4.0 | Background task queue | BSD |
-| redis | 5.0.4 | Python Redis client | MIT |
-| mysqlclient | 2.2.4 | MySQL adapter | GPL |
-| django-environ | 0.11.2 | Environment variable parsing | MIT |
-| Pillow | 10.3.0 | Image processing (photo upload) | HPND |
-| gunicorn | 22.0.0 | WSGI HTTP server | MIT |
-| daphne | 4.1.2 | ASGI HTTP/WebSocket server | BSD |
-| uvicorn | 0.29.0 | Alternative ASGI server | BSD |
-| requests | 2.31.0 | HTTP client (external APIs) | Apache 2.0 |
-| google-generativeai | 0.7.0 | Gemini API client | Apache 2.0 |
-| twilio | 9.0.5 | SMS API client | MIT |
-| owlready2 | 0.46 | OWL ontology engine | LGPL |
-| rdflib | 7.0.0 | RDF manipulation | BSD |
-| pyshacl | 0.25.0 | SHACL validation | Apache 2.0 |
-| pytest-django | 4.8.0 | Testing framework | MIT |
-| factory-boy | 3.3.0 | Test data generation | MIT |
-| black | 24.4.0 | Code formatter | MIT |
-| ruff | 0.4.0 | Linter | MIT |
-
-## 9. Structured JSON Logging
-
-Standard: Every log entry is a single-line JSON object.
-
-### 9.1 Log Fields
+প্রোডাকশন ও অডিটের জন্য প্রতিটি লগ এন্ট্রি একক লাইনের স্ট্রাকচার্ড JSON অবজেক্ট হিসেবে আউটপুট হয়।
 
 ```json
 {
-  "timestamp": "2026-09-02T14:35:00.123+05:30",
+  "timestamp": "2026-09-18T09:20:14.521+05:30",
   "level": "INFO",
-  "logger": "railway_ai.blocks.views",
-  "request_id": "req_abc123xyz",
-  "user_id": "usr_42",
-  "role": "COA",
-  "department": "Control",
-  "method": "POST",
-  "path": "/api/v1/blocks/",
+  "logger": "apps.blocks.services.BlockOptimizationService",
+  "request_id": "REQ-7b8f9e12-4c3a-4a21-9a7f-9b0d2a8b3c4d",
+  "user_id": 14,
+  "role": "CHIEF_CONTROLLER",
+  "division": "HOWRAH",
+  "event": "COMBINED_BLOCK_WINDOW_CREATED",
+  "block_id": "BLK-HWH-20260918-042",
+  "section_id": "HWH-BWN-L1",
+  "departments_merged": ["ENGG", "TRD"],
+  "shadow_minutes_saved": 120,
   "status_code": 201,
-  "duration_ms": 145,
-  "event": "block_created",
-  "block_id": "BLK-20260902-089",
-  "section": "HWH-KGP",
-  "message": "Block request created successfully",
-  "extra": {
-    "priority": "Critical",
-    "conflict_detected": false
-  }
+  "duration_ms": 142.6
 }
 ```
 
-### 9.2 Log Levels per Environment
+---
 
-| Level | Development | Staging | Production |
-|-------|-------------|---------|------------|
-| DEBUG | ✅ All | ❌ Only `railway_ai.*` | ❌ Off |
-| INFO | ✅ All | ✅ All | ✅ All |
-| WARNING | ✅ All | ✅ All | ✅ All |
-| ERROR | ✅ All | ✅ All | ✅ All (alert if >5/min) |
-| CRITICAL | ✅ All | ✅ All | ✅ All (immediate alert) |
+## 10. Traceability to Subsequent Specification Files
 
-### 9.3 Sensitive Data Redaction
-
-Fields automatically masked in logs:
-- `password`, `token`, `refresh_token`, `api_key`
-- Phone numbers: `+91*****1234`
-- Email: `user@*****.com`
-
-### 9.4 Python Logger Configuration
-
-```python
-# settings.py
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "json": {
-            "()": "railway_ai.logging.JSONFormatter",
-        }
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "json",
-        }
-    },
-    "loggers": {
-        "railway_ai": {
-            "handlers": ["console"],
-            "level": "INFO",
-        }
-    }
-}
-```
-
-## 10. Next File Dependency Note
-
-পরবর্তী ফাইল: `01-tech-infra/01-frontend-core.md`  
-`00-backend-core.md` থেকে `01-frontend-core.md`-এ নেওয়া হবে:
-
-| Backend Decision | Frontend Impact |
-|------------------|-----------------|
-| API Base URL | `http://localhost:8000/api/v1/` (dev), production domain (prod) |
-| JWT Auth | Access token storage strategy (memory vs localStorage), refresh logic, logout blacklist |
-| RBAC (4 roles) | Role-based route guards, dashboard component conditional rendering |
-| Error Envelope | `{success, data, message, error_code}` — global API response interceptor pattern |
-| Rate Limiting (429) | Exponential backoff retry logic, user-facing "Too many requests" toast |
-| WebSocket (Channels) | `wss://host/ws/blocks/` connection, reconnection strategy, heartbeat |
-| CORS Allowed Origin | `http://localhost:5173` must match Vite dev server port exactly |
-| Datetime Format (ISO 8601) | JavaScript `Date` parsing standard, display formatting (Bengali locale) |
-| Pagination (Limit-Offset) | Infinite scroll or table pagination component logic |
-
-`01-frontend-core.md`-এ নিচের বিষয়গুলো থাকবে:
-- React 18 + Vite setup
-- Zustand store structure (auth store, block store, notification store)
-- API Client (Axios instance with interceptors for JWT, error handling, base URL)
-- Auth Flow (login → token storage → role redirect → logout → refresh)
-- WebSocket client integration (reconnect, message parsing)
-- Tailwind dark theme tokens (matching Mapbox dark style)
-- Component architecture (Atomic/Feature-based for railway UI)
+| Target Specification File | Core Dependency from this Document |
+|:---|:---|
+| **`01-tech-infra/01-frontend-core.md`** | এপিআই এন্ডপয়েন্ট তালিকা, এরর এনভেলপ এবং ওয়েবসকেট চ্যানেলের ওপর ভিত্তি করে ফ্রন্টএন্ড ক্লায়েন্ট তৈরি। |
+| **`01-tech-infra/02-data-layer.md`** | PostgreSQL 15/16 + PostGIS 3.3 স্কিমা, স্প্যাশিয়াল কলাম এবং GiST ইনডেক্সিং ডিজাইন। |
+| **`01-tech-infra/07-workers-consumers.md`** | ৪টি Celery কিউ (`high`, `notify`, `symbolic_ai`, `default_low`) ও টাস্ক ডেফিনিশন। |
+| **`09-execution-tracker/00-implementation-checklist.md`** | সার্ভিস লেয়ার মেথড ও ভিউসেট কোডিংয়ের প্যারালাল ব্যাকএন্ড ট্র্যাক। |

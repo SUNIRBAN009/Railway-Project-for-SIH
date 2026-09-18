@@ -1,51 +1,96 @@
 # 00-test-plan.md
 
-> **File Sequence:** 39/45  
-> **Directory:** `06-testing-qa/`  
-> **Previous Document:** [05-deep-dive-logs/adrs/adr-0003-owlready2-digital-twin.md](../05-deep-dive-logs/adrs/adr-0003-owlready2-digital-twin.md)  
-> **Next Document:** [06-testing-qa/01-e2e-scenarios.md](01-e2e-scenarios.md)  
-> **Context:** Master Quality Assurance & Test Engineering Strategy for the Indian Railways Block Planning Platform (PS 26027).
+> **ফাইল ক্রম:** ৪৫/৫৯  
+> **ডিরেক্টরি:** `06-testing-qa/`  
+> **সার্ভিস স্কোপ:** Platform-Wide Test Strategy, Quality Assurance & Safety Verification Framework  
+> **পূর্ববর্তী ফাইল:** [05-deep-dive-logs/adrs/adr-0003-owlready2-digital-twin.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/05-deep-dive-logs/adrs/adr-0003-owlready2-digital-twin.md) (ADR-3: Isolated Owlready2 Reasoning in Celery)  
+> **পরবর্তী ফাইল:** [06-testing-qa/01-e2e-scenarios.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/06-testing-qa/01-e2e-scenarios.md) (End-to-End Operational Journey Scenarios)  
+> **সংযোগ ও উদ্দেশ্য:** এই ফাইলে প্ল্যাটফর্মের গুণগত মান নিশ্চিতকরণ, লাইফ-সেফটি ভেরিফিকেশন, PostgreSQL 15.6 + PostGIS 3.3 স্প্যাশিয়াল টেস্ট ডাটাবেস ফ্রেমওয়ার্ক, টেস্ট পিরামিড, এবং অটোমেটেড সিআই/সিডি (CI/CD) টেস্ট পাইপলাইন বিস্তারিতভাবে সংজ্ঞায়িত করা হয়েছে।
 
 ---
 
-# Master Quality Assurance & Test Strategy
+# Master Quality Assurance & Test Strategy (সার্বিক গুণগত মান ও টেস্টিং কৌশল)
+
+## 1. Quality Mission & Safety Imperative (সুরক্ষা অনুশাসন ও লক্ষ্য)
+
+যেহেতু ভারতীয় রেলওয়ে এআই মেগা-ব্লক ও করিডোর শিডিউলিং প্ল্যাটফর্মটি (PS 26027) নয়াদিল্লি–কানপুর (NDLS–CNB) এবং হাওড়া–দিল্লির মতো ব্যস্ততম ট্রাঙ্ক রুটে ট্রেনের গতিশীলতা এবং মানবকর্মীদের লাইভ ট্র্যাকে কাজের সময়সূচি সমন্বয় করে, তাই সাধারণ ওয়েব অ্যাপ্লিকেশনের তুলনায় এর সফটওয়্যার নির্ভরযোগ্যতা সম্পূর্ণ আপসহীন।
+
+প্ল্যাটফর্মের কোয়ালিটি ফ্রেমওয়ার্ক নিচের ত্রুটিগুলোতে **জিরো টলারেন্স (Zero Tolerance)** প্রয়োগ করে:
+1. **স্প্যাশিয়াল ও টেম্পোরাল সংঘাতের ফলস-নেগেটিভ (Spatial Collision False Negatives):** রাজধানী/শতাব্দী/বন্দে ভারত ট্রেনের লাইভ পাথের সাথে মেগা-ব্লকের ওভারল্যাপ শনাক্ত করতে ব্যর্থ হওয়া।
+2. **ডাবল-বুকিং রেস-কন্ডিশন (Concurrency Race Conditions):** একই ট্র্যাকে দুই কন্ট্রোলারের দ্বারা দুটি সাংঘর্ষিক ডিপার্টমেন্টাল ব্লকের একযোগে অনুমোদন।
+3. **লাইফ-সেফটি ভায়োলেশন (Life-Safety Hazard Leaks):** ওএইচই কারেন্ট আইসোলেশন (LOTO #74) ছাড়া কাজের অনুমোদন বা ট্র্যাকে কর্মীর উপস্থিতিতে জিপিএস অ্যালার্ম ফেইলিউর।
+4. **স্প্যাশিয়াল জিওমেট্রি ডেটা বিকৃতি (PostGIS Coordinate Corruption):** ৫০-মিটার সেফটি বাফারের ত্রুটিপূর্ণ গণনা বা অকার্যকর চেইনেজ ইন্টারপোলেশন।
 
 ---
 
-## 1. Quality Mission & Safety Imperative
-
-Because the AI Block Planning Platform schedules track possession windows along high-density passenger and freight corridors (such as New Delhi – Kanpur), software defects carry immediate real-world safety implications. The testing framework enforces zero tolerance for:
-1. Spatial collision false negatives (failing to identify an overlapping train path or parallel block).
-2. Optimistic concurrency race conditions permitting double-booking of a single track section.
-3. Unhandled semantic hazards (e.g. de-energizing an OHE feeder while an electric locomotive occupies the sector).
-
----
-
-## 2. Testing Pyramid & Coverage Targets
+## 2. Testing Pyramid & Target Coverage (টেস্টিং পিরামিড ও কভারেজ লক্ষ্য)
 
 ```
-                      / \
-                     /   \
-                    / E2E \       10% (Playwright / Multi-User Operational Journeys)
-                   /-------\
-                  / Integr. \     30% (Pytest-Django + MySQL Spatial Test DB + Redis)
-                 /-----------\
-                /  Unit Tests \   60% (Fast Python Unit Tests, Domain Models, Math)
-               /---------------\
+                          / \
+                         /   \
+                        / E2E \       10% (Playwright / Multi-Role Operations)
+                       /-------\
+                      / Integr. \     30% (Pytest-Django + PostGIS 3.3 + Redis 7)
+                     /-----------\
+                    /  Unit Tests \   60% (Fast Domain Math, Algorithms, Serializers)
+                   /---------------\
 ```
 
-| Test Level | Scope & Objective | Tooling / Framework | Target Coverage | Execution Trigger | Max Duration |
+| টেস্টিং লেভেল | পরিধি ও পরীক্ষিত কম্পোনেন্ট | প্রযুক্তি ও ফ্রেমওয়ার্ক | লক্ষ্যমাত্রা কভারেজ | ট্রিগার ইভেন্ট | সর্বোচ্চ সময় |
 |---|---|---|:---:|---|:---:|
-| **Unit Tests** | Domain models, interval tree conflict algorithms, validation rules, serializers | `pytest`, `pytest-mock`, `unittest` | 85%+ Lines | Every git commit / pre-commit hook | < 30 seconds |
-| **Integration Tests** | DRF API controllers, MySQL 8.0 spatial queries, transaction boundaries, Celery tasks | `pytest-django`, `pytest-asyncio`, Docker test DB | 80%+ Branches | Every Pull Request | < 3 minutes |
-| **Contract Tests** | OpenAPI schema fidelity, serialization envelopes, status codes | `schemathesis`, `dredd` | 100% Endpoints | Nightly CI build | < 2 minutes |
-| **End-to-End (E2E)** | Full multi-departmental user flows across React UI and Daphne WebSockets | `playwright` (TypeScript) | Top 5 Journeys | Pre-merge to `main` | < 8 minutes |
-| **Performance & Load**| Concurrent block submissions, conflict sweep throughput, WebSocket capacity | `k6` by Grafana | 500 RPS sustained | Pre-release staging gate | 15 minutes |
+| **Unit Tests** | গাণিতিক সূত্র (Asset Availability #50, CoF×LoF #92, চেইনেজ পার্সার #87, সুইপ-লাইন কনফ্লিক্ট) | `pytest`, `pytest-mock`, `unittest` | **৮৫%+** লাইনস | প্রতিটি গিট কমিট / প্রি-কমিট হুক | < ৩০ সেকেন্ড |
+| **Integration Tests** | DRF এন্ডপয়েন্টস, PostgreSQL 15.6 + PostGIS 3.3 কোয়েরি, সেলরি ওয়ার্কার টাস্ক, Daphne WS চ্যানেল | `pytest-django`, `pytest-asyncio`, Docker PostGIS | **৮০%+** ব্রাঞ্চেস | প্রতিটি Pull Request (GitHub Actions) | < ৩ মিনিট |
+| **Contract Tests** | OpenAPI 3.0.3 স্কিমা ভ্যালিডেশন, DTO এনভেলপ অখণ্ডতা, HTTP স্ট্যাটাস কোড | `schemathesis`, `dredd` | **১০০%** এন্ডপয়েন্টস | দৈনিক নাইটলি সিআই বিল্ড | < ২ মিনিট |
+| **End-to-End (E2E)** | ব্রাউজারে রিঅ্যাক্ট ইউআই, ইন্টারেক্টিভ ম্যাপ, ব্লক অনুমোদন, এসওএস সাইরেন প্রবাহ | `playwright` (TypeScript) | ৫টি মূল অপারেশনাল জার্নি | মেইন ব্রাঞ্চে মার্জের পূর্বে | < ৮ মিনিট |
+| **Load & Stress** | ৫০০ RPS সমসাময়িক ব্লক সাবমিশন, PostGIS কনফ্লিক্ট সুইপ ল্যাটেন্সি, ওয়েবসকেট ফ্যানআউট | `k6` by Grafana | ৫০০ RPS sustained | স্টেজিং রিলিজ গেট | ১৫ মিনিট |
 
 ---
 
-## 3. Test Environment Topology
+## 3. Test Environment Topology (টেস্ট পরিবেশ পরিকাঠামো)
 
-- **Isolated Test Database:** Dedicated MySQL 8.0 instance running with `tmpfs` RAM mount for sub-second migrations and database rollbacks between test cases.
-- **Mocked External Carriers:** External gateways (CDAC SMS provider, Indian Railways COA timetable API) are replaced with deterministic WireMock / responses stubs.
-- **In-Memory Redis:** Isolated Redis DB 15 used for test queue broker and caching to prevent state pollution.
+- **আইসোলেটেড স্প্যাশিয়াল টেস্ট ডেটাবেস:**
+  - টেস্ট স্যুইট এক্সিকিউশনের জন্য রিয়েল **PostgreSQL 15.6 + PostGIS 3.3** কন্টেইনার ব্যবহৃত হয়, যা `tmpfs` RAM মাউন্টে চলে। এর ফলে টেস্ট কেসের মাঝে টেবিল ড্রপ ও ট্রানজাকশন রোলব্যাক এক সেকেন্ডেরও কম সময়ে সম্পন্ন হয়।
+  - কোনো ধরনের মক ডেটাবেস বা SQLite ব্যবহার কঠোরভাবে নিষিদ্ধ, কারণ PostGIS-এর নেটিভ `ST_DWithin`, `ST_LineLocatePoint`, এবং GiST ইনডেক্সিং কেবল আসল ইঞ্জিনেই সঠিক ফলাফল প্রদান করে।
+- **মকড এক্সটার্নাল এপিআই গেটওয়ে:**
+  - ভারতীয় রেলওয়ের বাহ্যিক সিস্টেম (COA টাইমটেবিল ফিড, CDAC এসএমএস গেটওয়ে, NTES লাইভ ট্রেন স্ট্যাটাস) লোকাল টেস্টে `responses` বা `respx` লাইব্রেরি দ্বারা ডিটারমিনিস্টিক স্টাব হিসেবে মক করা হয়।
+- **আইসোলেটেড টেস্ট রেডিস ক্লাস্টার:**
+  - Celery ওয়ার্কার ও Daphne ওয়েবসকেট টেস্টিংয়ের জন্য আলাদা Redis DB 15 বরাদ্দ থাকে, যাতে টেস্টের সময় লোকাল ডেভেলপমেন্ট ক্যাশে কোনো ডেটা ওভাররাইট না হয়।
+
+---
+
+## 4. Automated Demo Seeding Strategy (`seed_railway_demo`)
+
+টেস্টিং এবং জুরির সামনে লাইভ ডেমোনস্ট্রেশনের জন্য একটি ক্যানোনিকাল জ্যাঙ্গো ম্যানেজমেন্ট কমান্ড বাস্তবায়িত হয়েছে:
+```bash
+python manage.py seed_railway_demo --corridor=NDLS-CNB --scenario=CRITICAL_CONFLICT
+```
+
+এই কমান্ডটি ৭টি সুনির্দিষ্ট ধাপে সম্পূর্ণ ভারতীয় রেলওয়ে পরিবেশ তৈরি করে:
+1. **ডিভিশন ও সেকশন সিডিং:** দিল্লি (DLI) ও প্রয়াগরাজ (PRYJ) ডিভিশন, নয়াদিল্লি–কানপুর ডাবল লাইন করিডোর (৪৪০ কিমি)।
+2. **PostGIS ট্র্যাক ও স্টেশন জিওমেট্রি:** NDLS, GZB, ALJN, TDL, CNB স্টেশন এবং তাদের সুনির্দিষ্ট লাইনস্ট্রিং ট্র্যাক কোঅর্ডিনেট (`SRID 4326`)।
+3. **ইউজার ও রোল সিডিং:** চিফ কন্ট্রোলার (`EMP-DOM-001`), সেকশন কন্ট্রোলার (`EMP-CONTR-108`), ট্র্যাকম্যান গ্যাং ইনচার্জ (`EMP-SUP-204`), এবং সেফটি অফিসার (`EMP-SAFE-301`)।
+4. **টাইমটেবিল ও ১২টি ট্রেন:** ১২৪২৪ ডিব্রুগড় রাজধানী, ১২৩০১ হাওড়া রাজধানী, ২২৪৩৬ বন্দে ভারত, এবং ডেডিকেটেড ফ্রেইট ট্রেন।
+5. **বিভাগীয় অ্যাসেট ও সেন্সর ডেটা:** TMS ট্র্যাক ডিফেক্ট, SMMS পয়েন্ট মেশিন, এবং TDMS ওএইচই ক্যাটেনারি ফিডার।
+6. **কনফ্লিক্ট সিনারিও ইনজেকশন:** KM 142.500-এ ইঞ্জিনিয়ারিং ব্লকের সাথে রাজধানী এক্সপ্রেসের সময়সূচির পরিকল্পিত সংঘাত (BLK-003 টেস্টের জন্য)।
+7. **লাইফ-সেফটি টোকেন ও সাইরেন ভেরিফিকেশন:** ডিজিটাল সেফটি টোকেন এবং টেস্ট সাইরেন ব্রডকাস্ট প্রস্তুত রাখা।
+
+---
+
+## 5. Continuous Integration (CI) Pipeline Workflow
+
+```
+[GitHub PR Created]
+        │
+        ├── [1. Lint & Format]: Ruff, Black, ESLint, TypeScript Check (< 45s)
+        │
+        ├── [2. Unit Test Suite]: Pytest 85%+ Coverage Target (< 60s)
+        │
+        ├── [3. Integration Suite]: Pytest-Django + PostGIS 3.3 Container (< 3m)
+        │
+        ├── [4. Contract Validation]: Schemathesis OpenAPI 3.0.3 Fuzzing (< 2m)
+        │
+        └── [5. Security Audit]: Bandit, pip-audit, TruffleHog Secrets (< 1m)
+        │
+        ▼
+[Merge Allowed to `main`] ──> [Nightly E2E Playwright Suite + k6 Load Test]
+```

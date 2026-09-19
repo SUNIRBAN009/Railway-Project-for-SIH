@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
 import { Block, DepartmentCode } from '../../types';
-import { DEMO_BLOCKS } from '../../services/demoData';
+import { useLiveBlocks } from '../../hooks/useLiveBlocks';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Filter, Clock } from 'lucide-react';
 
 export const CalendarView: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState('September 2026');
   const [selectedView, setSelectedView] = useState<'WEEK' | 'MONTH'>('WEEK');
+  const { blocks } = useLiveBlocks();
 
-  // Days in week for Delhi Division demo
+  // Days in week for Delhi Division demo mapped from real live blocks
+  const b0 = blocks[0] || null;
+  const b1 = blocks[1] || b0;
+  const b2 = blocks[2] || b0;
+  const b3 = blocks[3] || b1;
+  const safeBlocks = (arr: (Block | null)[]) => arr.filter((b): b is Block => b !== null);
+
   const weekDays = [
-    { day: 'Mon', date: '07 Sep', count: 2, blocks: [DEMO_BLOCKS[0]] },
-    { day: 'Tue', date: '08 Sep', count: 4, blocks: [DEMO_BLOCKS[0], DEMO_BLOCKS[1]] },
-    { day: 'Wed', date: '09 Sep', isToday: true, count: 5, blocks: DEMO_BLOCKS.slice(0, 4) },
-    { day: 'Thu', date: '10 Sep', count: 3, blocks: [DEMO_BLOCKS[1], DEMO_BLOCKS[3]] },
-    { day: 'Fri', date: '11 Sep', count: 2, blocks: [DEMO_BLOCKS[2]] },
-    { day: 'Sat', date: '12 Sep', count: 6, blocks: DEMO_BLOCKS.slice(0, 5) },
-    { day: 'Sun', date: '13 Sep', count: 4, blocks: [DEMO_BLOCKS[0], DEMO_BLOCKS[3]] },
+    { day: 'Mon', date: '07 Sep', count: 2, blocks: safeBlocks([b0]) },
+    { day: 'Tue', date: '08 Sep', count: 4, blocks: safeBlocks([b0, b1]) },
+    { day: 'Wed', date: '09 Sep', isToday: true, count: blocks.length, blocks: blocks.slice(0, 4) },
+    { day: 'Thu', date: '10 Sep', count: 3, blocks: safeBlocks([b1, b3]) },
+    { day: 'Fri', date: '11 Sep', count: 2, blocks: safeBlocks([b2]) },
+    { day: 'Sat', date: '12 Sep', count: 6, blocks: blocks.slice(0, 5) },
+    { day: 'Sun', date: '13 Sep', count: 4, blocks: safeBlocks([b0, b3]) },
   ];
 
   const getDeptColor = (dept: DepartmentCode) => {

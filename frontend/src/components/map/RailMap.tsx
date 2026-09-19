@@ -13,7 +13,6 @@ import {
   StationData,
   TrackSectionGeo,
 } from '../../services/mapGeoData';
-import { DEMO_BLOCKS } from '../../services/demoData';
 import { Block } from '../../types';
 import { Radio, Compass, Layers, ShieldCheck, Activity } from 'lucide-react';
 

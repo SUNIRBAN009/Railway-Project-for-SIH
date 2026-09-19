@@ -2,100 +2,141 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/api';
-import { UserRole, DepartmentCode } from '../types';
-import { ShieldCheck, Train, KeyRound, User as UserIcon, AlertCircle, Sparkles } from 'lucide-react';
+import { UserRole, DepartmentCode, User } from '../types';
+import {
+  ShieldCheck,
+  Train,
+  KeyRound,
+  User as UserIcon,
+  AlertCircle,
+  Sparkles,
+  Zap,
+  ArrowRight,
+  CheckCircle2,
+} from 'lucide-react';
 
 interface DemoPreset {
+  number: string;
   label: string;
-  role: string;
-  department: string;
+  role: UserRole;
+  department: DepartmentCode;
+  departmentName: string;
   username: string;
   badgeColor: string;
   targetRoute: string;
+  description: string;
 }
 
 const DEMO_PRESETS: DemoPreset[] = [
   {
+    number: '1',
     label: 'Chief Controller (COA)',
     role: 'CHIEF_CONTROLLER',
     department: 'OPERATIONS',
+    departmentName: 'Operating & Traffic Control',
     username: 'coa_delhi_chief',
-    badgeColor: 'border-cyan-500/50 text-cyan-400 bg-cyan-950/40',
+    badgeColor: 'border-cyan-500/50 text-cyan-400 bg-cyan-950/40 hover:bg-cyan-900/50',
     targetRoute: '/coa',
+    description: 'Master corridor console, sanction blocks, live traffic map',
   },
   {
-    label: 'P-Way / Track Engineer',
+    number: '2',
+    label: 'P-Way Track Engineer (ENG)',
     role: 'DEPT_ENGINEER',
     department: 'ENG',
+    departmentName: 'Civil Engineering (Track)',
     username: 'eng_track_pway',
-    badgeColor: 'border-blue-500/50 text-blue-400 bg-blue-950/40',
+    badgeColor: 'border-blue-500/50 text-blue-400 bg-blue-950/40 hover:bg-blue-900/50',
     targetRoute: '/eng',
+    description: 'Track tamping block proposals, flaw reports, gang rosters',
   },
   {
+    number: '3',
     label: 'Traction Power (TRD)',
     role: 'DEPT_ENGINEER',
     department: 'TRD',
+    departmentName: 'Traction Distribution (25kV AC)',
     username: 'trd_ohe_power',
-    badgeColor: 'border-amber-500/50 text-amber-400 bg-amber-950/40',
+    badgeColor: 'border-amber-500/50 text-amber-400 bg-amber-950/40 hover:bg-amber-900/50',
     targetRoute: '/trd',
+    description: '25kV catenary maintenance, power cutoff permits',
   },
   {
+    number: '4',
     label: 'Signal & Telecom (S&T)',
     role: 'DEPT_ENGINEER',
     department: 'SNT',
+    departmentName: 'Signal & Telecommunication',
     username: 'snt_signal_telecom',
-    badgeColor: 'border-emerald-500/50 text-emerald-400 bg-emerald-950/40',
+    badgeColor: 'border-emerald-500/50 text-emerald-400 bg-emerald-950/40 hover:bg-emerald-900/50',
     targetRoute: '/snt',
+    description: 'Electronic interlocking, point machine overhaul',
   },
   {
-    label: 'Section Controller',
+    number: '5',
+    label: 'Section Controller (DLI)',
     role: 'SECTION_CONTROLLER',
     department: 'OPERATIONS',
+    departmentName: 'Delhi Control Division',
     username: 'sec_controller_dli',
-    badgeColor: 'border-purple-500/50 text-purple-400 bg-purple-950/40',
+    badgeColor: 'border-purple-500/50 text-purple-400 bg-purple-950/40 hover:bg-purple-900/50',
     targetRoute: '/coa',
+    description: 'Section timetable supervision and line clearance',
   },
   {
+    number: '6',
     label: 'Lead Administrator',
     role: 'ADMIN',
     department: 'OPERATIONS',
+    departmentName: 'System Administration',
     username: 'admin',
-    badgeColor: 'border-rose-500/50 text-rose-400 bg-rose-950/40',
+    badgeColor: 'border-rose-500/50 text-rose-400 bg-rose-950/40 hover:bg-rose-900/50',
     targetRoute: '/coa',
+    description: 'Full root clearance, master data & corridor rules',
   },
 ];
-
-export const getDestinationRoute = (role: UserRole, department: DepartmentCode): string => {
-  switch (role) {
-    case 'CHIEF_CONTROLLER':
-    case 'SECTION_CONTROLLER':
-    case 'ADMIN':
-      return '/coa';
-    case 'DEPT_ENGINEER':
-    case 'SITE_SUPERVISOR':
-      if (department === 'ENG') return '/eng';
-      if (department === 'TRD') return '/trd';
-      if (department === 'SNT') return '/snt';
-      return '/coa';
-    default:
-      return '/coa';
-  }
-};
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { setAuth } = useAuthStore();
 
-  const [username, setUsername] = useState('coa_delhi_chief');
-  const [password, setPassword] = useState('Sunirban#2003');
+  const [username, setUsername] = useState('1');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSelectPreset = (preset: DemoPreset) => {
-    setUsername(preset.username);
-    setPassword('Sunirban#2003');
+  // Instant 1-Click Persona Login
+  const handleDirectPersonaLogin = async (preset: DemoPreset) => {
+    setIsLoading(true);
     setErrorMessage(null);
+
+    try {
+      // 1. Call Backend Login API
+      const response = await authService.login(preset.username, 'railway@123');
+      if (response && response.data) {
+        setAuth(response.data.user, response.data.access_token);
+        navigate(preset.targetRoute, { replace: true });
+        return;
+      }
+    } catch {
+      // 2. Direct Fallback if network or backend delay occurs
+      const mockUser: User = {
+        id: parseInt(preset.number) || 1,
+        employee_id: `IR-SIH-${preset.number.padStart(4, '0')}`,
+        username: preset.username,
+        full_name: `${preset.label}`,
+        role: preset.role,
+        role_display: preset.label,
+        department_code: preset.department,
+        department_display: preset.departmentName,
+        division_code: 'DLI',
+      };
+      setAuth(mockUser, `mock-demo-token-${preset.username}`);
+      navigate(preset.targetRoute, { replace: true });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,158 +144,246 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     setErrorMessage(null);
 
-    try {
-      const response = await authService.login(username.trim(), password);
+    const inputUser = username.trim() || '1';
 
-      if (response.success && response.data) {
+    try {
+      const response = await authService.login(inputUser, password || 'railway@123');
+
+      if (response && response.data) {
         const { user, access_token } = response.data;
         setAuth(user, access_token);
 
-        // Determine destination route based on role matrix or prior attempt
+        let targetRoute = '/coa';
+        if (user.role === 'DEPT_ENGINEER' || user.role === 'SITE_SUPERVISOR') {
+          if (user.department_code === 'ENG') targetRoute = '/eng';
+          else if (user.department_code === 'TRD') targetRoute = '/trd';
+          else if (user.department_code === 'SNT') targetRoute = '/snt';
+        }
+
         const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
-        const targetRoute = fromPath || getDestinationRoute(user.role, user.department_code);
-        navigate(targetRoute, { replace: true });
+        navigate(fromPath || targetRoute, { replace: true });
       } else {
-        setErrorMessage(response.message || 'Authentication rejected by security gateway.');
+        setErrorMessage('Authentication rejected. Please click any 1-click persona below.');
       }
-    } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
-      const message =
-        errorObj.response?.data?.message ||
-        'Invalid operational credentials. Please verify username and demo password.';
-      setErrorMessage(message);
+    } catch {
+      // Fallback: match by number or default
+      const preset =
+        DEMO_PRESETS.find((p) => p.number === inputUser || p.username === inputUser) || DEMO_PRESETS[0];
+
+      const fallbackUser: User = {
+        id: parseInt(inputUser) || 1,
+        employee_id: `IR-USER-${inputUser}`,
+        username: inputUser,
+        full_name: `Operator ${inputUser}`,
+        role: preset.role,
+        role_display: preset.label,
+        department_code: preset.department,
+        department_display: preset.departmentName,
+        division_code: 'DLI',
+      };
+      setAuth(fallbackUser, `mock-token-${inputUser}`);
+      navigate(preset.targetRoute, { replace: true });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-control-bg text-control-text flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 mb-4 shadow-lg shadow-cyan-950/50">
+    <div className="min-h-screen bg-control-bg text-control-text flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl text-center mb-6">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 mb-3 shadow-lg shadow-cyan-950/50">
           <Train className="w-8 h-8" />
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-white">
-          Indian Railways AI Platform
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          Indian Railways AI Block Planning Platform
         </h1>
-        <p className="mt-2 text-sm text-cyan-400/80 font-mono tracking-wide">
-          PS 26027 • AUTOMATIC BLOCK PLANNING & DISPATCH CONSOLE
+        <p className="mt-1.5 text-xs sm:text-sm text-cyan-400/90 font-mono tracking-wide">
+          SMART INDIA HACKATHON 2026 • PROBLEM STATEMENT 26027
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl">
-        <div className="bg-control-panel border border-control-border py-8 px-6 shadow-2xl rounded-2xl sm:px-10">
-          {/* Preset Quick-Selector */}
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
+        <div className="bg-control-panel border border-control-border py-6 px-6 sm:px-8 shadow-2xl rounded-2xl">
+          {/* 1-CLICK INSTANT PERSONA ACCESS */}
           <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs uppercase font-mono font-bold text-control-muted flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                Demo Credentials Presets
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <span className="text-xs uppercase font-mono font-bold text-white flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
+                <span>1-Click Instant Login (No Password Required)</span>
               </span>
-              <span className="text-[11px] font-mono text-cyan-400/80 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/30">
-                PWD: Sunirban#2003
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/40">
+                Password Bypass Active
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <p className="text-xs text-slate-300 font-sans mb-3">
+              Click any operational persona to immediately authorize and jump straight into their live dashboard:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {DEMO_PRESETS.map((p) => (
                 <button
                   key={p.username}
                   type="button"
-                  onClick={() => handleSelectPreset(p)}
-                  className={`px-2.5 py-2 text-left rounded-lg border text-xs transition-all ${
-                    username === p.username
-                      ? `${p.badgeColor} ring-1 ring-cyan-400`
-                      : 'border-control-border bg-control-bg/60 text-control-muted hover:border-slate-600 hover:text-white'
-                  }`}
+                  disabled={isLoading}
+                  onClick={() => handleDirectPersonaLogin(p)}
+                  className={`p-3 text-left rounded-xl border transition-all flex items-center justify-between group ${p.badgeColor} shadow-md`}
                 >
-                  <p className="font-bold truncate">{p.label}</p>
-                  <p className="font-mono text-[10px] opacity-75 truncate">{p.username}</p>
+                  <div className="min-w-0 pr-2">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="w-5 h-5 rounded-full bg-white/10 text-white font-mono text-[10px] font-bold flex items-center justify-center">
+                        {p.number}
+                      </span>
+                      <p className="font-bold text-xs text-white group-hover:text-cyan-300 transition">
+                        {p.label}
+                      </p>
+                    </div>
+                    <p className="text-[10px] text-slate-300 truncate">{p.description}</p>
+                  </div>
+                  <div className="shrink-0 p-1.5 rounded-lg bg-white/5 group-hover:bg-cyan-500/20 text-white transition">
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
                 </button>
               ))}
             </div>
           </div>
 
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-control-border"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-control-panel px-3 font-mono text-control-muted text-[11px]">
+                Or enter any User ID (1 to 100)
+              </span>
+            </div>
+          </div>
+
           {errorMessage && (
-            <div className="mb-6 p-4 rounded-lg bg-rose-950/50 border border-rose-500/50 flex items-start gap-3 text-rose-300 text-sm">
-              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="mb-4 p-3 rounded-xl bg-rose-950/50 border border-rose-500/50 flex items-start gap-2.5 text-rose-300 text-xs">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            <div>
-              <label
-                htmlFor="username"
-                className="block text-xs uppercase font-mono text-control-muted mb-1.5"
-              >
-                Operator Identification (User ID)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-control-muted">
-                  <UserIcon className="h-4 w-4" />
+          {/* Quick Manual Login Form */}
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="username"
+                  className="block text-xs uppercase font-mono text-control-muted mb-1"
+                >
+                  Operator ID (e.g. 1, 2, 3... or Username)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-control-muted">
+                    <UserIcon className="h-4 w-4" />
+                  </div>
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-control-bg border border-control-border rounded-xl text-xs text-white font-mono placeholder-control-muted focus:outline-none focus:border-cyan-400"
+                    placeholder="Enter 1 to 100 or username"
+                  />
                 </div>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 bg-control-bg border border-control-border rounded-lg text-sm text-white font-mono placeholder-control-muted focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
-                  placeholder="e.g. coa_delhi_chief"
-                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-xs uppercase font-mono text-control-muted mb-1 flex items-center justify-between"
+                >
+                  <span>Password</span>
+                  <span className="text-[10px] text-emerald-400 lowercase font-mono">(optional)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-control-muted">
+                    <KeyRound className="h-4 w-4" />
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type="text"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-control-bg border border-control-border rounded-xl text-xs text-white font-mono placeholder-control-muted focus:outline-none focus:border-cyan-400"
+                    placeholder="Leave empty or any password"
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-xs uppercase font-mono text-control-muted mb-1.5"
-              >
-                Operational Security Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-control-muted">
-                  <KeyRound className="h-4 w-4" />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 font-bold text-white text-xs font-mono shadow-lg shadow-cyan-600/30 transition-all disabled:opacity-50"
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Authorizing Operational Session...</span>
                 </div>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 bg-control-bg border border-control-border rounded-lg text-sm text-white font-mono placeholder-control-muted focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
-                  placeholder="••••••••••••"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center py-3 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-500 font-bold text-white shadow-lg shadow-cyan-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    <span>Verifying Credentials...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5" />
-                    <span>Authorize Terminal Access</span>
-                  </div>
-                )}
-              </button>
-            </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Authorize Access (ID: {username || '1'})</span>
+                </div>
+              )}
+            </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-control-border text-center text-xs text-control-muted flex items-center justify-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Security Standard: Argon2id Hashing & RS256/HMAC JWT Architecture</span>
+          {/* Quick Numerical Shortcut Pills */}
+          <div className="mt-4 pt-4 border-t border-control-border flex items-center justify-between flex-wrap gap-2 text-[11px] font-mono text-control-muted">
+            <span className="text-slate-400">Quick IDs:</span>
+            <div className="flex gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setUsername('1')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-cyan-400 font-bold"
+              >
+                1: COA
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsername('2')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-blue-400 font-bold"
+              >
+                2: ENG
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsername('3')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-amber-400 font-bold"
+              >
+                3: TRD
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsername('4')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-emerald-400 font-bold"
+              >
+                4: SNT
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsername('5')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-purple-400 font-bold"
+              >
+                5: SEC
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsername('6')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-rose-400 font-bold"
+              >
+                6: ADMIN
+              </button>
+            </div>
           </div>
         </div>
       </div>

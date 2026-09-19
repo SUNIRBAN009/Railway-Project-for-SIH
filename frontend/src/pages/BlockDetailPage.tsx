@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DEMO_BLOCKS, DEMO_MACHINERY, DEMO_GANGS, DEMO_CONFLICTS, DEMO_AUDIT_TRAIL } from '../services/demoData';
+import { DEMO_MACHINERY, DEMO_GANGS, DEMO_CONFLICTS, DEMO_AUDIT_TRAIL } from '../services/demoData';
+import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import { Block, BlockStatus } from '../types';
 import { ApprovalWorkflow } from '../components/blocks/ApprovalWorkflow';
 import { ConflictAlert } from '../components/blocks/ConflictAlert';
@@ -21,10 +22,27 @@ import {
 export const BlockDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { blocks } = useLiveBlocks();
 
-  // Look up block or fallback to first demo block
-  const foundBlock = DEMO_BLOCKS.find((b) => b.id === id) || DEMO_BLOCKS[0];
-  const [block, setBlock] = useState<Block>(foundBlock);
+  // Look up block or fallback to first live block
+  const foundBlock = blocks.find((b) => b.id === id || b.block_code === id) || blocks[0];
+  const [block, setBlock] = useState<Block | undefined>(foundBlock);
+
+  useEffect(() => {
+    if (blocks.length > 0) {
+      const match = blocks.find((b) => b.id === id || b.block_code === id) || blocks[0];
+      setBlock(match);
+    }
+  }, [blocks, id]);
+
+  if (!block) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white p-8 flex items-center justify-center font-mono">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-cyan-400 mr-3"></div>
+        Loading dynamic block details from PostgreSQL...
+      </div>
+    );
+  }
 
   const machinery = DEMO_MACHINERY.find((m) => m.machine_code.includes('CSM') || m.machine_code.includes(block.equipment_required || '')) || DEMO_MACHINERY[0];
   const gang = DEMO_GANGS.find((g) => g.id === block.gang_id) || DEMO_GANGS[0];

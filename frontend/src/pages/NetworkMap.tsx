@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ControlRoomLayout } from '../layouts/ControlRoomLayout';
 import { RailMap } from '../components/map/RailMap';
 import { Block } from '../types';
-import { DEMO_BLOCKS, DEMO_TRAINS } from '../services/demoData';
+import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import {
   MapPin,
   Train,
@@ -15,7 +15,10 @@ import {
 } from 'lucide-react';
 
 export const NetworkMapPage: React.FC = () => {
-  const [selectedBlock, setSelectedBlock] = useState<Block | null>(DEMO_BLOCKS[0]);
+  const { blocks } = useLiveBlocks();
+  const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
+
+  const activeBlock = selectedBlock || (blocks.length > 0 ? blocks[0] : null);
 
   const handleSelectBlock = (block: Block) => {
     setSelectedBlock(block);

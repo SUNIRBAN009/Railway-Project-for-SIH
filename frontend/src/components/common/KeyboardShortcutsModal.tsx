@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSocketStore } from '../../stores/socketStore';
-import { DEMO_BLOCKS } from '../../services/demoData';
+import { useLiveBlocks } from '../../hooks/useLiveBlocks';
 import { printCorridorDailyPossessionSheet } from '../../utils/exportPdf';
 import {
   Keyboard,
@@ -20,10 +20,11 @@ export const KeyboardShortcutsModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const triggerDemoEmergency = useSocketStore((state) => state.triggerDemoEmergency);
+  const { blocks } = useLiveBlocks();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept when typing in input, textarea, or select
+      // Don't trigger if user is typing in an input
       const target = e.target as HTMLElement;
       if (
         target.tagName === 'INPUT' ||
@@ -53,7 +54,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
         navigate('/snt');
       } else if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
-        printCorridorDailyPossessionSheet(DEMO_BLOCKS);
+        printCorridorDailyPossessionSheet(blocks);
       } else if (e.key === 'x' || e.key === 'X') {
         // Quick trigger for demo emergency alert during presentation
         triggerDemoEmergency();
@@ -62,7 +63,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate, triggerDemoEmergency]);
+  }, [navigate, triggerDemoEmergency, blocks]);
 
   if (!isOpen) return null;
 

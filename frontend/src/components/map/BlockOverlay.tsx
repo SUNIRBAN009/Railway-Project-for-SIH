@@ -1,6 +1,6 @@
 import React from 'react';
 import { Block } from '../../types';
-import { DEMO_BLOCKS } from '../../services/demoData';
+import { useLiveBlocks } from '../../hooks/useLiveBlocks';
 import { Wrench, Zap, Radio, Clock, ShieldAlert } from 'lucide-react';
 
 interface BlockOverlayProps {
@@ -9,11 +9,13 @@ interface BlockOverlayProps {
 }
 
 export const BlockOverlay: React.FC<BlockOverlayProps> = ({
-  blocks = DEMO_BLOCKS,
+  blocks,
   onSelectBlock,
 }) => {
+  const { blocks: liveBlocks } = useLiveBlocks();
+  const effectiveBlocks = blocks && blocks.length > 0 ? blocks : liveBlocks;
   // Only render active or sanctioned blocks
-  const activeBlocks = blocks.filter((b) => ['ACTIVE', 'SANCTIONED'].includes(b.status));
+  const activeBlocks = effectiveBlocks.filter((b) => ['ACTIVE', 'SANCTIONED'].includes(b.status));
 
   return (
     <div className="absolute inset-0 pointer-events-none z-15">

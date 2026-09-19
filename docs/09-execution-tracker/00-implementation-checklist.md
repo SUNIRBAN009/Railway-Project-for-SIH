@@ -14,9 +14,9 @@
 
 ## Phase 0: Infrastructure & Foundation Setup
 
-- [ ] **TSK-P0-01-BE:** Initialize Django 5.0 project, configure PostgreSQL 15 + PostGIS 3.3, and set up Redis 7.2 & Celery 5.3 worker queues.
-- [ ] **TSK-P0-01-FE:** Initialize Vite + React 18 + Tailwind CSS frontend workspace with dark control room design tokens.
-- [ ] **TSK-P0-01-TEST:** Verify database connectivity, PostGIS spatial extensions (`SRID 4326`), API health (`http://localhost:8000/api/v1/health/`), and frontend dev server (`http://localhost:3000`).
+- [x] **TSK-P0-01-BE:** Initialize Django 5.0 project, configure PostgreSQL 15 + PostGIS 3.3, and set up Redis 7.2 & Celery 5.3 worker queues.
+- [x] **TSK-P0-01-FE:** Initialize Vite + React 18 + Tailwind CSS frontend workspace with dark control room design tokens.
+- [x] **TSK-P0-01-TEST:** Verify database connectivity, PostGIS spatial extensions (`SRID 4326`), API health (`http://localhost:8000/api/v1/health/`), and frontend dev server (`http://localhost:3000`).
 
 ---
 
@@ -25,19 +25,21 @@
 > *Prerequisite Gate: Without coherent ground-truth data, the 35 critical data-dependent features cannot function. This phase establishes the data universe before domain business logic.*
 
 ### Feature 1: Master Ground-Truth Data Universe (11 Core Entities)
-- [ ] **TSK-P0.5-01-BE:** Author static master datasets in `apps/demo/master_data/` (`stations.json`, `trains.json`, `users.json`, `assets.json`) for the NDLS–CNB 440km trunk corridor with exact PostGIS coordinates.
-- [ ] **TSK-P0.5-01-FE:** Build Master Data Inspector / GeoJSON visualizer component in the developer & admin console.
-- [ ] **TSK-P0.5-01-TEST:** Verify JSON loading into PostGIS models (`Corridor`, `Station`, `Train`, `UserProfile`, `UnifiedAsset`) with zero foreign key or geometry errors.
+- [x] **TSK-P0.5-01-BE:** Author static master datasets in `apps/demo/master_data/` (`stations.json`, `trains.json`, `users.json`, `assets.json`) for the NDLS–CNB 440km trunk corridor with exact PostGIS coordinates.
+- [x] **TSK-P0.5-01-FE:** Build Master Data Inspector / GeoJSON visualizer component in the developer & admin console.
+- [x] **TSK-P0.5-01-TEST:** Verify JSON loading into PostGIS models (`Corridor`, `Station`, `Train`, `UserProfile`, `UnifiedAsset`) with zero foreign key or geometry errors.
 
 ### Feature 2: 7 Coherence Rules Engine (`CoherenceEngine`)
-- [ ] **TSK-P0.5-02-BE:** Implement `apps/demo/coherence/` module enforcing the 7 immutable railway rules: Geography bounds, Time ordering, Resource exclusivity (40km/h travel physics), Train-block exclusion, Cross-department overlap, Asset ID triplets, and Fixed Seed (`26027`).
-- [ ] **TSK-P0.5-02-FE:** Build UI warning badges & toast notifications for coherence violations during block submission.
-- [ ] **TSK-P0.5-02-TEST:** Run `test_coherence.py` unit suite; verify impossible KM, reversed timestamps, and double-booked gangs raise `CoherenceViolation` and are rejected.
+- [x] **TSK-P0.5-02-BE:** Implement `apps/demo/coherence/` module enforcing the 7 immutable railway rules: Geography bounds, Time ordering, Resource exclusivity (40km/h travel physics), Train-block exclusion, Cross-department overlap, Asset ID triplets, and Fixed Seed (`26027`).
+- [x] **TSK-P0.5-02-FE:** Build UI warning badges & toast notifications for coherence violations during block submission.
+- [x] **TSK-P0.5-02-TEST:** Run `test_coherence.py` unit suite; verify impossible KM, reversed timestamps, and double-booked gangs raise `CoherenceViolation` and are rejected.
+
 
 ### Feature 3: Coherent Generators & 4 Operational Modes (`SEED`, `RANDOM`, `STREAM`, `SCENARIO`)
-- [ ] **TSK-P0.5-03-BE:** Implement `BaseDataGenerator`, `BlockGenerator`, `DefectGenerator`, `TrainPositionGenerator`, and `ConflictInjector` with weighted priority distributions.
-- [ ] **TSK-P0.5-03-FE:** Build Demo Controller Toolbar in UI (Mode Switcher, Stream Speed dial, Conflict Inject button).
-- [ ] **TSK-P0.5-03-TEST:** Generate 100 batch blocks across `RANDOM` and `SEED` modes; assert 100% compliance with `CoherenceEngine`.
+- [x] **TSK-P0.5-03-BE:** Implement `BaseDataGenerator`, `BlockGenerator`, `DefectGenerator`, `TrainPositionGenerator`, and `ConflictInjector` with weighted priority distributions.
+- [x] **TSK-P0.5-03-FE:** Build Demo Controller Toolbar in UI (Mode Switcher, Stream Speed dial, Conflict Inject button).
+- [x] **TSK-P0.5-03-TEST:** Generate 100 batch blocks across `RANDOM` and `SEED` modes; assert 100% compliance with `CoherenceEngine`.
+
 
 ### Feature 4: Dynamic Scenario Builder & The 4 Presentation Stories
 - [ ] **TSK-P0.5-04-BE:** Implement `BaseScenario` runner and the 4 golden demonstration scripts:

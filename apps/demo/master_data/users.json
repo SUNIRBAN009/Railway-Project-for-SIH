@@ -1,42 +1,90 @@
 [
     {
         "username": "coa_delhi_chief",
-        "first_name": "Ramesh",
-        "last_name": "Kumar",
+        "first_name": "Rajesh",
+        "last_name": "Verma",
         "role": "CHIEF_CONTROLLER",
         "department": "OPERATIONS",
-        "phone": "+919999900001"
+        "employee_id": "IR-COA-1001",
+        "phone": "+919999900001",
+        "badge_number": "DESK-COA-01",
+        "division": "DLI"
+    },
+    {
+        "username": "sec_controller_dli",
+        "first_name": "Sunil",
+        "last_name": "Yadav",
+        "role": "SECTION_CONTROLLER",
+        "department": "OPERATIONS",
+        "employee_id": "NR-OPS-2201",
+        "phone": "+919999900002",
+        "badge_number": "DESK-SEC-02",
+        "division": "DLI"
+    },
+    {
+        "username": "admin",
+        "first_name": "Vikramaditya",
+        "last_name": "Sharma",
+        "role": "ADMIN",
+        "department": "OPERATIONS",
+        "employee_id": "IR-ADM-0001",
+        "phone": "+919999900000",
+        "badge_number": "DESK-HQ-01",
+        "division": "DLI"
     },
     {
         "username": "eng_track_pway",
         "first_name": "Suresh",
         "last_name": "Singh",
-        "role": "JUNIOR_ENGINEER",
+        "role": "DEPT_ENGINEER",
         "department": "ENG",
-        "phone": "+919999900002"
+        "employee_id": "NR-ENG-4921",
+        "phone": "+919999900003",
+        "badge_number": "P-WAY-DLI-1",
+        "division": "DLI"
     },
     {
-        "username": "trd_ohe_je",
+        "username": "trd_ohe_power",
         "first_name": "Amit",
         "last_name": "Sharma",
-        "role": "JUNIOR_ENGINEER",
+        "role": "DEPT_ENGINEER",
         "department": "TRD",
-        "phone": "+919999900003"
+        "employee_id": "NR-TRD-8842",
+        "phone": "+919999900004",
+        "badge_number": "OHE-DLI-1",
+        "division": "DLI"
     },
     {
-        "username": "snt_sig_je",
-        "first_name": "Vikram",
-        "last_name": "Das",
-        "role": "JUNIOR_ENGINEER",
+        "username": "snt_signal_telecom",
+        "first_name": "Pooja",
+        "last_name": "Mishra",
+        "role": "DEPT_ENGINEER",
         "department": "SNT",
-        "phone": "+919999900004"
+        "employee_id": "NR-SNT-3319",
+        "phone": "+919999900005",
+        "badge_number": "SNT-DLI-1",
+        "division": "DLI"
     },
     {
         "username": "eng_sse",
         "first_name": "Rajiv",
         "last_name": "Verma",
-        "role": "SECTION_ENGINEER",
+        "role": "DEPT_ENGINEER",
         "department": "ENG",
-        "phone": "+919999900005"
+        "employee_id": "NR-ENG-1102",
+        "phone": "+919999900006",
+        "badge_number": "SSE-ALJN-1",
+        "division": "DLI"
+    },
+    {
+        "username": "site_supervisor_gang01",
+        "first_name": "Ram",
+        "last_name": "Swaroop",
+        "role": "SITE_SUPERVISOR",
+        "department": "ENG",
+        "employee_id": "NR-GANG-0101",
+        "phone": "+919999900007",
+        "badge_number": "GANG-01-SUP",
+        "division": "DLI"
     }
 ]

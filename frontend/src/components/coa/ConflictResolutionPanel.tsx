@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ConflictItem, Block } from '../../types';
-import { DEMO_CONFLICTS, DEMO_BLOCKS } from '../../services/demoData';
+import { DEMO_CONFLICTS } from '../../services/demoData';
 import {
   Sparkles,
   AlertTriangle,

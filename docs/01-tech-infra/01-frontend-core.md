@@ -1,347 +1,805 @@
 # 01-frontend-core.md
 
 > **ফাইল ক্রম:** ৫/৪৫  
-> **ডিরেক্টরি:** `01-tech-infra/`  
-> **পূর্ববর্তী ফাইল:** `01-tech-infra/00-backend-core.md` (এপিআই স্পেসিফিকেশন, এরর এনভেলপ, টোকেন প্রটোকল)  
-> **পরবর্তী ফাইল:** `01-tech-infra/02-data-layer.md` (PostgreSQL 15/16 + PostGIS স্কিমা)  
-> **কন্টেন্ট সোর্স:** `RailBlock_Feature_Master_Plan_PS26027(1).xlsx` (১২২টি ফিচার, ৪টি মূল স্তম্ভ), `frontend/package.json` এবং প্রকৃত কোডবেস (`frontend/src/`)।  
-> **প্রযুক্তি স্ট্যাক:** **React 18.2 + TypeScript 5.3 + Vite 5.1 + Zustand 4.5 + TanStack Query v5 + TailwindCSS 3.4 + Leaflet/Mapbox**।
+> **পূর্ববর্তী ফাইল:** `01-tech-infra/00-backend-core.md` (API envelope, JWT strategy, RBAC, WebSocket endpoint, CORS origin)  
+> **পরবর্তী ফাইল:** `01-tech-infra/02-data-layer.md`  
+> **সংযোগ:** এই ফাইলে ব্যবহৃত `Zustand store structure`, `API client base URL`, এবং `Auth flow` `02-data-layer.md`-এর caching strategy এবং session management-এর সাথে সরাসরি লিংকড। `02-data-layer.md`-এ MySQL 8.0 schema এবং Redis cache key design করা হবে, যা frontend-এর server state sync-এর জন্য দরকার।
 
 ---
 
-## 1. Frontend Technology Stack & Rationale
+## 1. Framework & Versions
 
-| Layer / Library | Exact Version | Architectural Purpose in PS 26027 | Justification & Rejected Alternative |
-|:---|:---:|:---|:---|
-| **Core Framework** | **React** `18.2.0` | কম্পোনেন্ট-ভিত্তিক আল্ট্রা-ফাস্ট ইউজার ইন্টারফেস | কনকারেন্ট রেন্ডারিং ও সমৃদ্ধ ইকোসিস্টেম। *(Next.js বাতিল: কন্ট্রোল রুম লোকাল ইন্ট্রানেটে এসএসআর জটিলতা তৈরি করে)* |
-| **Language** | **TypeScript** `5.3.3` | স্ট্যাটিক টাইপ সেফটি ও কম্পাইল-টাইম ভ্যালিডেশন | ১২২টি ফিচারের জটিল পে-লোড ও স্প্যাশিয়াল কোঅর্ডিনেটে রানটাইম টাইপ এরর দূর করে। |
-| **Build & Dev Server**| **Vite** `5.1.4` | নেক্সট-জেনারেশন বিল্ড টুলিং ও ডেভ সার্ভার | সাব-৫০ms হট মডিউল রিপ্লেসমেন্ট (HMR) এবং অতি দ্রুত প্রোডাকশন রোল-আপ বিল্ড। |
-| **Server State** | **TanStack Query** `^5.24.0` | অ্যাসিনক্রোনাস সার্ভার ডেটা ক্যাশিং ও সিনক্রোনাইজেশন | ব্যাকগ্রাউন্ড অটো-রিফেচিং, উইন্ডো ফোকাস রিভ্যালিডেশন এবং ডুও-রিকোয়েস্ট ডিডুপ্লিকেশন। |
-| **Global Client State**| **Zustand** `^4.5.0` | লাইটওয়েট ক্লায়েন্ট স্টেট ম্যানেজমেন্ট | মাত্র ১ KB বান্ডেল, হুকস এপিআই এবং কোনো অতিরিক্ত বয়লারপ্লেট ফাইল নেই। *(Redux বাতিল)* |
-| **HTTP Client** | **Axios** `^1.6.0` | রেস্ট এপিআই রিকোয়েস্ট ও ইন্টারসেপ্টর ইঞ্জিন | অটোমেটিক JWT Bearer টোকেন ইনজেকশন, রিফ্রেশ টোকেন রোটেশন এবং ইউনিফাইড এরর হ্যান্ডলিং। |
-| **Routing** | **React Router DOM** `^6.22.0` | ক্লায়েন্ট-সাইড ডিক্লেয়ারেটিভ রাউটিং | রোল-বেসড প্রোটেক্টেড রুট গার্ডস (`RoleGuard.tsx`) এবং পেজ-লেভেল লেজি লোডিং। |
-| **GIS Track Mapping** | **Leaflet / Mapbox** `1.9 / 2.15` | পোস্টজিআইএস রেলওয়ে করিডোর ও চেইনেজ ইন্টারঅ্যাকশন | অফলাইন রেলনেট ফ্রেন্ডলি টাইলস, জিরো এপিআই খরচ এবং ৬০FPS লাইভ ট্রেন মার্কার এনিমেশন। |
-| **UI Styling System** | **TailwindCSS** `^3.4.1` | ইউটিলিটি-ফার্স্ট রেস্পন্সিভ সিএসএস | কন্ট্রোল রুম ডার্ক থিম, কাস্টম রেলওয়ে কালার টোকেন এবং দ্রুত কম্পোনেন্ট ডিজাইন। |
-| **Data Visualization**| **Recharts** `^3.10.1` | অ্যাসেট ইউটিলাইজেশন ও ডিলে অ্যানালিটিক্স চার্ট | এসভিজি ভিত্তিক লাইটওয়েট রিঅ্যাক্ট চার্টস (বার, এরিয়া, রিস্ক হিটম্যাপ)। |
-| **Icons & Design** | **Lucide React** `^0.344.0` | এন্টারপ্রাইজ ভেক্টর আইকনোগ্রাফি | ট্রি-শেকেবল ও লাইটওয়েট মডার্ন রেলওয়ে ও সেফটি আইকনস। |
-| **Date Manipulation** | **date-fns** `^3.3.0` | আইএসও ৮৬০১ টাইমস্ট্যাম্প ও শিডিউল হিসাব | অপরিবর্তনীয় (Immutable) এবং টাইমজোন-সচেতন ডেট ফরম্যাটিং। |
+| Technology | Version | Purpose | Justification |
+|-----------|---------|---------|---------------|
+| **React** | 18.2.0 | UI library | Component-based, mature ecosystem, team familiarity |
+| **Vite** | 5.0.0 | Build tool & dev server | HMR ~50ms, native ESM, faster than Webpack |
+| **React Router DOM** | 6.22.0 | Client-side routing | Declarative routing, loader/action pattern, lazy loading |
+| **Zustand** | 4.5.0 | Global client state | 1KB bundle, minimal boilerplate, hooks API |
+| **TanStack Query (React Query)** | 5.24.0 | Server state management | Caching, background refetch, deduping, stale-while-revalidate |
+| **Axios** | 1.6.0 | HTTP client | Interceptors, request/response transformation, timeout handling |
+| **Mapbox GL JS** | 2.15.0 | Interactive rail map | Vector tiles, 3D buildings, dark theme, custom layers |
+| **Tailwind CSS** | 3.4.0 | Utility-first styling | Rapid dark theme implementation, design system consistency |
+| **Recharts** | 2.12.0 | Data visualization | Dashboard charts (block utilization, impact scores) |
+| **date-fns** | 3.3.0 | Date manipulation | Tree-shakeable, immutable, timezone support |
+| **clsx + tailwind-merge** | 2.2.0 | Conditional class merging | Dynamic Tailwind class composition without conflicts |
+
+**Rejected Alternatives:**
+- **Next.js 14:** Rejected — App Router learning curve, Mapbox GL JS client-only rendering complexity, SSR unnecessary for internal tool
+- **Redux Toolkit:** Rejected — Boilerplate overhead, hackathon timeline unfriendly
+- **Leaflet:** Rejected — Raster tiles, limited 3D/animation support (backup only)
 
 ---
 
 ## 2. State Management Architecture
 
-সিস্টেমে সার্ভার স্টেট এবং ক্লায়েন্ট স্টেটকে সম্পূর্ণ আলাদা লেয়ারে পৃথক করা হয়েছে:
+### 2.1 Server State (TanStack Query)
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                Frontend State Architecture                             │
-│                                                                                        │
-│  ┌──────────────────────────────────────────┐  ┌────────────────────────────────────┐  │
-│  │ Server State (TanStack Query v5)         │  │ Global Client State (Zustand 4.5)  │  │
-│  │ • API Cache (Stale-While-Revalidate)     │  │ • authStore: User profile & JWT    │  │
-│  │ • ['blocks', 'pending']                  │  │ • mapStore: Selected GIS section   │  │
-│  │ • ['trains', 'live']                     │  │ • socketStore: Active WS alerts    │  │
-│  │ • ['defects', 'tms']                     │  │ • uiStore: Department tab, drawer  │  │
-│  └────────────────────┬─────────────────────┘  └─────────────────┬──────────────────┘  │
-│                       │                                          │                     │
-│                       ▼                                          ▼                     │
-│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ React 18 Component Tree (Clean, Reactive, Zero Prop-Drilling)                    │  │
-│  └──────────────────────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
+**Responsibility:** API data caching, background refetching, optimistic updates, deduplication.
 
-### 2.1 Server State Caching Strategy (TanStack Query v5)
+| Query Key Pattern | Endpoint | Stale Time | Cache Time |
+|------------------|----------|------------|------------|
+| `['blocks', 'pending']` | `GET /api/v1/blocks/pending/` | 30s | 5min |
+| `['blocks', 'my']` | `GET /api/v1/blocks/?dept=ENG` | 30s | 5min |
+| `['trains']` | `GET /api/v1/trains/` | 60s | 10min |
+| `['crews']` | `GET /api/v1/crews/` | 5min | 30min |
+| `['sections']` | `GET /api/v1/trains/sections/` | 10min | 1hr |
+| `['notifications']` | `GET /api/v1/notifications/` | 10s | 2min |
 
-| Query Key Pattern | Backend API Endpoint | Stale Time | Cache Garbage Collection | Invalidation Triggers |
-|:---|:---|:---:|:---:|:---|
-| `['blocks', 'pending']` | `GET /api/v1/blocks/pending/` | ১৫ সেকেন্ড | ৫ মিনিট | নতুন ব্লক সাবমিশন, অনুমোদন বা বাতিল |
-| `['blocks', 'combined']`| `GET /api/v1/blocks/combined/` | ৩০ সেকেন্ড | ১০ মিনিট | কম্বাইন্ড উইন্ডো অপ্টিমাইজেশন রান (#98) |
-| `['trains', 'live']` | `GET /api/v1/trains/live/` | ১০ সেকেন্ড | ২ মিনিট | ওয়েবসকেট শিডিউল আপডেট ইভেন্ট (#114) |
-| `['safety', 'tokens']` | `GET /api/v1/safety/token/` | ৫ সেকেন্ড | ৫ মিনিট | টোকেন ইস্যু বা হস্তান্তর ইভেন্ট (#71) |
-| `['defects', 'logs']` | `GET /api/v1/maintenance/defects/`| ৬০ সেকেন্ড | ১৫ মিনিট | নতুন TMS/SMMS/TDMS ইনজেকশন |
-| `['analytics', 'kpi']` | `GET /api/v1/analytics/kpi/` | ৫ মিনিট | ৩০ মিনিট | শিফট ক্লোজার বা রিপোর্ট জেনারেশন (#50) |
+**Mutations:**
+- `useCreateBlock()` — On success: invalidate `['blocks', 'pending']` and `['blocks', 'my']`
+- `useApproveBlock()` — On success: invalidate affected block + trigger WebSocket refresh
+- `useEmergencyBlock()` — Optimistic update: immediately add to pending list before server confirm
 
-### 2.2 Global Client Stores (Zustand TypeScript Definitions)
+### 2.2 Global Client State (Zustand)
 
-#### Auth Store (`src/stores/authStore.ts`)
-```typescript
+**Store Structure:**
+
+```javascript
+// stores/authStore.js
 import { create } from 'zustand';
 
-export interface UserProfile {
-  id: number;
-  username: string;
-  role: 'ENGG_JE' | 'TRD_JE' | 'SNT_JE' | 'SSE' | 'CHIEF_CONTROLLER' | 'SAFETY_OFFICER' | 'ADMIN';
-  department: 'ENGG' | 'TRD' | 'SNT' | 'OPERATIONS' | 'SAFETY';
-  division: 'HOWRAH' | 'SEALDAH' | 'KHARAGPUR' | 'ASANSOL';
-  fullName: string;
-}
-
-interface AuthState {
-  user: UserProfile | null;
-  accessToken: string | null;
-  isAuthenticated: boolean;
-  login: (user: UserProfile, token: string) => void;
-  logout: () => void;
-}
-
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  accessToken: localStorage.getItem('railway_access_token'),
-  isAuthenticated: !!localStorage.getItem('railway_access_token'),
-  login: (user, token) => {
-    localStorage.setItem('railway_access_token', token);
-    set({ user, accessToken: token, isAuthenticated: true });
-  },
-  logout: () => {
-    localStorage.removeItem('railway_access_token');
-    set({ user: null, accessToken: null, isAuthenticated: false });
-  },
+export const useAuthStore = create((set, get) => ({
+  user: null,           // { id, username, role, dept, name }
+  accessToken: null,    // JWT access token (memory only)
+  isAuthenticated: false,
+  login: (user, token) => set({ user, accessToken: token, isAuthenticated: true }),
+  logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+  setUser: (user) => set({ user }),
 }));
-```
 
-#### Map & GIS Store (`src/stores/mapStore.ts`)
-```typescript
-import { create } from 'zustand';
+// stores/uiStore.js
+export const useUIStore = create((set) => ({
+  sidebarOpen: true,
+  activeDepartment: 'ENG', // 'ENG' | 'TRD' | 'SNT' | 'COA'
+  mapView: 'network',      // 'network' | 'section' | 'heat'
+  bigScreenMode: false,
+  activeConflict: null,
+  emergencyAlert: null,
+  theme: 'dark',           // 'dark' | 'light' (always dark for control room)
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setActiveDepartment: (dept) => set({ activeDepartment: dept }),
+  setBigScreenMode: (mode) => set({ bigScreenMode: mode }),
+  setActiveConflict: (conflict) => set({ activeConflict: conflict }),
+  setEmergencyAlert: (alert) => set({ emergencyAlert: alert }),
+}));
 
-interface MapState {
-  selectedSectionId: string | null;
-  highlightedTrainNo: string | null;
-  activeLayers: {
-    trackGeometry: boolean;
-    signals: boolean;
-    ohePowerZones: boolean;
-    liveTrains: boolean;
-  };
-  mapCenter: [number, number]; // [Latitude, Longitude]
-  zoomLevel: number;
-  setSelectedSection: (sectionId: string | null) => void;
-  toggleLayer: (layerName: keyof MapState['activeLayers']) => void;
-  setMapViewport: (center: [number, number], zoom: number) => void;
-}
-
-export const useMapStore = create<MapState>((set) => ({
-  selectedSectionId: null,
-  highlightedTrainNo: null,
-  activeLayers: { trackGeometry: true, signals: true, ohePowerZones: true, liveTrains: true },
-  mapCenter: [22.583, 88.342], // Howrah Division Default
-  zoomLevel: 11,
-  setSelectedSection: (id) => set({ selectedSectionId: id }),
-  toggleLayer: (name) => set((s) => ({
-    activeLayers: { ...s.activeLayers, [name]: !s.activeLayers[name] }
+// stores/mapStore.js
+export const useMapStore = create((set) => ({
+  selectedSection: null,   // 'HWH-KGP' | null
+  selectedTrain: null,
+  blockOverlays: [],       // GeoJSON features for active blocks
+  trainPositions: [],      // Animated marker positions
+  mapCenter: [88.35, 22.58], // [lng, lat] Howrah
+  mapZoom: 11,
+  setSelectedSection: (id) => set({ selectedSection: id }),
+  updateTrainPosition: (trainId, coords) => set((s) => ({
+    trainPositions: s.trainPositions.map(t => 
+      t.id === trainId ? { ...t, coords } : t
+    )
   })),
-  setMapViewport: (center, zoom) => set({ mapCenter: center, zoomLevel: zoom }),
+  updateSectionStatus: (sectionId, status) => set((s) => ({
+    blockOverlays: s.blockOverlays.map(sec => 
+      sec.id === sectionId ? { ...sec, status } : sec
+    )
+  })),
 }));
 ```
 
+### 2.3 Local State (React useState/useReducer)
+
+Used for:
+- Form inputs (block request form, login form)
+- Modal open/close states
+- Map popup content
+- Table sorting/filtering (client-side)
+- Stepper state (multi-step block request wizard)
+
+### 2.4 Form State (React Hook Form)
+
+| Form | Library | Validation | Submission |
+|------|---------|------------|------------|
+| **Login** | React Hook Form | `required`, `minLength: 3` | Direct API call |
+| **Block Request** | React Hook Form + Zod resolver | Section exists, time valid, KM range valid | `useCreateBlock()` mutation |
+| **Emergency Block** | React Hook Form | Photo required, reason required | `useEmergencyBlock()` mutation |
+| **Crew Assignment** | React Hook Form | Date range, gang size | `useAssignCrew()` mutation |
+
 ---
 
-## 3. Client Routing & Role-Based Protected Guards
+## 3. Routing Architecture
 
-অ্যাপ্লিকেশনের রুটগুলো কঠোরভাবে ব্যবহারকারীর পদমর্যাদা (Role) এবং বিভাগের ভিত্তিতে বিভক্ত:
+### 3.1 Route Definitions
 
-### 3.1 Route Definition Table
+| Route | Type | Guard | Component | Lazy |
+|-------|------|-------|-----------|------|
+| `/login` | Public | None | `LoginPage` | No |
+| `/` | Protected | Auth | `DashboardRedirect` | No |
+| `/eng` | Protected | Role: ENG/COA | `EngDashboard` | Yes |
+| `/trd` | Protected | Role: TRD/COA | `TrdDashboard` | Yes |
+| `/snt` | Protected | Role: SNT/COA | `SntDashboard` | Yes |
+| `/coa` | Protected | Role: COA | `ControlRoomDashboard` | Yes |
+| `/coa/bigscreen` | Protected | Role: COA | `BigScreenMode` | Yes |
+| `/blocks/new` | Protected | Auth | `BlockRequestPage` | Yes |
+| `/blocks/:id` | Protected | Auth | `BlockDetailPage` | Yes |
+| `/map` | Protected | Auth | `NetworkMapPage` | Yes |
+| `/reports` | Protected | Role: COA | `ReportsPage` | Yes |
+| `/profile` | Protected | Auth | `ProfilePage` | Yes |
 
-| Route URL | Target View Component | Access Scope | Lazy Loaded? | Operational Purpose |
-|:---|:---|:---|:---:|:---|
-| `/login` | `LoginPage.tsx` | Public | No | ইউজার ক্রেডেনশিয়াল যাচাই ও JWT ইস্যু |
-| `/` | `DashboardRedirect.tsx` | Authenticated | No | ইউজারের রোল অনুযায়ী নির্দিষ্ট পেজে রিডাইরেক্ট |
-| `/control-room` | `ControlRoomDashboard.tsx` | `CHIEF_CONTROLLER`, `ADMIN` | Yes | মাস্টার ট্র্যাফিক করিডোর, কম্বাইন্ড ব্লক অনুমোদন ও মনিটর |
-| `/big-screen` | `BigScreenMode.tsx` | `CHIEF_CONTROLLER` | Yes | কন্ট্রোল রুমের জায়ান্ট ওয়াল ডিসপ্লে (Dark Fullscreen) |
-| `/engg` | `EngDashboard.tsx` | `ENGG_JE`, `SSE`, `ADMIN` | Yes | সিভিল/পি-ওয়ে ট্র্যাক ডিফেক্ট ও ট্যাম্পিং ব্লক রিকোয়েস্ট |
-| `/trd` | `TrdDashboard.tsx` | `TRD_JE`, `SSE`, `ADMIN` | Yes | ওএইচই পাওয়ার আইসোলেশন, ক্যাটেনারি লগ ও LOTO গেট |
-| `/snt` | `SntDashboard.tsx` | `SNT_JE`, `SSE`, `ADMIN` | Yes | সিগন্যাল ফেইলিওর, পয়েন্ট মেশিন ও ইন্টারলকিং ব্লকিং |
-| `/blocks/:id` | `BlockDetailPage.tsx` | Authenticated (All Roles) | Yes | একক ব্লকের বিস্তারিত, "Why #1?" কার্ড ও PDF ডাউনলোড |
-| `/map` | `NetworkMap.tsx` | Authenticated (All Roles) | Yes | পোস্টজিআইএস ফুল-স্ক্রিন ইন্টারঅ্যাক্টিভ করিডোর স্প্যাশিয়াল ম্যাপ |
+### 3.2 Route Guards
 
-### 3.2 Role Guard Component (`src/components/guards/RoleGuard.tsx`)
+```javascript
+// components/guards/RoleGuard.jsx
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
 
-```tsx
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore, UserProfile } from '../../stores/authStore';
-
-interface RoleGuardProps {
-  allowedRoles: Array<UserProfile['role']>;
-  children: React.ReactNode;
+export function RoleGuard({ allowedRoles, children }) {
+  const { user, isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      navigate('/login', { replace: true });
+    } else if (!allowedRoles.includes(user.role)) {
+      navigate(`/${user.role.toLowerCase().split('_')[0]}`, { replace: true });
+    }
+  }, [user, isAuthenticated, allowedRoles, navigate]);
+  
+  if (!user || !allowedRoles.includes(user.role)) return null;
+  return children;
 }
+```
 
-export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles, children }) => {
-  const { isAuthenticated, user } = useAuthStore();
-  const location = useLocation();
+### 3.3 Lazy Loading
 
-  if (!isAuthenticated || !user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
+```javascript
+// router.jsx
+import React, { lazy, Suspense } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { RoleGuard } from './components/guards/RoleGuard';
+import PageLoader from './components/common/PageLoader';
+import LoginPage from './pages/LoginPage';
 
-  if (!allowedRoles.includes(user.role)) {
-    // Unauthorized: Redirect to their primary authorized department
-    return <Navigate to="/" replace />;
-  }
+const EngDashboard = lazy(() => import('./pages/EngDashboard'));
+const TrdDashboard = lazy(() => import('./pages/TrdDashboard'));
+const SntDashboard = lazy(() => import('./pages/SntDashboard'));
+const ControlRoomDashboard = lazy(() => import('./pages/ControlRoomDashboard'));
+const BigScreenMode = lazy(() => import('./pages/BigScreenMode'));
+const BlockRequestPage = lazy(() => import('./pages/BlockRequestPage'));
+const BlockDetailPage = lazy(() => import('./pages/BlockDetailPage'));
+const NetworkMapPage = lazy(() => import('./pages/NetworkMapPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
-  return <>{children}</>;
-};
+export function AppRouter() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/eng" element={
+          <RoleGuard allowedRoles={['ENG_JE', 'SE', 'COA']}><EngDashboard /></RoleGuard>
+        } />
+        <Route path="/trd" element={
+          <RoleGuard allowedRoles={['TRD_JE', 'SE', 'COA']}><TrdDashboard /></RoleGuard>
+        } />
+        <Route path="/snt" element={
+          <RoleGuard allowedRoles={['SNT_JE', 'SE', 'COA']}><SntDashboard /></RoleGuard>
+        } />
+        <Route path="/coa" element={
+          <RoleGuard allowedRoles={['COA']}><ControlRoomDashboard /></RoleGuard>
+        } />
+        <Route path="/coa/bigscreen" element={
+          <RoleGuard allowedRoles={['COA']}><BigScreenMode /></RoleGuard>
+        } />
+        <Route path="/blocks/new" element={<BlockRequestPage />} />
+        <Route path="/blocks/:id" element={<BlockDetailPage />} />
+        <Route path="/map" element={<NetworkMapPage />} />
+        <Route path="/reports" element={
+          <RoleGuard allowedRoles={['COA']}><ReportsPage /></RoleGuard>
+        } />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </Suspense>
+  );
+}
+```
+
+**Code Splitting Strategy:**
+- `vendor` chunk: React, ReactDOM, Router, Zustand, TanStack Query, Axios
+- `mapbox` chunk: Mapbox GL JS + map components (loaded only on `/map` and dashboard routes)
+- `charts` chunk: Recharts (loaded only on `/coa` and `/reports`)
+- `pdf` chunk: PDF generation library (loaded only on report download)
+
+---
+
+## 4. Component Architecture
+
+**Pattern:** Feature-Based + Atomic Design Hybrid
+
+```
+src/
+├── components/
+│   ├── ui/                    # Atomic: Buttons, Inputs, Badges, Cards, Modals
+│   │   ├── Button.jsx
+│   │   ├── StatusBadge.jsx    # 🟢 FREE | 🔴 BLOCKED | 🟡 PENDING
+│   │   ├── PriorityPill.jsx   # Critical (red) | High (orange) | Medium (yellow) | Low (blue)
+│   │   ├── SectionCard.jsx
+│   │   └── DataTable.jsx
+│   ├── layout/                # Layout: Sidebar, Header, ControlPanel
+│   │   ├── Sidebar.jsx
+│   │   ├── TopNav.jsx
+│   │   ├── DepartmentLayout.jsx
+│   │   └── ControlRoomLayout.jsx
+│   ├── map/                   # Map-specific components
+│   │   ├── RailMap.jsx
+│   │   ├── SectionLayer.jsx
+│   │   ├── TrainMarker.jsx
+│   │   ├── BlockOverlay.jsx
+│   │   └── MapPopup.jsx
+│   └── common/                # Shared: Loading, ErrorBoundary, EmptyState
+│       ├── PageLoader.jsx
+│       ├── ErrorFallback.jsx
+│       └── EmptyState.jsx
+├── features/                  # Feature-based modules
+│   ├── blocks/
+│   │   ├── BlockRequestForm.jsx
+│   │   ├── BlockList.jsx
+│   │   ├── BlockTimeline.jsx
+│   │   ├── ConflictAlert.jsx
+│   │   ├── EmergencyButton.jsx
+│   │   └── hooks/
+│   │       ├── useBlocks.js
+│   │       └── useConflict.js
+│   ├── auth/
+│   │   ├── LoginForm.jsx
+│   │   └── hooks/
+│   │       └── useAuth.js
+│   ├── ontology/
+│   │   ├── ImpactPanel.jsx
+│   │   ├── AffectedTrainList.jsx
+│   │   └── hooks/
+│   │       └── useReasoning.js
+│   └── notifications/
+│       ├── NotificationBell.jsx
+│       ├── NotificationList.jsx
+│       └── hooks/
+│           └── useNotifications.js
+└── pages/                     # Route-level pages
+    ├── LoginPage.jsx
+    ├── EngDashboard.jsx
+    ├── TrdDashboard.jsx
+    ├── SntDashboard.jsx
+    ├── ControlRoomDashboard.jsx
+    ├── BigScreenMode.jsx
+    ├── NetworkMapPage.jsx
+    └── BlockDetailPage.jsx
 ```
 
 ---
 
-## 4. API Client & Token Interceptors (`src/services/api.ts`)
+## 5. API Client
 
-Axios ইনস্ট্যান্সটি স্বয়ংক্রিয়ভাবে প্রতিটি আউটবাউন্ড রিকোয়েস্টে `Authorization: Bearer <Token>` হেডার যুক্ত করে এবং ৪০১ অননুমোদিত এরর পেলে রিফ্রেশ টোকেন রোটেশন পরিচালনা করে:
+### 5.1 Axios Instance Configuration
 
-```typescript
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+```javascript
+// services/api.js
+import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-
-export const apiClient = axios.create({
-  baseURL: BASE_URL,
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
+  withCredentials: true, // Required for httpOnly refresh token cookie
 });
 
-// Request Interceptor: Attach JWT Token
-apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Response Interceptor: Standard Error Handling & 401 Catch
-apiClient.interceptors.response.use(
-  (response) => response.data,
-  async (error: AxiosError<{ message?: string; error_code?: string }>) => {
-    if (error.response?.status === 401) {
-      // Clear token and force logout on expired session
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+// Request Interceptor: Attach JWT access token
+api.interceptors.request.use(
+  (config) => {
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return Promise.reject(error.response?.data || error);
+    // Add request ID for tracing
+    config.headers['X-Request-ID'] = crypto.randomUUID();
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response Interceptor: Handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If 401 and not already retrying
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Refresh token is in httpOnly cookie (auto-sent)
+        const refreshResponse = await axios.post(
+          `${api.defaults.baseURL}/auth/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+        
+        const newAccessToken = refreshResponse.data.access;
+        useAuthStore.getState().login(
+          useAuthStore.getState().user,
+          newAccessToken
+        );
+        
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed → logout
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    // Handle rate limiting (429)
+    if (error.response?.status === 429) {
+      const retryAfter = parseInt(error.response.headers['retry-after'] || '5', 10);
+      return new Promise((resolve) => {
+        setTimeout(() => resolve(api(originalRequest)), retryAfter * 1000);
+      });
+    }
+    
+    // Standardize error
+    const errorData = error.response?.data || {};
+    const standardizedError = {
+      message: errorData.message || 'An error occurred',
+      code: errorData.error_code || 'GEN-500-001',
+      status: error.response?.status || 500,
+      details: errorData.details || null,
+    };
+    
+    return Promise.reject(standardizedError);
   }
 );
+
+export default api;
+```
+
+### 5.2 API Service Modules
+
+```javascript
+// services/blockService.js
+import api from './api';
+
+export const blockService = {
+  getPending: () => api.get('/blocks/pending/'),
+  getMyBlocks: (dept) => api.get(`/blocks/?dept=${dept}`),
+  create: (data) => api.post('/blocks/', data),
+  approve: (id) => api.post(`/blocks/${id}/approve/`),
+  emergency: (data) => api.post('/blocks/emergency/', data),
+  getConflicts: () => api.get('/blocks/conflicts/'),
+  resolve: (id, resolution) => api.post(`/blocks/${id}/resolve/`, resolution),
+};
+
+// services/ontologyService.js
+import api from './api';
+
+export const ontologyService = {
+  getAffectedTrains: (sectionId) => 
+    api.get(`/ontology/reason/?section=${sectionId}`),
+  syncStatus: () => api.get('/ontology/sync/'),
+};
 ```
 
 ---
 
-## 5. Real-Time WebSockets Engine (`src/services/socket.ts`)
+## 6. Auth Flow (Frontend)
 
-কন্ট্রোল রুম স্ক্রিনে ইনস্ট্যান্ট ট্রেনের অবস্থান এবং লাল এলার্ট ফ্ল্যাশের জন্য নেটিভ ড্যাফনে (Daphne) চ্যানেলস সংযোগ:
+### 6.1 Token Storage Strategy
 
-```typescript
-import { useUIStore } from '../stores/uiStore';
-import { queryClient } from './queryClient';
+| Token | Storage | Justification |
+|-------|---------|---------------|
+| **Access Token** | Zustand memory store (never localStorage) | XSS attack surface minimized; lost on page refresh but short-lived (60 min) |
+| **Refresh Token** | HttpOnly cookie (set by backend) | JavaScript access impossible; secure against XSS; auto-sent with `withCredentials` |
+| **User Info** | Zustand memory store | Minimal PII in memory |
 
-class RailwayWebSocketService {
-  private ws: WebSocket | null = null;
-  private reconnectInterval = 3000;
+**Why not localStorage for access token?**
+- `localStorage` is vulnerable to XSS — malicious scripts can steal tokens.
+- Memory storage is cleared on page refresh, forcing refresh token rotation (more secure).
+- Internal enterprise application: session security takes priority over persistence.
 
-  connect() {
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8001/ws/control-room/';
-    this.ws = new WebSocket(wsUrl);
+### 6.2 Authentication Flow
 
-    this.ws.onopen = () => {
-      console.log('🟢 WebSocket Connected to Control Room Channel');
-    };
+```
+┌─────────────┐
+│  LoginPage  │
+│  (React)    │
+└──────┬──────┘
+       │ POST /api/v1/auth/login/
+       │ { username, password }
+       ▼
+┌─────────────┐     ┌─────────────────────────────────────────┐
+│   Backend   │────►│ • Validate credentials                  │
+│   (Django)  │     │ • Generate access token (JWT, 60 min)   │
+└──────┬──────┘     │ • Set refresh token in httpOnly cookie  │
+       │             │ • Return: { user, access_token }        │
+       │             └─────────────────────────────────────────┘
+       │ { user, access_token }
+       ▼
+┌─────────────┐     ┌─────────────────────────────────────────┐
+│  authStore  │────►│ • Save access_token in memory           │
+│  (Zustand)  │     │ • Save user object                      │
+└──────┬──────┘     │ • isAuthenticated = true                │
+       │             └─────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────┐     ┌─────────────────────────────────────────┐
+│  Role-based │────►│ • COA → /coa                            │
+│  Redirect   │     │ • ENG_JE → /eng                         │
+│             │     │ • TRD_JE → /trd                         │
+│             │     │ • SNT_JE → /snt                         │
+└─────────────┘     └─────────────────────────────────────────┘
 
-    this.ws.onmessage = (event) => {
-      const payload = JSON.parse(event.data);
-      switch (payload.event) {
-        case 'BLOCK_STATE_CHANGED':
-          // Invalidate block queries to trigger instant TanStack re-render
-          queryClient.invalidateQueries({ queryKey: ['blocks'] });
-          break;
-        case 'EMERGENCY_ALERT_TRIGGERED':
-          useUIStore.getState().triggerEmergencyBanner(payload.data);
-          break;
-        case 'TRAIN_DELAY_DETECTED':
-          queryClient.invalidateQueries({ queryKey: ['trains', 'live'] });
-          break;
-      }
-    };
+Token Refresh (Silent):
+┌─────────────┐
+│  API Call   │──401──┐
+│  Fails      │       │
+└─────────────┘       ▼
+              ┌───────────────┐
+              │ Interceptor   │
+              │ catches 401   │
+              └───────┬───────┘
+                      │ POST /api/v1/auth/refresh/ (cookie auto-sent)
+                      ▼
+              ┌───────────────┐
+              │ Backend       │
+              │ returns new   │
+              │ access_token  │
+              └───────┬───────┘
+                      │ Update authStore
+                      ▼
+              ┌───────────────┐
+              │ Retry original│
+              │ API call      │
+              └───────────────┘
 
-    this.ws.onclose = () => {
-      console.warn('🔴 WebSocket Closed. Reconnecting in 3s...');
-      setTimeout(() => this.connect(), this.reconnectInterval);
-    };
-  }
-
-  send(event: string, data: any) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ event, data }));
-    }
-  }
-}
-
-export const socketService = new RailwayWebSocketService();
+Logout:
+┌─────────────┐
+│  Logout     │──► POST /api/v1/auth/logout/
+│  Button     │    • Backend blacklists refresh token in Redis
+└─────────────┘    • Frontend clears authStore
+                   • Redirect to /login
 ```
 
 ---
 
-## 6. Railway Control Room Design Tokens & Styling
+## 7. Build & Bundle
 
-টেইলউইন্ড সিএসএস কনফিগারেশনে রেলওয়ে অপারেশন কন্ট্রোল রুমের স্ট্যান্ডার্ড ভিজ্যুয়াল কোড সংরক্ষিত:
+### 7.1 Vite Configuration
+
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { splitVendorChunkPlugin } from 'vite';
+
+export default defineConfig({
+  plugins: [react(), splitVendorChunkPlugin()],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:8001',
+        ws: true,
+      },
+    },
+  },
+  build: {
+    target: 'es2020',
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          mapbox: ['mapbox-gl'],
+          charts: ['recharts'],
+          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand', '@tanstack/react-query', 'axios'],
+        },
+      },
+    },
+  },
+  define: {
+    'process.env.VITE_MAPBOX_TOKEN': JSON.stringify(process.env.VITE_MAPBOX_TOKEN),
+  },
+});
+```
+
+### 7.2 Bundle Size Budgets
+
+| Chunk | Max Size (Gzipped) | Current Estimate |
+|-------|-------------------|------------------|
+| `index` (app logic) | 100 KB | 60 KB |
+| `vendor` (React, Router, Zustand, Query, Axios) | 150 KB | 120 KB |
+| `mapbox` (Map GL JS) | 200 KB | 180 KB |
+| `charts` (Recharts + deps) | 100 KB | 80 KB |
+| **Total Initial** | **350 KB** | **280 KB** |
+| **Total Lazy Loaded** | **300 KB** | **260 KB** |
+
+---
+
+## 8. Styling & Theming
+
+### 8.1 Tailwind Configuration
 
 ```javascript
 // tailwind.config.js
 module.exports = {
-  darkMode: 'class',
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class', // Always dark for control room
+  content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        railway: {
-          bg: '#0F172A',         // Slate 900 (Ultra-dark for night visibility)
-          surface: '#1E293B',    // Slate 800 (Card & Table surface)
-          border: '#334155',     // Slate 700 (High-contrast borders)
-          accent: '#38BDF8',     // Sky Blue (Primary Interactive Elements)
-        },
-        status: {
-          free: '#22C55E',       // Green (Clear Corridor)
-          blocked: '#EF4444',    // Red (Active Maintenance Block)
-          combined: '#A855F7',   // Purple (USP Combined Block Window #98)
-          pending: '#F59E0B',    // Amber (Pending Approval)
-          caution: '#EAB308',    // Yellow (Temporary Speed Restriction TSR)
-        },
-        dept: {
-          engg: '#3B82F6',       // Blue (Civil / P-Way)
-          trd: '#F97316',        // Orange (Traction OHE Power)
-          snt: '#10B981',        // Emerald (Signal & Telecom)
-        }
+        // Railway Control Room Dark Theme
+        'control-bg': '#0a0e1a',        // Deep navy background
+        'control-panel': '#111827',      // Panel background
+        'control-border': '#1f2937',     // Border color
+        'control-text': '#e5e7eb',       // Primary text
+        'control-muted': '#6b7280',      // Secondary text
+        
+        // Status Colors (match map)
+        'status-free': '#00ff88',        // 🟢 Free section
+        'status-blocked': '#ff4444',     // 🔴 Blocked
+        'status-pending': '#ffaa00',     // 🟡 Pending
+        'status-emergency': '#ff0066',   // 🚨 Emergency
+        
+        // Department Colors
+        'dept-eng': '#3b82f6',           // Engineering - Blue
+        'dept-trd': '#f59e0b',           // Traction - Amber
+        'dept-snt': '#10b981',           // Signal - Emerald
+        'dept-coa': '#8b5cf6',           // Control - Violet
+        
+        // Priority Colors
+        'priority-critical': '#ef4444',  // Red
+        'priority-high': '#f97316',      // Orange
+        'priority-medium': '#eab308',    // Yellow
+        'priority-low': '#3b82f6',       // Blue
       },
       fontFamily: {
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'], // For train numbers and chainage
-      }
+      },
+      animation: {
+        'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'dash-flow': 'dashFlow 1s linear infinite',
+      },
+      keyframes: {
+        pulseGlow: {
+          '0%, 100%': { opacity: 1, boxShadow: '0 0 10px currentColor' },
+          '50%': { opacity: 0.7, boxShadow: '0 0 20px currentColor' },
+        },
+        dashFlow: {
+          to: { strokeDashoffset: '-20' },
+        },
+      },
     },
   },
   plugins: [],
 };
 ```
 
+### 8.2 Global Styles
+
+```css
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-control-bg text-control-text font-sans antialiased;
+  }
+  
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-control-bg;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-control-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-control-muted;
+  }
+  
+  .map-container {
+    @apply w-full h-full bg-control-bg;
+  }
+}
+
+@layer components {
+  .control-panel {
+    @apply bg-control-panel border border-control-border rounded-lg p-4 shadow-lg;
+  }
+  
+  .status-indicator {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold;
+  }
+  
+  .data-row {
+    @apply flex justify-between items-center py-2 border-b border-control-border last:border-0;
+  }
+}
+```
+
+### 8.3 Responsive Breakpoints
+
+| Breakpoint | Width | Usage |
+|------------|-------|-------|
+| `sm` | 640px | Mobile landscape |
+| `md` | 768px | Tablet |
+| `lg` | 1024px | Laptop (default dev viewport) |
+| `xl` | 1280px | Desktop |
+| `2xl` | 1536px | Big Screen / Control Room Display |
+
+*Control Room Mode:* `2xl` breakpoint-এ sidebar auto-hide, map full-screen, all panels overlay.
+
 ---
 
-## 7. Performance Budgets & Bundle Optimization
+## 9. WebSocket Client Integration
 
-| Performance Metric | Target Budget | Enforcement Mechanism |
-|:---|:---:|:---|
-| **First Contentful Paint (FCP)** | < ১.২ সেকেন্ড | Vite স্ট্যাটিক এসেট প্রিলোডিং ও ন্যূনতম প্রাথমিক রেন্ডারিং। |
-| **Time to Interactive (TTI)** | < ২.৫ সেকেন্ড | TanStack Query ডিহাইড্রেটেড ক্যাশ ও লাইটওয়েট Zustand স্টেট। |
-| **Initial JavaScript Bundle Size** | < ২০০ KB (Gzipped) | রুট-লেভেল `React.lazy()` কোড স্প্লিটিং। |
-| **Gantt / Map Pan-Zoom Frame Rate** | ৬০ FPS | CSS ৩ডি ট্রান্সফর্ম এবং ডিবাউন্সড ম্যাপ ইভেন্ট লিসেনার। |
-| **WebSocket Latency** | < ৫০ ms | লোকাল রেডিস পাব/সাব ডাইরেক্ট পুশ। |
+```javascript
+// services/websocket.js
+import { useAuthStore } from '../stores/authStore';
+import { useUIStore } from '../stores/uiStore';
+import { useMapStore } from '../stores/mapStore';
+import { QueryClient } from '@tanstack/react-query';
+
+export class BlockWebSocket {
+  constructor(queryClient) {
+    this.ws = null;
+    this.queryClient = queryClient;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 3000;
+  }
+
+  connect() {
+    const token = useAuthStore.getState().accessToken;
+    const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8001'}/ws/blocks/?token=${token}`;
+    
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      console.log('WebSocket connected to Railway Control Stream');
+      this.reconnectAttempts = 0;
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.handleMessage(data);
+      } catch (err) {
+        console.error('Invalid WS payload:', err);
+      }
+    };
+
+    this.ws.onclose = () => {
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        setTimeout(() => this.connect(), this.reconnectDelay);
+        this.reconnectAttempts++;
+      }
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+  }
+
+  handleMessage(data) {
+    switch (data.type) {
+      case 'block_update':
+        if (this.queryClient) {
+          this.queryClient.invalidateQueries({ queryKey: ['blocks'] });
+        }
+        break;
+      case 'conflict_alert':
+        useUIStore.getState().setActiveConflict(data.payload);
+        break;
+      case 'emergency_broadcast':
+        useUIStore.getState().setEmergencyAlert(data.payload);
+        break;
+      case 'train_position':
+        useMapStore.getState().updateTrainPosition(
+          data.payload.train_id,
+          data.payload.coordinates
+        );
+        break;
+      case 'section_status_change':
+        useMapStore.getState().updateSectionStatus(
+          data.payload.section_id,
+          data.payload.status
+        );
+        break;
+      default:
+        console.log('Unknown WS event:', data.type);
+    }
+  }
+
+  disconnect() {
+    if (this.ws) {
+      this.ws.close();
+    }
+  }
+}
+```
 
 ---
 
-## 8. Traceability to Subsequent Infrastructure Documents
+## 10. Performance Budgets
 
-| Upcoming Document | Direct Dependency from Frontend Core |
-|:---|:---|
-| **`01-tech-infra/02-data-layer.md`** | ফ্রন্টএন্ড মডেলের সাথে PostgreSQL টেবিল ফিল্ড ও PostGIS জিওমেট্রি কলামের নিখুঁত সঙ্গতি। |
-| **`03-service-blueprints/*`** | প্রতিটি সার্ভিসের ইউজার ইন্টারফেস কম্পোনেন্ট ও অ্যাকশন বাটন ম্যাপিং। |
-| **`09-execution-tracker/00-implementation-checklist.md`** | প্রতিটি ফিচারের জন্য প্যারালাল ব্যাকএন্ড ➔ ফ্রন্টএন্ড UI টেস্ট এবং ভেরিফিকেশন আউটপুট প্রুফ। |
+| Metric | Target | Measurement Tool | Optimization Strategy |
+|--------|--------|------------------|-----------------------|
+| **First Contentful Paint (FCP)** | < 1.5s | Lighthouse | Preload critical CSS, inline Tailwind base |
+| **Time to Interactive (TTI)** | < 3.0s | Lighthouse | Code splitting, lazy load Mapbox |
+| **Largest Contentful Paint (LCP)** | < 2.5s | Lighthouse | Optimize hero map load, skeleton UI |
+| **Cumulative Layout Shift (CLS)** | < 0.1 | Lighthouse | Fixed aspect ratios for map containers |
+| **Bundle Size (initial)** | < 350 KB gzipped | `vite-bundle-visualizer` | Manual chunks, tree shaking |
+| **Map Load Time** | < 2.0s | Mapbox Performance API | Lazy init, cached style JSON |
+| **WebSocket Connection** | < 500ms | Browser DevTools | Connection on auth success, not page load |
+| **API Response (p95)** | < 500ms | Axios interceptors | TanStack Query caching, stale-while-revalidate |
+
+---
+
+## 11. Next File Dependency Note
+
+> পরবর্তী ফাইল: `01-tech-infra/02-data-layer.md`
+
+`01-frontend-core.md` থেকে `02-data-layer.md`-এ নেওয়া হবে:
+
+| Frontend Decision | Database/Cache Impact |
+|-------------------|-----------------------|
+| TanStack Query Keys | `['blocks', 'pending']` → Redis cache key pattern design (`cache:blocks:pending:*`) |
+| Zustand Auth Store | Session storage strategy — Redis `session:{jwt}` TTL design |
+| Access Token (60 min) | JWT expiry → MySQL `users` table `last_login` tracking |
+| Refresh Token (httpOnly cookie) | Token blacklist table design in MySQL & Redis |
+| WebSocket Groups | Redis Pub/Sub channel naming: `dept:ENG`, `dept:COA`, `section:HWH-KGP` |
+| Map Section Data | MySQL `sections` table geometry/GeoJSON storage, Spatial Indexing |
+| Block Timeline | MySQL `blocks` table time-range queries, Composite indexes on `(status, priority)` |
+| Notification List | MySQL `notifications` table + Redis unread count cache |
+| Big Screen Mode | Database indexing and Redis aggregated KPI caching (block utilization, conflict rate) |
+
+`02-data-layer.md`-এ নিচের বিষয়গুলো থাকবে:
+- MySQL 8.0 schema design (all 8 apps with InnoDB engine & utf8mb4)
+- Entity Relationship Diagram (ASCII)
+- Per-table column definitions, indexes, foreign keys
+- Redis cache strategy (key patterns, TTL, invalidation)
+- Owlready2 quadstore file structure
+- Migration strategy and seeding approach

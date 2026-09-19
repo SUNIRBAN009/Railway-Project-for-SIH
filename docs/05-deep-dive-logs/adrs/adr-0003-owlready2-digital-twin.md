@@ -1,91 +1,50 @@
 # ADR-0003: Owlready2 & HermiT Semantic Reasoner for Infrastructure Digital Twin
 
-> **ফাইল ক্রম:** ৪৪/৪৫  
-> **ডিরেক্টরি:** `05-deep-dive-logs/adrs/`  
-> **আর্কিটেকচারাল ডিসিশন রেকর্ড:** ADR-0003  
-> **স্থিতি:** Accepted (অনুমোদিত ও কার্যকর)  
-> **তারিখ:** 2026-09-02 (সংশোধিত: 2026-09-18)  
-> **সিদ্ধান্ত গ্রহণকারী:** Lead AI Architect, Safety Systems Specialist, Principal Backend Engineer  
-> **সার্ভিস স্কোপ:** সিমেন্টিক ভ্যালিডেশন ও ডিজিটাল টুইন ডোমেন (`SVC-ONTO`)  
-> **পূর্ববর্তী ফাইল:** [05-deep-dive-logs/adrs/adr-0002-postgresql-postgis.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/05-deep-dive-logs/adrs/adr-0002-postgresql-postgis.md) (ADR-2: PostgreSQL 15.6 + PostGIS 3.3 Spatial Engine)  
-> **পরবর্তী ফাইল:** [06-testing-qa/00-test-plan.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/06-testing-qa/00-test-plan.md) (Master QA & Testing Strategy)  
+> **Status:** Accepted  
+> **Date:** 2026-09-02  
+> **Deciders:** Lead AI Architect, Safety Systems Specialist, Lead Backend Engineer  
+> **Scope:** Semantic Validation & Digital Twin Domain (`SVC-ONTO`)
 
 ---
 
-## 1. Context & Problem Statement (প্রেক্ষাপট ও সমস্যা বিবরণ)
+## 1. Context & Problem Statement
 
-ভারতীয় রেলওয়ের ভৌত ট্র্যাক পরিকাঠামো, ইলেকট্রিক্যাল ওভারহেড ট্র্যাকশন (OHE), এবং ইন্টারলকিং সিগন্যালিং সিস্টেমের মধ্যে চরম জটিল ট্র্যানজিটিভ আন্তঃনির্ভরশীলতা রয়েছে:
-1. **ওএইচই পাওয়ার সাবস্টেশন ট্র্যানজিটিভিটি:** একটি ওএইচই ফিডিং পোস্ট (TSS) এবং সাব-সেক্টর একাধিক ফিজিক্যাল সেকশন ও ব্লকের ওপর বিস্তৃত থাকে।
-2. **সিগন্যালিং ফ্ল্যাঙ্ক প্রোটেকশন:** কোনো ইন্টারলকিং স্টেশনে পয়েন্ট ও ক্রসিং সেট করার সময় ফ্ল্যাঙ্ক প্রোটেকশন ও ডেড-এন্ড রুট লক নিশ্চিত করতে হয়।
-3. **বৈদ্যুতিক ট্রেনের আটকে পড়ার লুক্কায়িত ঝুঁকি:** ধরা যাক, ইঞ্জিনিয়ারিং বিভাগ একটি সাধারণ সিভিল মেইনটেন্যান্স ব্লকের জন্য ট্র্যাকে ওএইচই বিদ্যুৎ বিচ্ছিন্ন করার আবেদন করল। কিন্তু পাশের অন্য একটি ট্র্যাকে যদি কোনো সুপারফাস্ট ইলেকট্রিক লোকোমোটিভ (যেমন: ১২৪২৪ রাজধানী বা বন্দে ভারত এক্সপ্রেস) নির্ধারিত থাকে যা একই ওএইচই সাব-সেক্টর থেকে বিদ্যুৎ গ্রহণ করে, তবে ওএইচই পাওয়ার কাটের ফলে সেই প্রিমিয়াম যাত্রীবাহী ট্রেনটি মাঝপথে বিদ্যুৎহীন হয়ে আটকে (Stranded) পড়বে।
+Railway physical and electrical infrastructure exhibits complex interdependencies:
+- OHE traction feeding zones span across multiple physical block sections.
+- Signaling route locking and points detectors impose cross-corridor flank protection constraints.
+- A routine civil engineering track block that requires de-energizing an overhead catenary section may unintentionally strand an electric passenger train (such as an incoming Rajdhani or Vande Bharat) idling in an adjacent block that draws power from the same traction substation feeder.
 
-সাধারণ রিলেশনাল ডেটাবেস কোয়েরি (SQL) বা ম্যানুয়াল `if-else` নিয়ম দিয়ে হাজার হাজার ইন্টারলকিং নিয়ম ও বিদ্যুৎ সংযোগের বহুস্তরীয় ট্র্যানজিটিভ রিলেশনশিপ সমাধান করা অসম্ভব; কারণ এটি কম্বিনেটরিয়াল রুল এক্সপ্লোশন এবং ফলস-নেগেটিভ ঝুঁকির জন্ম দেয়।
-
----
-
-## 2. Decision (গৃহীত সিদ্ধান্ত)
-
-আমরা **Owlready2** পাইথন লাইব্রেরি এবং **HermiT 1.4.3** ডেসক্রিপশন লজিক (DL) রিজনার ব্যবহার করে একটি **OWL 2 DL Semantic Digital Twin** আর্কিটেকচার বাস্তবায়নের সিদ্ধান্ত নিয়েছি, যা মূল এপিআই সার্ভার থেকে সম্পূর্ণ আলাদা অ্যাসিনক্রোনাস Celery ওয়ার্কার ক্লাস্টারে পরিচালিত হবে।
-
-### মূল স্থাপত্যিক উপাদানসমূহ (Core Architecture Components):
-1. **অনটোলজি রিপ্রেজেন্টেশন:** রেলওয়ের ট্র্যাক টপোলজি, টার্নআউট পয়েন্টস, ট্র্যাক সার্কিট, সিগন্যাল, ওএইচই ফিডার ও ট্রাফিক পজেশন রুলস ডেসক্রিপশন লজিকে মডেল করা হয়েছে (`digital_twin/railway_ontology.owl`)।
-2. **Owlready2 পাইথন বাইন্ডিং:** ডায়নামিক পাইথন অবজেক্ট-ওরিয়েন্টেড ক্লাস ব্যবহারের মাধ্যমে পোস্টগ্রিসকিউএল ডেটাবেস থেকে অনটোলজিতে ইনস্ট্যান্স (Axioms / Individuals) পুশ করা হয়।
-3. **HermiT DL Tableau Reasoner:** জাভা ১৭ জেভিএম (JVM) রানটাইমে চালিত HermiT রিজনার ফর্মাল ফার্স্ট-অর্ডার ডেসক্রিপশন লজিক ব্যবহার করে ল্যাটেন্ট কনফ্লিক্ট শনাক্ত করে এবং ওএইচই/সিগন্যালিং অসঙ্গতির গাণিতিক ব্যাখ্যা (Proof Trace) তৈরি করে।
-4. **ডেডিকেটেড অ্যাসিনক্রোনাস ওয়ার্কার আইসোলেশন:** যেহেতু HermiT রিজনারের এক্সিকিউশন টাইম গ্রাফের জটিলতা ভেদে ৩০০ms থেকে ২০০০ms পর্যন্ত হতে পারে, তাই সমস্ত অনটোলজি টাস্ক মূল ওয়েব থ্রেড থেকে সম্পূর্ণ বিচ্ছিন্ন `worker-ontology` নামক ডেডিকেটেড Celery কন্টেইনারে `ontology` টাস্ক কিউয়ের মাধ্যমে এক্সিকিউট হয়।
+Traditional relational database queries or basic IF-THEN rules cannot practically model, infer, and explain these dynamic transitive relationships without exponential combinatorial rule explosion.
 
 ---
 
-## 3. Worker Topology & Runtime Architecture (ওয়ার্কার টপোলজি ও রানটাইম আর্কিটেকচার)
+## 2. Decision
 
-```
-[Django REST / Daphne WS Gateway]
-               │
-               ▼ (Enqueue Asynchronous Reasoning Task)
-       [Redis 7 Broker] ──> [Queue: 'ontology']
-                                   │
-                                   ▼
-          +──────────────────────────────────────────────────+
-          |       ISOLATED CELERY CONTAINER: worker-ontology |
-          |                                                  |
-          |  [1. Corridor Hydration from PostgreSQL/PostGIS] |
-          |      - Extract tracks & OHE sectors in 5km buffer|
-          |                                                  |
-          |  [2. Ephemeral Sub-graph Construction]          |
-          |      - owlready2.default_world.get_ontology(...) |
-          |                                                  |
-          |  [3. JVM HermiT 1.4.3 DL Reasoner Execution]     |
-          |      - Tableau Expansion & Consistency Check     |
-          |                                                  |
-          |  [4. Violation Extraction & Teardown Block]      |
-          |      - Log ONTO-001/002 + Inferred Proof Chains  |
-          |      - Explicit default_world.close() Teardown   |
-          +──────────────────────────────────────────────────+
-                                   │
-                                   ▼ (Save Inferred Violations)
-                   [PostgreSQL 15.6 `block_conflicts`]
-```
+We will implement an **OWL 2 DL Semantic Digital Twin** using **Owlready2** and the **HermiT Reasoner** running within dedicated asynchronous Celery workers.
+
+- **Ontology Representation:** The track network topology, traction substations, signals, and dynamic possession proposals are modeled in OWL 2 DL (`digital_twin/railway_ontology.owl`).
+- **Python-OWL Integration:** `Owlready2` provides native Python object-oriented access to OWL classes, object properties, and SWRL rules.
+- **Tableau Reasoning Engine:** The HermiT 1.4.3 reasoner executes formal Description Logic classification to infer latent conflicts and verify ontology consistency.
+- **Worker Segregation:** Because HermiT relies on a Java 17 JVM runtime and exhibits variable execution times (200ms to 2000ms), all reasoning jobs run asynchronously in an isolated Celery worker (`worker-ontology`) consuming exclusively from the `ontology` task queue.
 
 ---
 
-## 4. Consequences (সিদ্ধান্তের ফলাফল)
+## 3. Consequences
 
-### ৪.১ ইতিবাচক ফলাফল (Positive Consequences)
-1. **ব্যাখ্যাযোগ্য নিরাপত্তা প্রমাণ (Explainable Safety Proofs):** ব্ল্যাক-বক্স মেশিন লার্নিংয়ের বিপরীতে ডেসক্রিপশন লজিক রিজনার মানুষের বোধগম্য ফর্মাল প্রুফ তৈরি করে (যেমন: *"ব্লক প্রস্তাবনাটি ফিডার এফ-১৪ বিদ্যুৎ বিচ্ছিন্ন করবে, যা ট্র্যাক ৩বি-কে বিদ্যুৎহীন করবে, যেখানে ট্রেন ১২৪২৪ অবস্থান করছে"* - `ONTO-001`)।
-2. **কোড পরিবর্তন ছাড়া নতুন নিরাপত্তা বিধি সংযোজন:** সিগন্যালিং ও সেফটি অফিসাররা সরাসরি Protégé সফটওয়্যার ব্যবহার করে নতুন OWL এক্সিওম বা SWRL রুল যুক্ত করতে পারেন, যার জন্য ব্যাকএন্ড কোড রিরাইট করতে হয় না।
-3. **মূল ওয়েব সার্ভারের শূন্য ব্লকিং:** ভারী জেভিএম রিজনার ব্যাকগ্রাউন্ড ওয়ার্কারে চলায় ক্লায়েন্ট এপিআই রেসপন্স টাইম (p95 < 40ms) সম্পূর্ণ অক্ষুণ্ণ থাকে।
+### Positive Consequences
+- **Explainable Safety Proofs:** Unlike black-box ML models, Description Logic reasoning produces verifiable, deterministic proof chains explaining *why* a block proposal is dangerous (e.g., "Block A cuts power to Feeder 3, which electrifies Track B, currently occupied by Train 12424").
+- **Declarative Rule Authoring:** Railway safety engineers can define new axioms in Protégé / OWL without modifying core application source code.
+- **Zero Web Server Block:** Running reasoners asynchronously prevents web server thread pool exhaustion.
 
-### ৪.২ নেতিবাচক প্রভাব ও প্রতিরোধমূলক ব্যবস্থা (Negative Consequences & Mitigation)
-1. **জেভিএম মেমরি বিস্তার (JVM Memory Footprint):** পিক ট্যাবলিউ এক্সপ্যানশনের সময় HermiT প্রসেস ২GB থেকে ৪GB র‍্যাম ব্যবহার করতে পারে।  
-   *প্রতিরোধ:* ডকার কন্টেইনারে মেমরি সিলিং (`mem_limit: 4g`), ডেডিকেটেড সোয়াপ স্পেস, এবং মেমরি লিক এড়াতে প্রতি ৫০টি টাস্ক সম্পন্ন হওয়ার পর স্বয়ংক্রিয় প্রসেস রিসাইক্লিং (`--max-tasks-per-child=50`) যুক্ত করা হয়েছে।
-2. **পোস্টগ্রিসকিউএল ও অনটোলজি গ্রাফের ডেটা সিঙ্ক্রোনাইজেশন:** সম্পূর্ণ ভারতীয় রেলওয়ের কোটি কোটি ট্র্যাক সেগমেন্ট একবারে মেমরিতে লোড করলে রিজনার ক্র্যাশ করতে পারে।  
-   *প্রতিরোধ:* PostGIS-এর `ST_DWithin` কোয়েরির মাধ্যমে শুধুমাত্র সংশ্লিষ্ট ব্লকের ৫-কিলোমিটার বাফার জোনের সাব-গ্রাফ ক্ষণস্থায়ীভাবে (Ephemeral) তৈরি করা হয় এবং টাস্ক শেষে মেমরি খালি করা হয় (`default_world.close()`)।
+### Negative Consequences & Mitigation
+- **JVM Memory Footprint:** The HermiT Java process requires 2GB to 4GB of RAM during peak tableau expansion.  
+  *Mitigation:* Dedicated Docker container limits (`mem_limit: 4g`), isolated task queue, and periodic worker recycling (`--max-tasks-per-child=50`).
+- **Data Synchronization:** Maintaining synchronization between relational MySQL tables and the in-memory OWL graph requires careful state hydration.  
+  *Mitigation:* The ontology worker constructs ephemeral sub-graphs for specific block corridors on-demand rather than reasoning over the entire Indian Railways network at once.
 
 ---
 
-## 5. Alternatives Considered & Rejection Rationale (বিকল্পসমূহ ও প্রত্যাখ্যানের কারণ)
+## 4. Alternatives Considered & Rejection Rationale
 
-| প্রযুক্তিগত বিকল্প | মূল বৈশিষ্ট্য | প্রত্যাখ্যানের প্রযুক্তিগত কারণ |
-|---|---|---|
-| **Neo4j Property Graph (Cypher Queries)** | নোড ও এজ ভিত্তিক গ্রাফ ডাটাবেস | পাথ-ফাইন্ডিংয়ে চমৎকার হলেও সাইফার কোয়েরিতে ডেসক্রিপশন লজিক, অটোমেটিক ক্লাস হায়ারার্কি ক্লাসিফিকেশন এবং ফার্স্ট-অর্ডার কনসিস্টেন্সি প্রুফের অভাব রয়েছে। |
-| **Hardcoded Python If-Else Rules** | প্রসিডিউরাল পাইথন স্ক্রিপ্টিং | মানুষের ভুলের চরম ঝুঁকি, রুল বৃদ্ধির সাথে সাথে রক্ষণাবেক্ষণ অসম্ভব হয়ে পড়া এবং নতুন সেফটি বিধির জন্য ব্যাকএন্ড কোড ডিপ্লয়মেন্টের বাধ্যবাধকতা। |
-| **Apache Jena / Fuseki SPARQL Endpoint** | জাভা-ভিত্তিক ট্রিপলস্টোর ও রিজনার | পাইথন জ্যাঙ্গো অ্যাপ্লিকেশনের সাথে নির্বিঘ্ন ডিরেক্ট ওআরএম ইন্টিগ্রেশনের ঘাটতি এবং অতিরিক্ত নেটওয়ার্ক হপ ওভারহেড। |
+- **Neo4j Property Graph with Cypher Queries:** Excellent for pathfinding, but lacks native Description Logic reasoning, automatic classification, and formal mathematical consistency verification.
+- **Hardcoded Procedural Rules in Python:** Prone to human error, impossible to formally prove safe, and maintenance becomes unmanageable as infrastructure complexity grows.

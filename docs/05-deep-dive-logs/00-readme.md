@@ -1,101 +1,46 @@
 # 00-readme.md
 
-> **ফাইল ক্রম:** ৩৪/৪৫  
-> **ডিরেক্টরি:** `05-deep-dive-logs/`  
-> **সার্ভিস স্কোপ:** Cross-Cutting Infrastructure, Mathematical Algorithms, Formal API Contracts & ADRs  
-> **পূর্ববর্তী ফাইল:** [04-function-maps/08-notifications-function-map.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/04-function-maps/08-notifications-function-map.md) (`SVC-NOTIF` Dedicated Function Map)  
-> **পরবর্তী ফাইল:** [05-deep-dive-logs/01-common-payloads-and-algorithms.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/05-deep-dive-logs/01-common-payloads-and-algorithms.md) (Shared Mathematical Formulations & Algorithms)  
-> **সংযোগ ও উদ্দেশ্য:** এই ফাইলে প্ল্যাটফর্মের গভীর প্রযুক্তিগত বিশ্লেষণ, গাণিতিক অ্যালগরিদম, আনুষ্ঠানিক এপিআই কন্ট্রাক্ট (OpenAPI 3.0), এরর কোড ট্যাক্সোনমি, স্টেট ম্যানেজমেন্ট এবং আর্কিটেকচারাল ডিসিশন রেকর্ড (ADR)-এর বিস্তারিত সূচিপত্র ও স্থাপত্যিক নীতিমালা লিপিবদ্ধ করা হয়েছে।
+> **File Sequence:** 34/45  
+> **Directory:** `05-deep-dive-logs/`  
+> **Previous Document:** [04-function-maps/08-notifications-function-map.md](../04-function-maps/08-notifications-function-map.md)  
+> **Next Document:** [05-deep-dive-logs/01-common-payloads-and-algorithms.md](01-common-payloads-and-algorithms.md)  
+> **Context:** Architectural index, engineering rationale, and index of technical deep-dive documents, formal API contracts, ADRs, and operational incident logs.
 
 ---
 
-# Technical Deep-Dive Logs & Formal System Contracts (প্রযুক্তিগত গভীর বিশ্লেষণ ও এপিআই কন্ট্রাক্ট সূচি)
+# Technical Deep-Dive Logs & Formal System Contracts
 
-## 1. Directory Mission & Scope (ডিরেক্টরি মিশন ও পরিসীমা)
+## 1. Directory Mission & Scope
 
-`05-deep-dive-logs/` ডিরেক্টরিটি হলো ইন্ডিয়ান রেলওয়েজ কৃত্রিম বুদ্ধিমত্তা চালিত মেগা-ব্লক ও করিডোর শিডিউলিং প্ল্যাটফর্মের (**Smart Railway Track & Asset Maintenance Management Platform - PS 26027**) সমস্ত ক্রস-কাটিং সিস্টেম, কোর ইঞ্জিনিয়ারিং অ্যালগরিদম, আনুষ্ঠানিক ডেটা আদান-প্রদান চুক্তি এবং মৌলিক স্থাপত্যিক সিদ্ধান্তের কেন্দ্রীয় রেজিস্ট্রি।
+This directory contains foundational technical specifications that govern cross-cutting concerns across all 8 microservices and bounded contexts of the Indian Railways AI Block Planning Platform (PS 26027).
 
-উচ্চপর্যায়ের আর্কিটেকচার ডায়াগ্রামের পরিবর্তে এই ফোল্ডারের নথিগুলোতে সুনির্দিষ্ট বাস্তবায়ন বিবরণ প্রদান করা হয়েছে:
-1. **গাণিতিক অ্যালগরিদমিক স্পেসিফিকেশন:** Sweep-line টাইম-স্পেস করিডোর কনফ্লিক্ট ডিটেকশন, PostGIS জিওস্প্যাশিয়াল ইন্টারসেকশন, Asset Availability Score (#50), CoF × LoF রিস্ক ম্যাট্রিক্স (#92), ডিলে ক্যাসকেড প্রপাগেশন (#115), এবং চেইনেজ নরমালাইজেশন অ্যালগরিদম (#87)।
-2. **কঠোর এপিআই কন্ট্রাক্ট (OpenAPI 3.0 / JSON Schema):** ব্লক এলোকেশন, ট্রেন ট্র্যাকিং এবং ডিজিটাল টুইন অনটোলজি এক্সচেঞ্জের জন্য সুনির্দিষ্ট রিকোয়েস্ট ও রেসপন্স স্ট্রাকচার।
-3. **ইউনিফায়েড রেলওয়ে এরর রেজিস্ট্রি:** ৮টি মাইক্রোসার্ভিসের ২৫টিরও বেশি স্ট্যান্ডার্ডাইজড ত্রুটি কোড (`AUTH-*`, `BLK-*`, `DEPT-*`, `TRN-*`, `AST-*`, `NOTIF-*`, `ANL-*`, `GIS-*`) এবং তাদের স্বয়ংক্রিয় রিকভারি অ্যাকশন।
-4. **স্টেট ম্যানেজমেন্ট ও সিঙ্ক্রোনাইজেশন:** React 18, TanStack Query v5, Zustand স্টোর, Daphne ASGI WebSockets এবং Redis Pub/Sub-এর সমন্বয়ে রিয়েল-টাইম স্টেট সমন্বয়।
-5. **রেলওয়ে প্রোডাকশন ইনসিডেন্ট রুনবুক:** SEV-1 (রেল লাইফ-সেফটি বা সিগন্যাল হোল্ড) থেকে SEV-4 (কসমেটিক গ্লিচ) ত্রুটি মোকাবিলার জন্য 5-Whys এবং আরসিএ (Root Cause Analysis) ফ্রেমওয়ার্ক।
-6. **স্থাপত্যিক সিদ্ধান্ত রেকর্ড (ADRs):** মডুলার মনোলিথ আর্কিটেকচার, **PostgreSQL 15.6 + PostGIS 3.3** স্প্যাশিয়াল ডেটাবেস ইঞ্জিন (পুরানো MySQL প্রত্যাহারকৃত), এবং Celery ব্যাকগ্রাউন্ড ওয়ার্কারে Owlready2 + HermiT রিজনারের বিচ্ছিন্ন ব্যবহারের আনুষ্ঠানিক যৌক্তিকতা।
+Unlike high-level architecture overviews, the documents in this folder provide concrete mathematical definitions, exact algorithmic pseudocode, strict OpenAPI 3.0 request/response schemas, an authoritative 25+ global error registry, and production incident response runbooks.
 
 ---
 
-## 2. Directory Layout & Document Index (ফোল্ডার লেআউট ও ফাইল সূচি)
+## 2. Directory Layout & Document Index
 
 ```
-📁 docs/05-deep-dive-logs/
-    ├── 00-readme.md                           # এই কেন্দ্রীয় গাইড ও স্থাপত্যিক সূচি (ফাইল ৩৪/৪৫)
-    ├── 01-common-payloads-and-algorithms.md   # শেয়ার্ড ডিটিও, সুইপ-লাইন কনফ্লিক্ট ও স্প্যাশিয়াল গণিত (ফাইল ৩৫/৪৫)
-    ├── 02-error-code-registry.md              # ২৫+ অথরিটেটিভ রেলওয়ে এরর কোড, এইচটিটিপি ম্যাপিং ও রিকভারি (ফাইল ৩৬/৪৫)
-    ├── 03-state-management.md                 # ফ্রন্টএন্ড Zustand, TanStack ক্যোয়ারী ও Daphne WS স্টেট (ফাইল ৩৭/৪৫)
-    ├── 04-bug-log-template.md                 # এন্টারপ্রাইজ SEV-1 থেকে SEV-4 ইনসিডেন্ট রিপোর্ট ও RCA ফ্রেমওয়ার্ক (ফাইল ৩৮/৪৫)
-    ├── 📁 contracts/                          # ফর্মাল ওপেন-এপিআই ৩.০ ডেটা ও মেসেজিং কন্ট্রাক্ট
-    │   ├── 01-blocks-contracts.md             # ব্লক প্ল্যানিং, করিডোর এলোকেশন ও কনফ্লিক্ট এন্ডপয়েন্টস (ফাইল ৩৯/৪৫)
-    │   ├── 02-trains-contracts.md             # টাইমটেবিল মাস্টার, ডিলে সিমুলেশন ও ট্রেন স্ট্যাটাস কন্ট্রাক্ট (ফাইল ৪০/৪৫)
-    │   └── 03-ontology-contracts.md           # ডিজিটাল টুইন OWL 2 DL এক্সচেঞ্জ ও SPARQL ১.১ কন্ট্রাক্ট (ফাইল ৪১/৪৫)
-    └── 📁 adrs/                               # আর্কিটেকচারাল ডিসিশন রেকর্ডস (ADRs)
-        ├── adr-0001-modular-monolith.md       # ADR-1: মডুলার মনোলিথ বনাম ডিস্ট্রিবিউটেড মাইক্রোসার্ভিস (ফাইল ৪২/৪৫)
-        ├── adr-0002-postgresql-postgis.md     # ADR-2: PostgreSQL ১৫.৬ + PostGIS ৩.৩ জিওস্প্যাশিয়াল ইঞ্জিন (ফাইল ৪৩/৪৫)
-        └── adr-0003-owlready2-digital-twin.md # ADR-3: আইসোলেটেড এসিনক্রোনাস ওয়ার্কারে HermiT রিজনার (ফাইল ৪৪/৪৫)
+📁 05-deep-dive-logs/
+    ├── 00-readme.md                           # This navigational guide & architectural index
+    ├── 01-common-payloads-and-algorithms.md   # Shared DTOs, Sweep-line algorithm, Spatial GIS math
+    ├── 02-error-code-registry.md              # 25+ Railway-specific error codes, HTTP mappings & handling
+    ├── 03-state-management.md                 # Frontend TanStack Query, Daphne WS invalidation & optimistic UI
+    ├── 04-bug-log-template.md                 # Enterprise SEV-1 to SEV-4 incident report & RCA runbook
+    ├── 📁 contracts/                          # Formal REST OpenAPI 3.0 & Data Contracts
+    │   ├── 01-blocks-contracts.md             # Block planning, corridor allocation & conflict endpoints
+    │   ├── 02-trains-contracts.md             # Timetable, delay simulation & running status contracts
+    │   └── 03-ontology-contracts.md           # Digital twin OWL exchange & DL reasoning contracts
+    └── 📁 adrs/                               # Architectural Decision Records (ADRs)
+        ├── adr-0001-modular-monolith.md       # ADR-1: Modular Monolith vs Distributed Microservices
+        ├── adr-0002-mysql-database.md         # ADR-2: MySQL 8.0 InnoDB with Spatial GIS Engine
+        └── adr-0003-owlready2-digital-twin.md # ADR-3: Owlready2 & HermiT Reasoner in Async Workers
 ```
 
 ---
 
-## 3. Core Architectural Pillars (মূল স্থাপত্যিক স্তম্ভ)
+## 3. Guiding Architectural Principles
 
-| স্তম্ভ (Pillar) | নীতি ও বাধ্যবাধকতা | বাস্তবায়ন প্রযুক্তি | ভারতীয় রেলওয়ে ডোমেন প্রসঙ্গ |
-|---|---|---|---|
-| **Zero Ambiguity Contracts** | সকল ডেটা আদান-প্রদানে কঠোর টাইপ যাচাই ও ফিল্ড রেঞ্জ ভ্যালিডেশন | Pydantic v2, TypeScript Zod, OpenAPI 3.0 | TMS, SMMS, TDMS থেকে আসা বিভ্রান্তিকর ডেটা প্রতিরোধ |
-| **Spatial & Temporal Rigor** | সমস্ত স্প্যাশিয়াল অপারেশন WGS 84 (`EPSG:4326`) এবং টাইম-স্পেস সুইপ-লাইনে সম্পন্ন | PostGIS 3.3 GiST ইনডেক্সিং, Sweep-Line $O((N+K)\log N)$ | ব্লক ওভারল্যাপ এবং একই ট্র্যাকে একাধিক ডিপার্টমেন্টের কাজের সংঘাত রোধ |
-| **Fail-Safe Life Safety** | জরুরী সুরক্ষামূলক অ্যাকশন (SOS, Siren, Power Cut, Signal Hold) সর্বোচ্চ অগ্রাধিকার পাবে | Daphne WebSockets, Celery Dedicated Urgent Queue | ট্র্যাকম্যান, পে-ওয়ে গ্যাং এবং ওএইচই টেকনিশিয়ানদের জীবন রক্ষা |
-| **Single Source of Truth** | কোনো ডুপ্লিকেট ইঞ্জিন নেই; ডেটাবেস হিসেবে এক্সক্লুসিভলি পোস্টগ্রিসকিউএল ব্যবহৃত হবে | PostgreSQL 15.6 + PostGIS 3.3 (Zero MySQL Policy) | রেলওয়ে সেকশন, ইয়ার্ড ও ইন্টারলকিং ব্লকের নিখুঁত টপোলজি ট্র্যাকিং |
-| **Explainable AI Decisions** | মেগা-ব্লক গ্রান্ট বা রিজেকশনের পেছনে পরিষ্কার ম্যাথমেটিক্যাল স্কোরিং দৃশ্যমান হবে | Asset Availability Formula (#50), CoF×LoF (#92) | সিনিয়র ডিওএম (Sr. DOM) এবং কন্ট্রোলারদের সিদ্ধান্ত গ্রহণে আস্থা বৃদ্ধি |
-
----
-
-## 4. Key Mathematical Formulations Summary (সংক্ষিপ্ত গাণিতিক রূপরেখা)
-
-### ৪.১ অ্যাসেট অ্যাভেইলেবিলিটি স্কোর (Asset Availability Score - Feature #50)
-ভারতীয় রেলওয়ের প্রধান পরিচালন মেট্রিক হলো ট্র্যাক ডাউনটাইম কমিয়ে ট্রেনের গতিশীলতা অক্ষুণ্ণ রাখা:
-$$A_{\text{avail}} = \left( 1 - \frac{\sum_{i=1}^{M} (\text{Downtime KM}_i \times \text{Downtime Hours}_i)}{\text{Total Network Track KM} \times \text{Operating Hours in Period}} \right) \times 100\%$$
-* লক্ষ্যমাত্রা: আন-অপ্টিমাইজড বেসলাইন **৭৮.৪%** থেকে এআই-চালিত মেগা-ব্লক শিডিউলিংয়ের মাধ্যমে **৯৫.৩%**-এ উন্নীতকরণ।
-
-### ৪.২ অ্যাসেট ক্রিটিক্যালিটি ও রিস্ক ইনডেক্স (CoF × LoF Matrix - Feature #92)
-ট্র্যাক ও সিগন্যালিং অ্যাসেটের ত্রুটি মেরামতের জরুরি অবস্থা নির্ধারণ:
-$$\text{Risk Score} = \text{Consequence of Failure (CoF)} \times \text{Likelihood of Failure (LoF)}$$
-* $\text{CoF} \in [1, 5]$: ট্র্যাফিক ঘনত্ব, রাজধানী/শতাব্দী করিডোর এবং গতিসীমা (১৩০/১৬০ কিমি/ঘণ্টা) দ্বারা নির্ধারিত।
-* $\text{LoF} \in [1, 5]$: অ্যাসেটের বয়স (Aging #91), পূর্ববর্তী ব্রেকডাউন হিস্ট্রি, এবং ডিটেকশন ইন্টারভাল দ্বারা নির্ধারিত।
-* $\text{Risk} \ge 15$: অগ্রাধিকারমূলক ব্লক উইন্ডো স্বয়ংক্রিয়ভাবে বরাদ্দ (Red Flag)।
-
-### ৪.৩ ডিলে ক্যাসকেড প্রপাগেশন ইমপ্যাক্ট (Delay Cascade Propagation - Feature #115)
-একটি সেকশনে ব্লক নেওয়ার কারণে অনুগামী এবং বিপরীতমুখী ট্রেনের ওপর সংগৃহীত বিলম্বে প্রভাব:
-$$D_{\text{total}} = \sum_{t \in T_{\text{affected}}} \left( \Delta t_{\text{direct}} + \sum_{s \in S_{\text{downstream}}} \lambda_s \cdot \Delta t_{\text{buffer\_absorption}} \right)$$
-যেখানে $\lambda_s$ হলো নির্দিষ্ট স্টেশনের ইন্টারলকিং হেcircuit হেডওয়ে হেডরুম প্যারামিটার।
-
----
-
-## 5. Architectural Decision Records (ADR) Framework (সিদ্ধান্ত কাঠামো)
-
-এই ডিরেক্টরির `adrs/` সাবফোল্ডারে ৩টি মৌলিক স্থাপত্যিক সিদ্ধান্ত নথিবদ্ধ রয়েছে:
-
-1. **ADR-0001: Modular Monolith vs Distributed Microservices**
-   * **সিদ্ধান্ত:** ডিস্ট্রিবিউটেড মাইক্রোসার্ভিসের নেটওয়ার্ক ওভারহেড ও ডিস্ট্রিবিউটেড ট্রানজাকশন পেইন পরিহার করে ৮টি বিযুক্ত ডোমেনকে ডিকাপল্ড জ্যাঙ্গো অ্যাপ এবং ক্লিয়ার ইন্টার-সার্ভিস ইন্টারফেস সম্বলিত **Modular Monolith** হিসেবে তৈরি করা হয়েছে।
-2. **ADR-0002: PostgreSQL 15.6 + PostGIS 3.3 as Exclusive Spatial Database Engine**
-   * **সিদ্ধান্ত:** সম্পূর্ণ প্রজেক্টে **PostgreSQL 15.6 + PostGIS 3.3** একমাত্র ডেটাবেস ইঞ্জিন হিসেবে নির্ধারিত। লিগ্যাসি ডিজাইনের MySQL 8.0 সম্পূর্ণ বাতিল করা হয়েছে কারণ PostGIS-এর `ST_DWithin`, `ST_Intersects`, `ST_LineLocatePoint`, এবং GiST R-Tree ইনডেক্সিং রেলওয়ে লিনিয়ার রেফারেন্সিং ও চেইনেজ হিসাবের জন্য আন্তর্জাতিকভাবে স্বীকৃত।
-3. **ADR-0003: Owlready2 & HermiT Reasoner in Asynchronous Celery Workers**
-   * **সিদ্ধান্ত:** জাভা ভার্চুয়াল মেশিন (JVM) নির্ভরশীল HermiT ডিএল রিজনার এবং Owlready2 নলেজ-গ্রাফ এক্সিকিউশনকে মূল ওয়েব থ্রেড থেকে সম্পূর্ণ আলাদা করে ডেডিকেটেড অ্যাসিনক্রোনাস Celery কিউতে পরিচালিত করা হবে, যাতে মূল এইচটিটিপি এপিআই রেসপন্স টাইম (< ৫০ms) প্রভাবিত না হয়।
-
----
-
-## 6. Engineering Standards & Quality Checklist (ইঞ্জিনিয়ারিং মানদণ্ড)
-
-- [x] **PostgreSQL / PostGIS একচ্ছত্র ব্যবহার:** কোনো মডেলে বা কন্ট্রাক্টে MySQL সিনট্যাক্স থাকবে না।
-- [x] **স্প্যাশিয়াল কোঅর্ডিনেট স্ট্যান্ডার্ড:** সমস্ত জিও-অবজেক্ট WGS 84 (`EPSG:4326`) পয়েন্ট, লাইনস্ট্রিং অথবা মাল্টিপলিগন হিসেবে সংরক্ষিত।
-- [x] **ভারতীয় রেলওয়ে স্ট্যান্ডার্ড সংক্ষেপ ও পরিভাষা:** TMS, SMMS, TDMS, COA, NTES, FOIS, OHE, TSR, LOTO, TBT, PTW এবং Caution Order যথাস্থানে প্রয়োগ।
-- [x] **লাইফ-সেফটি ইনভেরিয়েন্ট:** জিপিএস ট্র্যাকিং বা এসওএস ট্রিগারের ক্ষেত্রে ফল্ট-টলারেন্ট মেসেজ ডেলিভারি নিশ্চিতকরণ।
-- [x] **পরবর্তী পদক্ষেপের নির্দেশিকা:** পরবর্তী ফাইলে (`01-common-payloads-and-algorithms.md`) সমস্ত গাণিতিক অ্যালগরিদম ও ডেটা ট্রান্সফার অবজেক্টের পাইথন ও পোস্টগ্রিসকিউএল রূপায়ন বিস্তারিতভাবে বিবৃত হবে।
+1. **Zero Ambiguity:** Every payload must have explicit types, constraints, and validation rules.
+2. **Mathematical Rigor:** Algorithms (Sweep-line, Spatial buffering, Delay cascades) must include complexity analysis ($O$-notation).
+3. **Fault Tolerance:** Every failure mode must map to a standardized error code with a well-defined recovery procedure.

@@ -1,94 +1,52 @@
 # ADR-0001: Modular Monolith Architecture Pattern
 
-> **ফাইল ক্রম:** ৪২/৪৫  
-> **ডিরেক্টরি:** `05-deep-dive-logs/adrs/`  
-> **আর্কিটেকচারাল ডিসিশন রেকর্ড:** ADR-0001  
-> **স্থিতি:** Accepted (অনুমোদিত ও কার্যকর)  
-> **তারিখ:** 2026-09-02 (সংশোধিত: 2026-09-18)  
-> **সিদ্ধান্ত গ্রহণকারী:** Lead Systems Architect, Backend Infrastructure Lead, Security Lead  
-> **সার্ভিস স্কোপ:** সমগ্র সিস্টেম আর্কিটেকচার (Indian Railways AI Block Planning Platform - PS 26027)  
-> **পূর্ববর্তী ফাইল:** [05-deep-dive-logs/contracts/03-ontology-contracts.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/05-deep-dive-logs/contracts/03-ontology-contracts.md) (Ontology Reasoning & SPARQL Contracts)  
-> **পরবর্তী ফাইল:** [05-deep-dive-logs/adrs/adr-0002-postgresql-postgis.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/05-deep-dive-logs/adrs/adr-0002-postgresql-postgis.md) (ADR-2: PostgreSQL 15.6 + PostGIS 3.3 Spatial Engine)  
+> **Status:** Accepted  
+> **Date:** 2026-09-02  
+> **Deciders:** Lead Systems Architect, Backend Infrastructure Lead, Security Lead  
+> **Scope:** Entire System Architecture (Indian Railways AI Block Planning Platform - PS 26027)
 
 ---
 
-## 1. Context & Problem Statement (প্রেক্ষাপট ও সমস্যা বিবরণ)
+## 1. Context & Problem Statement
 
-ইন্ডিয়ান রেলওয়েজের কৃত্রিম বুদ্ধিমত্তা চালিত মেগা-ব্লক ও করিডোর শিডিউলিং প্ল্যাটফর্মকে (PS 26027) যুগপৎভাবে ৮টি জটিল ডোমেন পরিচালনা করতে হবে: ট্র্যাফিক ব্লক ও করিডোর দখল (`apps.blocks`), লাইভ ট্রেনের সময়ানুবর্তিতা ও সময়সূচি (`apps.trains`), ইঞ্জিনিয়ারিং/সিগন্যালিং/ওএইচই বিভাগীয় সম্পদ ও গ্যাং (`apps.departments`, `apps.assets`), ডিজিটাল টুইন ও সিমেন্টিক অনটোলজি রিজনার (`apps.ontology`), পারফরম্যান্স অ্যানালিটিক্স ও প্রিডিকশন (`apps.analytics`), ইমার্জেন্সি এসওএস ও লাইফ-সেফটি অ্যালার্ম (`apps.notifications`), এবং কর্মী পরিচয় ও আরবিএসি অ্যাক্সেস (`apps.accounts`)।
+The Indian Railways AI Block Planning Platform must coordinate block requests, train running timetables, track geometry, maintenance gangs, asset condition monitoring, and an OWL digital twin.
 
-স্থাপত্যিক মূল্যায়নের প্রাথমিক পর্যায়ে দুটি মৌলিক আর্কিটেকচারাল প্যাটার্ন বিবেচনা করা হয়:
-1. **Fully Distributed Microservices (সম্পূর্ণ স্বাধীন মাইক্রোসার্ভিস):** ৮টি আলাদা গিট রিপোজিটরি, ৮টি পৃথক ডেটাবেস, gRPC/REST নেটওয়ার্ক প্রোটোকল, ডিস্ট্রিবিউটেড সার্ভিস ডিসকভারি (Consul/Envoy) এবং ডিস্ট্রিবিউটেড ট্রেসিং (Jaeger)।
-2. **Modular Monolith (মডুলার মনোলিথ):** একটি সমন্বিত কোডবেস যা কঠোর ডোমেন-ড্রিভেন ডিজাইন (DDD) বাউন্ডেড কনটেক্সট মেনে ৮টি বিযুক্ত মডিউলে বিভক্ত। এটি একটি উচ্চক্ষমতাসম্পন্ন রিলেশনাল ও স্প্যাশিয়াল ডেটাবেস (**PostgreSQL 15.6 + PostGIS 3.3**) এবং অ্যাসিঙ্ক্রোনাস ওয়ার্কার ক্লাস্টার (Celery + Redis 7) শেয়ার করে।
+During architectural design, two primary architectural patterns were considered:
+1. **Fully Distributed Microservices:** 8 independent microservices, each in a standalone Git repository with isolated databases, communicating over gRPC/REST with distributed service discovery (Consul/Envoy) and distributed tracing (Jaeger).
+2. **Modular Monolith:** A single, well-structured Django 5.0 application organized into strict Domain-Driven Design (DDD) Bounded Contexts (`apps.accounts`, `apps.blocks`, `apps.departments`, `apps.ontology`, etc.), sharing a single optimized relational database (MySQL 8.0) and asynchronous worker queues (Celery + Redis).
 
-ইন্ডিয়ান রেলওয়ের অপারেশনাল নিরাপত্তা, কঠোর ডেটা কনসিস্টেন্সি (ACID) এবং এসআইএইচ (SIH) প্রতিযোগিতার দ্রুত বাস্তবায়নের প্রয়োজনীয়তায় সম্পূর্ণ ডিস্ট্রিবিউটেড মাইক্রোসার্ভিসের নেটওয়ার্ক ল্যাটেন্সি, ডিস্ট্রিবিউটেড ট্রানজাকশন (2-Phase Commit / জটিল SAGA ফেইলিউর ওভারহেড), এবং মাল্টি-কনটেইনার ডেভঅপ্স জটিলতা বাস্তবায়নের জন্য অনুপযুক্ত বিবেচিত হয়।
-
----
-
-## 2. Decision (গৃহীত সিদ্ধান্ত)
-
-আমরা **Django 5.0 + Python 3.11** ফ্রেমওয়ার্কের অধীনে কঠোর ডোমেন বাউন্ডেড কনটেক্সট ভিত্তিক **Modular Monolith (মডুলার মনোলিথ)** আর্কিটেকচার চূড়ান্তভাবে গ্রহণ করেছি।
-
-- সমস্ত ৮টি ডোমেন একটি একক ইউনিফায়েড কোডবেসে অবস্থিত এবং একক প্রোডাকশন ডকার ইমেজ হিসেবে ডিপ্লয়যোগ্য।
-- মডিউলগুলোর অভ্যন্তরীণ বাউন্ডারি সরাসরি ক্রস-অ্যাপ ডেটাবেস কোয়েরির বদলে কঠোরভাবে সংজ্ঞায়িত সার্ভিস লেয়ার ক্লাস ও ডোমেন ইন্টারফেস দ্বারা নিয়ন্ত্রিত।
-- কেন্দ্রীয় একক ডেটাবেস হিসেবে **PostgreSQL 15.6 + PostGIS 3.3** ব্যবহৃত হচ্ছে, যা সম্পূর্ণ রিলেশনাল অখণ্ডতা এবং মিলিসেকেন্ড-লেভেল স্প্যাশিয়াল সুইপ নিশ্চিত করে।
-- দীর্ঘস্থায়ী ও ভারী কম্পিউটেশনাল টাস্ক (যেমন: HermiT DL অনটোলজি রিজনার, ডেটা ফিড ইটিএল, বাল্ক সিমুলেশন) এবং সময়ানুবর্তী নোটিফিকেশনগুলো ডেডিকেটেড Celery ওয়ার্কার কিউ (`high`, `notify`, `ontology`, `low`, `default`) এবং Redis 7 ব্রোকারের মাধ্যমে ডিকাপল করা হয়েছে।
-- রিয়েল-টাইম লাইফ-সেফটি ব্রডকাস্ট এবং ড্যাশবোর্ড আপডেট নিশ্চিত করতে Daphne ASGI ওয়েবসকেট সার্ভার পোর্ট ৮০০১-এ এইচটিটিপি গেটওয়ের পাশাপাশি মাউন্ট করা হয়েছে।
+Given the high reliability requirements, tight SIH timeline, and small cross-functional engineering team, the distributed microservices pattern introduces severe operational overhead: network latency between services, complex distributed transactions (2-Phase Commit or Saga), independent CI/CD pipelines, and high infrastructure footprint.
 
 ---
 
-## 3. Architecture Topology & Component Boundaries (আর্কিটেকচারাল টপোলজি)
+## 2. Decision
 
-```
-+-----------------------------------------------------------------------------------+
-|                        MODULAR MONOLITH BOUNDED CONTEXTS                          |
-|                                                                                   |
-|  [apps.accounts]   [apps.blocks]   [apps.departments]   [apps.ontology]           |
-|  (Auth / RBAC)     (Possessions)   (Gangs / Machines)   (Digital Twin / HermiT)   |
-|                                                                                   |
-|  [apps.trains]     [apps.assets]   [apps.analytics]     [apps.notifications]      |
-|  (Timetable/Live)  (TMS/SMMS/TDMS) (Scores / What-If)   (SOS / Daphne WebSockets) |
-+-----------------------------------------------------------------------------------+
-                                         │
-        ┌────────────────────────────────┴────────────────────────────────┐
-        ▼                                                                 ▼
-[PostgreSQL 15.6 + PostGIS 3.3]                                  [Redis 7.0 Broker]
-(Single Source of Relational Truth)                                       │
-- Spatial GiST Tracks (SRID 4326)                         ┌───────────────┴───────────────┐
-- ACID Block Sanction Transactions                        ▼                               ▼
-- Row-Level Optimistic Locking (OCC)             [Celery Worker Cluster]         [Daphne ASGI WS]
-                                                 - worker-ontology (Isolated)    - /ws/v1/live/
-                                                 - worker-notify (Urgent)        - /ws/v1/sos/
-                                                 - worker-default (ETL / Calc)
-```
+We choose the **Modular Monolith** architecture implemented via **Django 5.0 Apps** as strict Domain-Driven Design (DDD) Bounded Contexts.
+
+- All domains reside within a unified codebase and deploy as a single containerized unit.
+- Inter-module boundaries are enforced via domain interfaces and internal service classes rather than direct cross-app model queries.
+- Asynchronous side-effects and long-running computational workloads (such as Description Logic reasoning and conflict detection sweeps) are decoupled via Celery workers over Redis queues (`high`, `notify`, `ontology`, `low`, `default`).
+- High-throughput real-time communication is supported by mounting Daphne ASGI on port 8001 for WebSocket connections alongside standard HTTP REST traffic.
 
 ---
 
-## 4. Consequences (সিদ্ধান্তের ফলাফল)
+## 3. Consequences
 
-### ৪.১ ইতিবাচক ফলাফল (Positive Consequences)
-1. **উচ্চ ইঞ্জিনিয়ারিং গতি ও একীভূত টেস্ট স্যুইট:** একটিমাত্র রিপোজিটরি, সমন্বিত এন্ড-টু-এন্ড টেস্ট স্যুইট, এবং কোনো আন্তঃসার্ভিস নেটওয়ার্ক হপ নেই।
-2. **ACID ট্রানজাকশন গ্যারান্টি:** ব্লক স্যাংশন করা, সংঘাতময় ট্র্যাফিক লক করা, এবং বিভাগীয় ওয়ার্ক অর্ডার ইস্যু করার মতো লাইফ-সেফটি অপারেশন একক PostgreSQL ট্রানজাকশনের অধীনে সম্পূর্ণ হয়, যা ডিস্ট্রিবিউটেড ট্রানজাকশন করাপশন চিরতরে দূর করে।
-3. **উচ্চক্ষমতাসম্পন্ন স্প্যাশিয়াল ডেটাবেস কোয়েরি:** PostGIS-এর `ST_DWithin`, `ST_Intersects`, এবং GiST ইনডেক্স ব্যবহার করে পুরো করিডোরের লাইনস্ট্রিং ও অ্যাসেটের দূরত্ব একক এসকিউএল এক্সিকিউশনে ৫০ মিলিসেকেন্ডের মধ্যে নির্ণয় করা যায়।
-4. **সহজ অপারেশনাল ডিপ্লয়মেন্ট:** Docker Compose স্ট্যাকে কেবল Django, PostgreSQL, Redis এবং Celery কন্টেইনার চালিয়ে যে কোনো ডেভেলপার বা ডিভিশনাল সার্ভারে সম্পূর্ণ প্ল্যাটফর্ম ইন্সট্যান্ট বুটস্ট্র্যাপ করা সম্ভব।
+### Positive Consequences
+- **High Development Velocity:** Single repository, single test suite, zero network hops for transactional business flows.
+- **ACID Transaction Guarantees:** Multi-table operations (e.g., transitioning block status, locking track corridor geometry, and issuing work orders) execute within a single MySQL database transaction, eliminating complex distributed transaction coordinators.
+- **Simplified Operational Topology:** A single Docker Compose stack with Django, Redis, and MySQL runs locally on developer workstations without needing Kubernetes or a service mesh.
+- **Observability Simplicity:** Unified structured logging and simplified tracing without distributed context propagation failures.
 
-### ৪.২ নেতিবাচক প্রভাব ও প্রতিরোধমূলক ব্যবস্থা (Negative Consequences & Mitigation)
-1. **মডিউল বাউন্ডারি ক্ষয়ের ঝুঁকি (Risk of Tight Coupling):** ডেভেলপাররা অসাবধানতাবশত অন্য অ্যাপের মডেল সরাসরি ইমপোর্ট করতে পারে।  
-   *প্রতিরোধ:* Ruff আর্কিটেকচারাল রুলস এবং স্ট্যাটিক অ্যানালাইসিস ব্যবহার করে ক্রস-বাউন্ডারি ডিরেক্ট মডেল মিউটেশন সম্পূর্ণ নিষিদ্ধ করা হয়েছে।
-2. **ভারী সিপিইউ/মেমরি কাজের প্রভাব (Resource Contention):** HermiT DL রিজনারের মতো জাভা/সিপিইউ নিবিড় কাজ মূল এইচটিটিপি থ্রেডকে ব্লক করতে পারে।  
-   *প্রতিরোধ:* অনটোলজি রিজনারকে সম্পূর্ণ আলাদা মেমরি সিলিংযুক্ত `worker-ontology` Celery কন্টেইনারে চালানো হয়, যার ফলে মূল ইউজার ফেসিং এপিআই কখনোই ব্যাহত হয় না।
-
----
-
-## 5. Alternatives Considered & Rejection Rationale (বিকল্পসমূহ ও বাতিলের কারণ)
-
-| আর্কিটেকচারাল বিকল্প | মূল বৈশিষ্ট্য | বাতিলের প্রযুক্তিগত কারণ |
-|---|---|---|
-| **Distributed Microservices (gRPC + K8s)** | ৮টি আলাদা মাইক্রোসার্ভিস ও আলাদা ডাটাবেস | চরম অপারেশনাল জটিলতা, ডিস্ট্রিবিউটেড ট্রানজাকশন ফেইলিউর ঝুঁকি (SAGA জটিলতা), এবং হাই ইনফ্রাস্ট্রাকচার কস্ট। |
-| **Unstructured Monolith (Single Django App)** | সমস্ত মডেল ও ভিউ একটিমাত্র ফোল্ডারে | কোডবেস দ্রুত স্প্যাগেটিতে পরিণত হয়, টিমের মাঝে কোড কনফ্লিক্ট তৈরি করে এবং মডুলার স্কেলিং অসম্ভব করে তোলে। |
-| **Serverless Functions (AWS Lambda / Cloud Run)** | প্রতিটি ফাংশন স্বতন্ত্র ল্যাম্বডা ফাংশন | স্প্যাশিয়াল GIS ডেটাবেস কানেকশন পুলিং ক্লান্তি, কোল্ড স্টার্ট ল্যাটেন্সি, এবং লং-রানিং HermiT রিজনারের সাথে অসামঞ্জস্যতা। |
+### Negative Consequences & Mitigation
+- **Risk of Domain Leaks:** Developers might attempt to import models directly across apps (e.g., `apps.blocks` directly modifying `apps.departments.models.Gang`).  
+  *Mitigation:* Enforced via Ruff linting rules and strict architectural code reviews prohibiting cross-boundary model mutations.
+- **Worker Resource Contention:** Memory-heavy tasks (like HermiT DL reasoning) could impact web server response latency.  
+  *Mitigation:* Segregated Celery worker pools (`worker-ontology` runs in an isolated container with its own memory allocation).
 
 ---
 
-## 6. Future Extensibility (ভবিষ্যৎ সম্প্রসারণযোগ্যতা)
+## 4. Alternatives Considered & Rejection Rationale
 
-যেহেতু মডিউলগুলো ইতিমধ্যে কঠোর Domain-Driven Design (DDD) বাউন্ডারি অনুসরণ করে তৈরি, তাই ভবিষ্যতে ভারতীয় রেলওয়ের ন্যাশনাল সেন্ট্রাল সার্ভারে (CRIS) ট্র্যাফিক অতিমাত্রায় বৃদ্ধি পেলে নির্দিষ্ট যে কোনো মডিউলকে (যেমন: `apps.blocks` বা `apps.analytics`) কোডবেস রিরাইট না করেই পৃথক মাইক্রোসার্ভিসে বিভক্ত করা যাবে।
+- **Distributed Microservices (Kubernetes + gRPC):** Rejected due to operational complexity, distributed transaction failure modes, and unnecessary deployment friction for an MVP/SIH delivery phase.
+- **Single Monolithic Django App (Unstructured):** Rejected because combining all tables into a single app leads to spaghetti code and prevents clean extraction into independent services if scaling demands require it in Phase 4.

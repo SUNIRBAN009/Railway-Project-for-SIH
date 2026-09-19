@@ -6,12 +6,13 @@ import { BlockTimeline } from '../components/blocks/BlockTimeline';
 import { CrewAssignment } from '../components/departments/CrewAssignment';
 import { MaterialInventory } from '../components/departments/MaterialInventory';
 import { CalendarView } from '../components/blocks/CalendarView';
+import { DEMO_BLOCKS } from '../services/demoData';
 import { Block } from '../types';
-import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import {
   Zap,
   Plus,
-  AlertTriangle,
+  Radio,
+  Clock,
   Layers,
   Calendar,
   Users,
@@ -23,12 +24,11 @@ import {
 
 export const TrdDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BLOCKS' | 'PROPOSE' | 'TIMELINE' | 'CREW' | 'INVENTORY' | 'CALENDAR'>('BLOCKS');
-  const { blocks, setBlocks, refetch } = useLiveBlocks('TRD');
+  const [blocks, setBlocks] = useState<Block[]>(DEMO_BLOCKS);
 
   const handleBlockCreated = (newBlock: Partial<Block>) => {
     setBlocks((prev) => [newBlock as Block, ...prev]);
     setActiveTab('BLOCKS');
-    refetch();
   };
 
   return (

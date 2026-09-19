@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Sparkles,
   Layers,
-  Database,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -65,15 +64,6 @@ export const Sidebar: React.FC = () => {
       color: 'text-purple-400 group-hover:text-purple-300',
       activeColor: 'bg-purple-950/60 border-purple-400 text-purple-300 shadow-sm shadow-purple-950/50',
       description: 'Mapbox 60 FPS Vector Twin',
-    },
-    {
-      to: '/master-data',
-      label: 'Master Data & GeoJSON',
-      shortLabel: 'DATA',
-      icon: <Database className="w-5 h-5 shrink-0" />,
-      color: 'text-cyan-400 group-hover:text-cyan-300',
-      activeColor: 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-950/50',
-      description: 'Ground-Truth Inspector & RFC 7946',
     },
   ];
 

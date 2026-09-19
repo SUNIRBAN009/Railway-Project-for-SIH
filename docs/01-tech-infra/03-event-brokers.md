@@ -1,289 +1,497 @@
 # 03-event-brokers.md
 
 > **ফাইল ক্রম:** ৭/৪৫  
-> **ডিরেক্টরি:** `01-tech-infra/`  
-> **পূর্ববর্তী ফাইল:** `01-tech-infra/02-data-layer.md` (PostgreSQL স্কিমা, Redis ক্যাশ কি, স্প্যাশিয়াল স্ট্রাকচার)  
-> **পরবর্তী ফাইল:** `01-tech-infra/04-internal-api-and-messaging.md` (সার্ভিস কমিউনিকেশন, সার্কিট ব্রেকার, সাগা প্যাটার্ন)  
-> **কন্টেন্ট সোর্স:** `RailBlock_Feature_Master_Plan_PS26027(1).xlsx` (১২২টি ফিচার, ৪টি মূল সমস্যা স্তম্ভ, ১৫টি সেফটি ফিচার) এবং `ai-project-spec-generator (1).md`।  
-> **ডাটাবেস ও ব্রোকার নীতি:** **Redis 7 (In-Memory Pub/Sub & Stream Broker)** + **Celery 5.3 (4 Dedicated Task Queues)** + **PostgreSQL 15/16** (নো MySQL)।
+> **পূর্ববর্তী ফাইল:** `01-tech-infra/02-data-layer.md` (Redis cache keys, MySQL tables, audit_logs, JSON fields)  
+> **পরবর্তী ফাইল:** `01-tech-infra/04-internal-api-and-messaging.md`  
+> **সংযোগ:** এই ফাইলে নির্ধারিত event topic names (`block.status_changed`, `section.status_changed`, `notification.sent`) এবং message schemas `04-internal-api-and-messaging.md`-এর service-to-service communication pattern (sync vs async), circuit breaker thresholds, এবং distributed transaction (SAGA) design-এ ব্যবহৃত হবে।
 
 ---
 
-## 1. Broker Selection, Architecture & Topology
+## 1. Broker Selection & Topology
 
-### 1.1 Broker Selection Justification
-রেলওয়ের রিয়েল-টাইম অপারেশনাল কন্ট্রোল রুমে সাব-মিলিসেকেন্ড ল্যাটেন্সিতে ট্রেনের অবস্থান আপডেট, জরুরি ব্লক লাল ফ্ল্যাশ এবং ডিজিটাল টোকেন আদান-প্রদানের জন্য **Redis 7** এবং **Celery 5.3**-কে কেন্দ্রীয় ইভেন্ট ব্রোকার হিসেবে নির্বাচন করা হয়েছে।
+**Selected:** Redis 7 (Pub/Sub + Lists + Streams)
 
-| Broker Candidate | Evaluation in PS 26027 | Status & Concrete Rationale |
-|:---|:---|:---:|
-| **Redis 7 (Streams + Pub/Sub)** | ইন-মেমোরি অতি-দ্রুত (< ৫ms ল্যাটেন্সি), Django Channels-এর সাথে নেটিভ `channels_redis` সাপোর্ট, ক্যাশ ও ব্রোকারের দ্বৈত ক্ষমতা। | ✅ **Selected Primary** |
-| **Celery 5.3 (4 Dedicated Queues)** | অ্যাসিনক্রোনাস কাজগুলোকে গুরুত্ব অনুযায়ী ৪টি সারিতে ভাগ করে Head-of-Line Blocking দূর করে। | ✅ **Selected Asynchronous** |
-| **Apache Kafka** | হ্যাকাথন ও ডিভিশনাল ট্রাফিকে (৫০-১০০ সেকশন, ১০০০ ট্রেন) Zookeeper/KRaft ক্লাস্টার পরিচালনা অপ্রয়োজনীয় জটিলতা তৈরি করে। | ❌ Rejected (Future Zonal Scale) |
-| **RabbitMQ** | আলাদা Erlang VM এবং কনফিগারেশন জটিলতা; পাইথন/ডিজ্যাঙ্গো ইকোসিস্টেমে Redis-এর চেয়ে ভারী। | ❌ Rejected |
-| **AWS SQS / GCP Pub/Sub** | ইন্টারনেট সংযোগের ওপর নির্ভরশীল এবং ক্লাউড ভেন্ডর লক-ইন তৈরি করে; রেলওয়ে লোকাল ইন্ট্রানেটে অফলাইন চলে না। | ❌ Rejected |
+**Rejected Alternatives:**
+- **Apache Kafka:** Rejected — ৩ দিনের হ্যাকাথনে Zookeeper/KRaft + Broker cluster ম্যানেজ করার অপারেশনাল ওভারহেড অপ্রয়োজনীয়; MVP স্কেলে অতিরিক্ত জটিল।
+- **RabbitMQ:** Rejected — AMQP প্রটোকল, পৃথক Erlang VM, এবং অতিরিক্ত কানেকশন হ্যান্ডলিং লাগে; Python/Django ইকোসিস্টেমে Redis অনেক বেশি নেটিভ।
+- **AWS SQS / Google Cloud Pub/Sub:** Rejected — ক্লাউড ভেন্ডর লক-ইন এবং ইন্টারনেট ডিপেনডেন্সি থাকে, লোকাল অফলাইন ডেভেলপমেন্ট ও হ্যাকাথন ডেমোতে জটিলতা তৈরি করে।
 
-### 1.2 Redis Database & Channel Topology
-ডেটা ওভারল্যাপ রোধে একক Redis 7 ইনস্ট্যান্সের ডাটাবেসগুলো সুনির্দিষ্টভাবে পৃথকীকৃত:
+**Redis Justification:**
+- Django Channels-এর সাথে অফিসিয়াল নেটিভ `channels_redis` লাইব্রেরি সাপোর্ট।
+- Celery-র দ্রুততম ও নির্ভরযোগ্য মেসেজ ব্রোকার।
+- ক্যাশিং, সেশন, রিয়েল-টাইম পাব/সাব এবং ব্যাকগ্রাউন্ড টাস্ক কিউ—সব একটি সিঙ্গেল ইনফ্রাস্ট্রাকচার ইউনিটে চলে।
+- মেমোরি-ভিত্তিক অতিদ্রুত কার্যক্ষমতা (< 5ms পাবলিশ লেটেন্সি), যা রিয়েল-টাইম রেলওয়ে অ্যালার্টের জন্য অত্যন্ত গুরুত্বপূর্ণ।
 
+**Topology (MVP / Phase 1):**
+- Single Redis 7 Instance
+- Memory Limit: 512MB
+- Persistence: AOF (Append Only File) `fsync everysec` (কিউ ডিউরেবিলিটি নিশ্চিত করতে)
+- Database Separation:
+  - `DB 0`: Cache & Rate Limiting
+  - `DB 1`: Django Session & JWT Blacklist
+  - `DB 2`: Celery Task Queue
+  - `DB 3`: Django Channels Layer
+
+---
+
+## 2. Redis Pub/Sub Channel Topology
+
+### 2.1 WebSocket Broadcast Channels (Django Channels)
+
+| Channel Name Pattern | Purpose | Producers | Consumers |
+|---------------------|---------|-----------|-----------|
+| `ws:group:dept:ENG` | Engineering department updates | blocks, ontology | ENG dashboard clients |
+| `ws:group:dept:TRD` | Traction department updates | blocks, ontology | TRD dashboard clients |
+| `ws:group:dept:SNT` | Signal department updates | blocks, ontology | SNT dashboard clients |
+| `ws:group:dept:COA` | Control room updates | all apps | COA dashboard + Big Screen |
+| `ws:group:section:{section_id}` | Section-specific alerts | blocks, trains | Map clients viewing that section |
+| `ws:group:emergency` | Emergency broadcast (all hands) | blocks | All connected clients |
+| `ws:user:{user_id}` | Personal notifications | notifications | Specific user's browser |
+
+**Channel Layer Configuration:**
+```python
+# settings.py
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+            "prefix": "railway_ai",
+            "capacity": 1500,  # Max messages in channel
+            "expiry": 10,      # Message expiry in seconds
+        },
+    }
+}
 ```
-Redis 7 Engine (Port 6379)
-├── DB 0: API Cache & Spatial Corridor Rate Limiting
-├── DB 1: JWT Session Blacklist & Active User State
-├── DB 2: Celery Broker (4 Queues: high, notify, symbolic_ai, default_low)
-└── DB 3: Django Channels Layer (WebSocket Broadcast Groups)
-```
+
+### 2.2 Application Event Channels (Redis Pub/Sub)
+
+| Channel | Event Type | Payload Size | Frequency |
+|---------|------------|--------------|-----------|
+| `events:block` | Block lifecycle updates | < 2 KB | 10/min peak |
+| `events:conflict` | Conflict detection & resolution | < 3 KB | 2/min |
+| `events:ontology` | Digital twin semantic sync | < 5 KB | 5/min |
+| `events:notification` | Alert dispatch & delivery | < 1 KB | 20/min peak |
+| `events:audit` | Audit trail recording | < 4 KB | 30/min |
+| `events:train` | Train position updates | < 1 KB | Every 30s (simulated) |
 
 ---
 
-## 2. WebSocket Real-Time Broadcast Channels (Django Channels)
+## 3. Event Topic Catalog
 
-ড্যাফনে (Daphne Port 8001) এএসজিআই সার্ভারের মাধ্যমে ফ্রন্টএন্ডের সাথে সার্বক্ষণিক সংযুক্ত ওয়েবসকেট চ্যানেল গ্রুপ:
-
-| Channel Group Name Pattern | Purpose & Operational Target | Producers | Consumers |
-|:---|:---|:---|:---|
-| `ws:group:control_room` | মাস্টার কন্ট্রোল রুম ও বিগ স্ক্রিন ড্যাশবোর্ড আপডেট (#3) | `blocks`, `trains`, `emergency` | COA Chief Controller, Big Screen |
-| `ws:group:dept:ENGG` | ট্র্যাক ইঞ্জিনিয়ারিং ও পি-ওয়ে ডিফেক্ট আপডেট | `blocks`, `maintenance` | Civil JE/SSE Dashboard |
-| `ws:group:dept:TRD` | ওএইচই পাওয়ার লাইন ও সাবস্টেশন আইসোলেশন অ্যালার্ট | `blocks`, `departments` | Traction JE/SSE Dashboard |
-| `ws:group:dept:SNT` | সিগন্যাল ও পয়েন্ট মেশিন ফেইলিওর আপডেট | `blocks`, `maintenance` | S&T JE/SSE Dashboard |
-| `ws:group:section:{section_id}`| নির্দিষ্ট রেলওয়ে সেকশনের স্থানিক স্ট্যাটাস পরিবর্তন | `blocks`, `trains` | GIS Map Viewers focusing on section |
-| `ws:group:emergency` | জরুরি ব্রেকডাউন (SOS #79, Derailment Guard) ফ্ল্যাশ | `emergency`, `blocks` | All Connected Clients (Audio + Red) |
-| `ws:user:{user_id}` | নির্দিষ্ট ইঞ্জিনিয়ারের জন্য ডিজিটাল টোকেন ও সাইন পুশ | `notifications` | Individual Field Tablet / Mobile |
-
----
-
-## 3. Master Event Catalog
-
-প্ল্যাটফর্মের প্রতিটি বিজনেস অ্যাকশন একটি সুনির্দিষ্ট ইভেন্ট উৎপন্ন করে যা সেলিরি ওয়ার্কার এবং ওয়েবসকেট ক্লায়েন্টদের দ্বারা প্রসেস হয়:
-
-| Event Name | Redis Topic / Queue | Producer App | Primary Consumers | Schema Version | Frequency | PII? |
-|:---|:---|:---|:---|:---:|:---:|:---:|
-| `block.request_submitted` | `railway:events:block` | `apps.blocks` | `notifications`, `analytics` | v1.0 | Medium | No |
-| `block.combined_formed` | `railway:events:block` | `apps.blocks` | `ws:group:control_room`, `analytics` | v1.0 | Medium | No |
-| `block.sanctioned_approved` | `railway:events:block` | `apps.blocks` | `celery:symbolic_ai`, `celery:default_low` | v1.0 | Medium | No |
-| `safety.digital_token_issued`| `railway:events:safety`| `apps.blocks` | `ws:user:{id}`, `celery:notify` | v1.0 | High | Yes (Phone) |
-| `safety.ohe_isolated_loto` | `railway:events:safety`| `apps.blocks` | `ws:group:dept:TRD`, `ws:section` | v1.0 | Medium | No |
-| `safety.section_cleared` | `railway:events:safety`| `apps.blocks` | `ws:group:control_room`, `trains` | v1.0 | Medium | No |
-| `train.delay_detected` | `railway:events:train` | `apps.trains` | `celery:high` (Delay Cascade Recalculator) | v1.0 | High | No |
-| `emergency.override_triggered`| `railway:events:emergency`| `apps.emergency`| `ws:group:emergency`, `celery:notify` | v1.0 | Low | No |
-| `report.sanction_pdf_ready` | `railway:events:report`| `apps.analytics`| `ws:group:control_room`, `ws:user` | v1.0 | Medium | No |
+| Event Name | Topic / Channel | Producer | Consumers | Schema Version | Frequency | PII? |
+|------------|-----------------|----------|-----------|----------------|-----------|------|
+| `block.created` | `events:block` | blocks app | notifications, ontology, audit | v1 | High | No (IDs only) |
+| `block.approved` | `events:block` | blocks app | notifications, ontology, ws:COA | v1 | Medium | No |
+| `block.rejected` | `events:block` | blocks app | notifications, ws:dept | v1 | Low | No |
+| `block.completed` | `events:block` | blocks app | notifications, ontology, audit | v1 | Medium | No |
+| `block.emergency` | `events:block` | blocks app | ws:emergency, notifications | v1 | Low | No |
+| `block.status_changed` | `events:block` | blocks app | audit, ws:section | v1 | High | No |
+| `conflict.detected` | `events:conflict` | blocks app | ws:COA, notifications | v1 | Low | No |
+| `conflict.resolved` | `events:conflict` | blocks app | ws:dept, notifications | v1 | Low | No |
+| `section.status_changed` | `events:block` | blocks app | ws:section, map clients | v1 | High | No |
+| `ontology.sync_requested` | `events:ontology` | blocks app (signal) | ontology app (celery) | v1 | Medium | No |
+| `ontology.reasoning_complete` | `events:ontology` | ontology app | analytics, ws:COA | v1 | Low | No |
+| `notification.sent` | `events:notification` | notifications app | audit | v1 | High | Yes (phone) |
+| `notification.failed` | `events:notification` | notifications app | DLQ, audit | v1 | Low | Yes (phone) |
+| `train.position_updated` | `events:train` | trains app (cron) | ws:section, map clients | v1 | Continuous | No |
+| `train.delayed` | `events:train` | trains app | notifications, ws:COA | v1 | Medium | No |
+| `audit.record_created` | `events:audit` | all apps | audit app (async insert) | v1 | High | Yes (IP, agent) |
+| `crew.assigned` | `events:block` | blocks app | departments, ws:dept | v1 | Medium | No |
+| `material.low_stock` | `events:notification` | departments app | notifications, ws:COA | v1 | Low | No |
 
 ---
 
-## 4. Top 5 Mission-Critical Event Schemas (JSON Specification)
+## 4. Message Schemas
 
-### 4.1 `block.combined_formed` (Feature #98 Core USP)
-যখন ট্র্যাক, সিগন্যাল ও ওএইচই কাজকে একত্রিত করে কম্বাইন্ড উইন্ডো গঠিত হয়:
+### 4.1 Block Lifecycle Event (`block.created`)
+
 ```json
 {
-  "event_id": "EVT-COMB-7b8f9e12-4c3a-4a21",
-  "event_type": "block.combined_formed",
-  "version": "1.0",
-  "timestamp": "2026-09-18T09:25:00.102+05:30",
-  "trace_id": "TRACE-9812401",
+  "event_id": "evt_550e8400-e29b-41d4-a716-446655440000",
+  "event_type": "block.created",
+  "version": "1",
+  "timestamp": "2026-09-02T15:30:00+05:30",
+  "producer": "blocks",
+  "correlation_id": "req_abc123xyz",
   "payload": {
-    "combined_window_id": "COMB-HWH-20260918-01",
-    "section_id": "HWH-BWN-L1",
-    "section_code": "HOWRAH_BARDDHAMAN_LINE_1",
-    "start_time": "2026-09-19T02:00:00+05:30",
-    "end_time": "2026-09-19T05:00:00+05:30",
-    "duration_minutes": 180,
-    "participating_departments": ["ENGG", "TRD"],
-    "shadow_time_saved_minutes": 120,
-    "affected_train_numbers": ["12301"]
+    "block_id": "BLK-20260902-089",
+    "block_uuid": "550e8400-e29b-41d4-a716-446655440001",
+    "department": "ENG",
+    "section_id": "sec_hwh_kgp",
+    "section_name": "Howrah-Kharagpur",
+    "from_km": 15.00,
+    "to_km": 20.50,
+    "start_time": "2026-09-03T02:00:00+05:30",
+    "end_time": "2026-09-03T04:00:00+05:30",
+    "priority": "CRITICAL",
+    "work_type": "Track Crack Repair",
+    "requester_id": "usr_42",
+    "emergency": false
   }
 }
 ```
 
-### 4.2 `safety.digital_token_issued` (Feature #71 Digital Token)
-কন্ট্রোলার কর্তৃক ফিল্ড গ্যাং সুপারভাইজারকে ডিজিটাল টোকেন হ্যান্ডওভার:
+### 4.2 Conflict Event (`conflict.detected`)
+
 ```json
 {
-  "event_id": "EVT-TOKN-8c9d0f23-5d4b-5b32",
-  "event_type": "safety.digital_token_issued",
-  "version": "1.0",
-  "timestamp": "2026-09-18T09:25:15.340+05:30",
-  "trace_id": "TRACE-9812402",
+  "event_id": "evt_550e8400-e29b-41d4-a716-446655440002",
+  "event_type": "conflict.detected",
+  "version": "1",
+  "timestamp": "2026-09-02T15:35:00+05:30",
+  "producer": "blocks",
+  "correlation_id": "req_def456uvw",
   "payload": {
-    "token_code": "TKN-HWH-SEC4-20260918-X99",
-    "block_id": "BLK-20260918-042",
-    "issued_to_gang_code": "ENGG_GANG_04",
-    "supervisor_username": "eng_supervisor_das",
-    "issued_by_controller": "coa_delhi_chief",
-    "section_code": "HWH-BWN-L1",
-    "handover_timestamp": "2026-09-18T09:25:15+05:30",
-    "status": "ISSUED_LINE_CLOSED"
+    "conflict_id": "CNF-20260902-012",
+    "primary_block_id": "BLK-20260902-089",
+    "primary_dept": "ENG",
+    "conflicting_block_id": "BLK-20260902-090",
+    "conflicting_dept": "TRD",
+    "section_id": "sec_hwh_kgp",
+    "overlap_start": "2026-09-03T02:30:00+05:30",
+    "overlap_end": "2026-09-03T04:00:00+05:30",
+    "conflict_type": "TIME_OVERLAP",
+    "severity": "HIGH",
+    "ai_resolution": {
+      "suggestion": "SPLIT_BLOCK",
+      "primary_slot": "02:00-04:00",
+      "conflicting_slot": "04:30-06:30",
+      "explanation_bn": "ট্র্যাক ফাটল মেরামতের অগ্রাধিকার বেশি হওয়ায় ইঞ্জিনিয়ারিং বিভাগকে ১ম স্লট দেওয়া হলো।"
+    }
   }
 }
 ```
 
-### 4.3 `train.delay_detected` (Feature #116 Schedule Deviation Detector)
-NTES লাইভ ফিড থেকে ট্রেনের লেট শনাক্তকরণ ও তাৎক্ষণিক রিক্যালকুলেশন ট্রিগার:
+### 4.3 Section Status Change (`section.status_changed`)
+
 ```json
 {
-  "event_id": "EVT-TRN-1a2b3c4d-6e5f-4a11",
-  "event_type": "train.delay_detected",
-  "version": "1.0",
-  "timestamp": "2026-09-18T09:25:30.005+05:30",
-  "trace_id": "TRACE-9812403",
+  "event_id": "evt_550e8400-e29b-41d4-a716-446655440003",
+  "event_type": "section.status_changed",
+  "version": "1",
+  "timestamp": "2026-09-02T15:40:00+05:30",
+  "producer": "blocks",
+  "correlation_id": "req_hwh789xyz",
   "payload": {
-    "train_no": "12305",
-    "train_name": "Kolkata Rajdhani Express",
-    "priority_class": "RAJDHANI",
-    "reported_station": "ASANSOL_JN",
-    "delay_minutes": 45,
-    "current_speed_kmph": 115.5,
-    "threatened_block_id": "BLK-20260918-042",
-    "recalculation_enqueued": true
+    "section_id": "sec_hwh_kgp",
+    "section_name": "Howrah-Kharagpur",
+    "old_status": "FREE",
+    "new_status": "BLOCKED",
+    "active_block_id": "BLK-20260902-089",
+    "department": "ENG",
+    "block_start": "2026-09-03T02:00:00+05:30",
+    "block_end": "2026-09-03T04:00:00+05:30",
+    "affected_trains": [
+      {
+        "train_no": "12301",
+        "train_name": "Rajdhani Express",
+        "impact": "DELAY_45_MIN",
+        "passenger_count": 1200
+      }
+    ]
   }
 }
 ```
 
-### 4.4 `safety.ohe_isolated_loto` (Feature #73, #74 Power Isolation & LOTO)
-ওভারহেড তারের বিদ্যুৎ বিচ্ছিন্নকরণ ও নিরাপত্তা লক নিশ্চিতকরণ:
+### 4.4 Ontology Sync Event (`ontology.sync_requested`)
+
 ```json
 {
-  "event_id": "EVT-LOTO-3d4e5f6a-7b8c-9d01",
-  "event_type": "safety.ohe_isolated_loto",
-  "version": "1.0",
-  "timestamp": "2026-09-18T09:26:00.220+05:30",
-  "trace_id": "TRACE-9812404",
+  "event_id": "evt_550e8400-e29b-41d4-a716-446655440004",
+  "event_type": "ontology.sync_requested",
+  "version": "1",
+  "timestamp": "2026-09-02T15:30:05+05:30",
+  "producer": "blocks",
+  "correlation_id": "req_onto_001",
   "payload": {
-    "ptw_number": "PTW-TRD-20260918-009",
-    "block_id": "BLK-20260918-042",
-    "substation_code": "SUB_BWN_02",
-    "ohe_feed_zone": "FEED_ZONE_BARDDHAMAN_SOUTH",
-    "power_cut_confirmed": true,
-    "loto_switch_padlock_id": "LOTO-PAD-8821",
-    "safety_officer_verified": true
+    "entity_type": "BlockEvent",
+    "entity_id": "BLK-20260902-089",
+    "operation": "CREATE",
+    "rdf_triples": [
+      {
+        "subject": "BlockEvent_BLK20260902089",
+        "predicate": "rdf:type",
+        "object": "BlockEvent"
+      },
+      {
+        "subject": "BlockEvent_BLK20260902089",
+        "predicate": "affectsSection",
+        "object": "Section_HWH_KGP"
+      },
+      {
+        "subject": "BlockEvent_BLK20260902089",
+        "predicate": "hasPriority",
+        "object": "CRITICAL"
+      }
+    ],
+    "reasoning_required": true
   }
 }
 ```
 
-### 4.5 `emergency.override_triggered` (Feature #79 SOS & Track Breach)
-জরুরি ট্র্যাক ফ্র্যাকচার বা ট্রেন লাইনচ্যুত হওয়ার চরম সতর্কতা:
+### 4.5 Notification Event (`notification.sent`)
+
 ```json
 {
-  "event_id": "EVT-EMG-9a8b7c6d-5e4f-3a21",
-  "event_type": "emergency.override_triggered",
-  "version": "1.0",
-  "timestamp": "2026-09-18T09:26:30.001+05:30",
-  "trace_id": "TRACE-9812405",
+  "event_id": "evt_550e8400-e29b-41d4-a716-446655440005",
+  "event_type": "notification.sent",
+  "version": "1",
+  "timestamp": "2026-09-02T15:30:10+05:30",
+  "producer": "notifications",
+  "correlation_id": "req_sms_445",
   "payload": {
-    "emergency_type": "TRACK_FRACTURE_REPORTED",
-    "section_code": "HWH-BWN-L1",
-    "exact_chainage_km": 24.600,
-    "gps_coordinates": [22.784, 88.241],
-    "reported_by": "track_patrol_kumar",
-    "audio_alert_broadcast": true,
-    "instant_signals_red": ["SIG_HWH_UP_24", "SIG_HWH_UP_25"]
+    "notification_id": "NTF-20260902-045",
+    "type": "SMS",
+    "recipient_id": "usr_42",
+    "recipient_phone": "+91*****1234",
+    "block_id": "BLK-20260902-089",
+    "message": "Block BLK-20260902-089 approved. Report at Bardhaman 01:30.",
+    "message_bn": "ব্লক BLK-20260902-089 অনুমোদিত। বর্ধমানে ০১:৩০-এ রিপোর্ট করুন।",
+    "provider": "twilio",
+    "status": "SENT",
+    "sid": "SM1234567890abcdef"
   }
 }
 ```
 
 ---
 
-## 5. Producer & Consumer Architectural Patterns
+## 5. Celery Task Routing & Queues
 
-### 5.1 Producer Pattern: At-Least-Once Delivery & Outbox
-গুরুত্বপূর্ণ রেলওয়ে ইভেন্টগুলো ডেটাবেস ট্রানজ্যাকশনের সাথে সমন্বিত রেখে ডিসপ্যাচ করা হয়:
+### 5.1 Queue Configuration
 
 ```python
-# apps/blocks/services.py
-from django.db import transaction
-from apps.notifications.tasks import broadcast_websocket_event
-from apps.blocks.models import BlockRequest
-
-class BlockService:
-    @transaction.atomic
-    def approve_block(self, block_id, controller_user):
-        block = BlockRequest.objects.select_for_update().get(id=block_id)
-        block.status = "APPROVED"
-        block.approved_by = controller_user
-        block.save()
-
-        # Transaction Commit নিশ্চিত হওয়ার পর ইভেন্ট পাঠানো
-        transaction.on_commit(lambda: broadcast_websocket_event.delay(
-            channel_group="ws:group:control_room",
-            event_name="block.sanctioned_approved",
-            payload={"block_id": str(block.id), "request_code": block.request_code}
-        ))
-        return block
-```
-
-### 5.2 Consumer Idempotency Pattern (Duplicate Elimination)
-নেটওয়ার্ক বিভ্রাটের কারণে একই ইভেন্ট একাধিকবার পৌঁছালেও ডাবল এক্সিকিউশন রোধে Redis কি-লক:
-
-```python
-# apps/core/consumers.py
-from django.core.cache import cache
-
-def process_idempotent_event(event_id: str, event_handler_func, *args, **kwargs):
-    idempotency_key = f"railway:event:processed:{event_id}"
+# settings.py
+CELERY_TASK_ROUTES = {
+    # High priority — conflict resolution, emergency broadcasts
+    'blocks.tasks.detect_conflict': {'queue': 'high'},
+    'blocks.tasks.resolve_conflict': {'queue': 'high'},
+    'blocks.tasks.emergency_broadcast': {'queue': 'high'},
     
-    # Atomic SETNX: কী আগে থেকে থাকলে False রিটার্ন করে
-    is_new = cache.add(idempotency_key, "PROCESSED", timeout=86400) # 24 Hours TTL
-    if not is_new:
-        logger.warning("DUPLICATE_EVENT_DROPPED", event_id=event_id)
-        return None
-        
-    return event_handler_func(*args, **kwargs)
+    # Notifications — SMS, email, push, websocket
+    'notifications.tasks.send_sms': {'queue': 'notify'},
+    'notifications.tasks.send_email': {'queue': 'notify'},
+    'notifications.tasks.push_ws': {'queue': 'notify'},
+    
+    # Ontology — semantic graph sync, reasoning
+    'ontology.tasks.sync_to_graph': {'queue': 'ontology'},
+    'ontology.tasks.run_reasoning': {'queue': 'ontology'},
+    'ontology.tasks.execute_sparql': {'queue': 'ontology'},
+    
+    # Analytics & Reports — PDF generation, heavy impact math
+    'analytics.tasks.generate_pdf': {'queue': 'low'},
+    'analytics.tasks.calculate_impact': {'queue': 'low'},
+    'analytics.tasks.export_csv': {'queue': 'low'},
+    
+    # Default — general database maintenance & audit logs
+    '*': {'queue': 'default'},
+}
+
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # Fair task distribution
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
 ```
 
----
+### 5.2 Worker Concurrency Table
 
-## 6. Celery Dedicated 4-Queue Worker Architecture & Dead Letter Queue (DLQ)
+| Queue | Worker Processes | Concurrency | Task Types |
+|-------|------------------|-------------|------------|
+| `high` | 2 workers | 4 threads | Conflict detection, emergency override |
+| `notify` | 2 workers | 4 threads | SMS via Twilio, WebSocket broadcast |
+| `ontology` | 1 worker | 2 threads | OWL 2 sync, SPARQL reasoning |
+| `low` | 1 worker | 1 thread | PDF report generation, CSV export |
+| `default` | 2 workers | 4 threads | General CRUD, MySQL audit logging |
 
-```
-Celery Task Broker (Redis DB 2)
-├── Queue 1: `high`          --> Worker 1 (Concurrency: 4, Prefetch: 1)
-│   • Conflict Detection Engine, Emergency SOS Override
-├── Queue 2: `notify`        --> Worker 2 (Concurrency: 8, I/O Bound)
-│   • Twilio/CDAC SMS, Push Notifications, Telegram Bots
-├── Queue 3: `symbolic_ai`   --> Worker 3 (Concurrency: 2, CPU/Memory Bound)
-│   • Owlready2 Knowledge Graph, HermiT Reasoner Verification
-└── Queue 4: `default_low`   --> Worker 4 (Concurrency: 2)
-    • Sanction Order PDF Generation (#107), Audit Log Archive, Data Rollups
-```
-
-### 6.1 Dead Letter Queue (DLQ) ও Exponential Backoff Retry Policy
-কোনো ব্যাকগ্রাউন্ড কাজ ব্যর্থ হলে স্বয়ংক্রিয় রিট্রাই নীতি:
-- **প্রাথমিক ব্যাকঅফ (Initial Delay):** ২ সেকেন্ড
-- **ব্যাকঅফ ফ্যাক্টর:** ২ গুণ (২s ➔ ৪s ➔ ৮s ➔ ১৬s ➔ ৩২s)
-- **সর্বোচ্চ চেষ্টা (Max Retries):** ৫ বার
-- **চূড়ান্ত ব্যর্থতা:** ৫ বার ব্যর্থ হলে টাস্কটি `railway:dlq:failed_tasks` সারিতে জমা হয় এবং অ্যাডমিনের কাছে CRITICAL নোটিফিকেশন পাঠায়।
+### 5.3 Retry Policy
 
 ```python
-# apps/analytics/tasks.py
+# tasks.py
 from celery import shared_task
-import structlog
-
-logger = structlog.get_logger()
+from twilio.base.exceptions import TwilioRestException
 
 @shared_task(
     bind=True,
-    queue="default_low",
-    max_retries=5,
-    default_retry_delay=2,
-    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=5,
     retry_backoff=True,
-    retry_backoff_max=32,
-    retry_jitter=True
+    retry_backoff_max=60,
+    retry_jitter=True,
 )
-def generate_sanction_pdf_task(self, block_id):
+def send_sms_task(self, phone, message):
     try:
-        from apps.analytics.services import SanctionPDFService
-        return SanctionPDFService().generate(block_id)
-    except Exception as exc:
-        logger.error("PDF_GENERATION_RETRYING", block_id=block_id, attempt=self.request.retries, error=str(exc))
+        # Twilio API call
+        return twilio_client.messages.create(to=phone, body=message)
+    except TwilioRestException as exc:
         raise self.retry(exc=exc)
 ```
 
 ---
 
-## 7. Traceability to Subsequent Specification Documents
+## 6. Dead Letter Queue (DLQ) Strategy
 
-| Target Document | Direct Broker Dependency |
-|:---|:---|
-| **`01-tech-infra/04-internal-api-and-messaging.md`** | ইভেন্ট-চালিত আর্কিটেকচারের ওপর ভিত্তি করে সিঙ্ক বনাম অ্যাসিঙ্ক মেসেজিং কন্ট্রাক্ট ও সাগা প্যাটার্ন। |
-| **`01-tech-infra/07-workers-consumers.md`** | ৪টি Celery কিউ কনফিগারেশন, রিট্রাই পলিসি ও ডকার কম্পোজ সার্ভিস ফাইল। |
-| **`03-service-blueprints/01-block-planning-service.md`** | `block.combined_formed` ও `block.sanctioned_approved` ইভেন্ট হ্যান্ডলিং। |
+DLQ is implemented via Redis Lists with structured error payloads.
+
+### 6.1 DLQ Channels
+
+| DLQ Key | Source Queue | Failure Condition | Retention | Action |
+|---------|--------------|-------------------|-----------|--------|
+| `dlq:notify:sms` | `notify` | Twilio API error, invalid phone | 7 days | Manual retry via admin |
+| `dlq:ontology:sync` | `ontology` | Ontology file locked, parse error | 7 days | Auto-retry on unlock |
+| `dlq:high:conflict` | `high` | MySQL deadlock / timeout | 1 day | Immediate auto-retry |
+| `dlq:low:pdf` | `low` | PDF renderer crash | 3 days | Manual re-trigger |
+
+### 6.2 DLQ Processing Command
+
+```python
+# management command: python manage.py process_dlq --queue notify --max 10
+import json
+from django.core.management.base import BaseCommand
+from django.core.cache import cache
+from celery import current_app
+
+class Command(BaseCommand):
+    help = "Process Dead Letter Queue items"
+
+    def add_arguments(self, parser):
+        parser.add_argument('--queue', type=str, default='notify')
+        parser.add_argument('--max', type=int, default=10)
+
+    def handle(self, *args, **options):
+        queue_name = options['queue']
+        max_items = options['max']
+        dlq_key = f"dlq:{queue_name}"
+        redis_client = cache.client.get_client()
+
+        for _ in range(max_items):
+            item = redis_client.lpop(dlq_key)
+            if not item:
+                self.stdout.write("DLQ is empty.")
+                break
+            event = json.loads(item)
+            current_app.send_task(event['task_name'], args=event['args'], queue=queue_name)
+            self.stdout.write(f"Re-queued task: {event['task_name']}")
+```
+
+---
+
+## 7. Idempotency Key Generation
+
+**Purpose:** Prevent duplicate processing (e.g., button double-clicks, retry storms).
+
+### 7.1 Key Generation Strategy
+
+| Event Type | Idempotency Key Format | Storage | TTL |
+|------------|------------------------|---------|-----|
+| **Block Create** | `idemp:block:create:{requester_id}:{section_id}:{start_time_iso}` | Redis | 5 min |
+| **Block Approve** | `idemp:block:approve:{block_id}:{approver_id}` | Redis | 10 min |
+| **SMS Send** | `idemp:sms:{phone}:{message_hash}` | Redis | 1 hour |
+| **Ontology Sync** | `idemp:onto:{entity_type}:{entity_id}:{operation}` | Redis | 10 min |
+| **Emergency Block** | `idemp:emergency:{requester_id}:{timestamp_minute}` | Redis | 15 min |
+
+### 7.2 Implementation
+
+```python
+# utils/idempotency.py
+import hashlib
+from django.core.cache import cache
+
+def get_idempotency_key(operation, **params):
+    key_parts = [operation] + [f"{k}={v}" for k, v in sorted(params.items())]
+    raw_key = "|".join(key_parts)
+    return f"idemp:{hashlib.sha256(raw_key.encode()).hexdigest()[:16]}"
+
+def check_idempotent(key, ttl=300):
+    """Returns True if already processed (duplicate), False if first time."""
+    if cache.get(key):
+        return True
+    cache.set(key, "1", ttl)
+    return False
+```
+
+---
+
+## 8. Producer & Consumer Patterns
+
+### 8.1 Fire-and-Forget (Audit Logs)
+
+```python
+# Producer (non-blocking)
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from blocks.models import BlockRequest
+import json
+
+@receiver(post_save, sender=BlockRequest)
+def emit_audit_event(sender, instance, created, **kwargs):
+    event = {
+        "event_type": "audit.record_created",
+        "payload": {
+            "table_name": "block_requests",
+            "record_id": str(instance.id),
+            "action": "CREATE" if created else "UPDATE",
+        }
+    }
+    redis_client.publish("events:audit", json.dumps(event))
+```
+
+### 8.2 At-Least-Once (Notifications)
+
+```python
+# Producer with retries
+@shared_task(bind=True, max_retries=3)
+def send_block_approval_sms(self, block_id, user_id):
+    from blocks.models import BlockRequest
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    block = BlockRequest.objects.get(id=block_id)
+    user = User.objects.get(id=user_id)
+    message = f"Block {block.block_code} approved for {block.section.name}."
+    send_sms_task.delay(phone=user.phone, message=message)
+```
+
+### 8.3 Exactly-Once (Ontology Sync with Idempotency)
+
+```python
+@shared_task(bind=True)
+def sync_block_to_ontology(self, block_id):
+    idem_key = get_idempotency_key("onto:sync", entity_id=block_id, op="CREATE")
+    if check_idempotent(idem_key, ttl=600):
+        return
+    
+    manager = DigitalTwinManager()
+    manager.sync_block(block_id)
+    
+    redis_client.publish("events:ontology", json.dumps({
+        "event_type": "ontology.reasoning_complete",
+        "payload": {"block_id": block_id}
+    }))
+```
+
+---
+
+## 9. Next File Dependency Note
+
+> পরবর্তী ফাইল: `01-tech-infra/04-internal-api-and-messaging.md`
+
+`03-event-brokers.md` থেকে `04-internal-api-and-messaging.md`-এ নেওয়া হবে:
+
+| Event Broker Element | Internal API Impact |
+|---------------------|---------------------|
+| `events:block` topic | Sync/async boundary — `POST /api/v1/blocks/` sync MySQL response vs async event broadcast |
+| `events:conflict` topic | Circuit breaker on AI Resolver — if Gemini fails, fallback to local rule-engine |
+| `events:ontology` topic | Inter-service coordination — ontology background worker updates semantic digital twin |
+| `ws:group:*` channels | Dynamic WebSocket connection grouping by department and active section |
+| Celery queues | Distributed transaction (SAGA) — block approval saga: MySQL update → SMS queue → Ontology queue → Audit queue |
+| DLQ strategy | Compensating transaction strategy for unrecoverable third-party failures |
+| Idempotency keys | HTTP `Idempotency-Key` header on mutating POST endpoints |
+
+`04-internal-api-and-messaging.md`-এ নিচের বিষয়গুলো থাকবে:
+- Sync vs Async communication pattern matrix
+- Service discovery (Django app registry)
+- API versioning strategy (`/api/v1/`)
+- Circuit breaker configuration (Gemini API, Twilio API)
+- Retry & timeout policies per service
+- Distributed transaction: Block approval SAGA pattern with compensating actions
+- Distributed tracing with Correlation ID propagation

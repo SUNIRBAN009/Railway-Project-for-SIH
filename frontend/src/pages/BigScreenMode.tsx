@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DEMO_TRAINS, DEMO_CONFLICTS } from '../services/demoData';
-import { useLiveBlocks } from '../hooks/useLiveBlocks';
+import { DEMO_BLOCKS, DEMO_TRAINS, DEMO_CONFLICTS } from '../services/demoData';
 import {
   Maximize2,
   Minimize2,
@@ -21,7 +20,6 @@ import { useNavigate } from 'react-router-dom';
 
 export const BigScreenMode: React.FC = () => {
   const navigate = useNavigate();
-  const { blocks } = useLiveBlocks();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -88,12 +86,12 @@ export const BigScreenMode: React.FC = () => {
                 <span>Active Track Possessions</span>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-950 border border-blue-500 text-blue-300">
-                {blocks.filter((b) => b.status === 'ACTIVE').length} OCCUPIED
+                {DEMO_BLOCKS.filter((b) => b.status === 'ACTIVE').length} OCCUPIED
               </span>
             </div>
 
             <div className="space-y-3">
-              {blocks.map((b) => (
+              {DEMO_BLOCKS.map((b) => (
                 <div
                   key={b.id}
                   className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-2"

@@ -35,9 +35,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class LoginRequestSerializer(serializers.Serializer):
-    username = serializers.CharField(required=True, min_length=1, max_length=50)
-    password = serializers.CharField(required=False, allow_blank=True, default='railway@123', max_length=128, write_only=True)
-
+    username = serializers.CharField(required=True, min_length=3, max_length=50)
+    password = serializers.CharField(required=True, min_length=4, max_length=128, write_only=True)
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

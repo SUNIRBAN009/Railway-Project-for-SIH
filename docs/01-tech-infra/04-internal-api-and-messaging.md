@@ -1,193 +1,322 @@
 # 04-internal-api-and-messaging.md
 
 > **ফাইল ক্রম:** ৮/৪৫  
-> **ডিরেক্টরি:** `01-tech-infra/`  
-> **পূর্ববর্তী ফাইল:** `01-tech-infra/03-event-brokers.md` (ইভেন্ট টপিক, পাব/সাব চ্যানেল, সেলিরি ৪-কিউ)  
-> **পরবর্তী ফাইল:** `01-tech-infra/05-observability.md` (লগিং, মেট্রিক্স, ডিস্ট্রিবিউটেড ট্রেসিং)  
-> **কন্টেন্ট সোর্স:** `RailBlock_Feature_Master_Plan_PS26027(1).xlsx` (১২২টি ফিচার, ৪টি মূল সমস্যা স্তম্ভ), `ai-project-spec-generator (1).md`।  
-> **ডাটাবেস ও ইন্টিগ্রেশন নীতি:** **PostgreSQL 15/16 + PostGIS 3.3** (নো MySQL), **PyBreaker 1.0** (সার্কিট ব্রেকার) এবং **Idempotent REST APIs**।
+> **পূর্ববর্তী ফাইল:** `01-tech-infra/03-event-brokers.md` (event topics, Celery queues, idempotency keys, correlation_id)  
+> **পরবর্তী ফাইল:** `01-tech-infra/05-observability.md`  
+> **সংযোগ:** এই ফাইলে নির্ধারিত circuit breaker thresholds, retry policies, এবং distributed tracing `correlation_id` `05-observability.md`-এর logging, metrics, এবং alerting strategy-তে সরাসরি ব্যবহৃত হবে। `05-observability.md`-এ RED method metrics (Rate, Errors, Duration) এবং distributed tracing span naming এই messaging pattern-এর উপর নির্ভরশীল।
 
 ---
 
-## 1. Inter-Service Communication Pattern Matrix
+## 1. Communication Pattern Matrix
 
-সিস্টেমটি একটি **মডিউলার ক্লিন মনোলিথ** হওয়ায় ডোমেনগুলোর মধ্যকার অভ্যন্তরীণ যোগাযোগ ইন-প্রসেস মেমোরি কল এবং ব্যাকগ্রাউন্ড টাস্ক কিউয়ের সমন্বয়ে পরিচালিত হয়:
+| Use Case | Sync / Async | Protocol / Mechanism | Why |
+|----------|-------------|---------------------|-----|
+| **User Login** | Sync | HTTP POST `/api/v1/auth/login/` | Immediate token response required |
+| **Block Create** | Sync + Async | HTTP POST → MySQL Commit → Celery Event | User gets block ID immediately; notifications & digital twin reasoning execute async |
+| **Block Approve** | Sync + Async | HTTP POST → Atomic MySQL Update → SAGA Pipeline | Immediate approval state for COA; SMS + graph update + audit run async |
+| **Conflict Detection** | Sync | In-process Python Function (Rule Engine) | Must return in < 200ms for immediate UI feedback on block submission |
+| **AI Resolution** | Async | Celery Task → Google Gemini API | External LLM latency is 500ms–2000ms; cannot block HTTP thread |
+| **Ontology Sync** | Async | Django Signal → Celery `ontology` Queue | File I/O + HermiT semantic reasoning; must not block web request |
+| **SMS Notification** | Async | Celery `notify` Queue → Twilio REST API | External API latency, rate limits, and network failure tolerance |
+| **Real-time Map Update** | Async | Django Channels → WebSocket Broadcast | Push to connected dashboard/map clients without polling |
+| **Emergency Broadcast** | Sync + Async | HTTP POST → MySQL Commit → Instant WS Push | Critical safety: DB commit is sync, instant all-channel broadcast |
+| **Report Generation** | Async | Celery `low` Queue → PDF Generator | Heavy CPU & memory processing in background |
+| **Train Position Update** | Async | Celery Beat Cron → WebSocket Broadcast | Simulated real-time GPS feed every 30 seconds |
+| **Audit Logging** | Async | Django Signal → Celery `default` Queue | Ensures audit trail write never slows down business transactions |
 
-| Use Case / Workflow | Execution Mode | Protocol / Channel | Target Component | Architectural Rationale |
-|:---|:---:|:---|:---|:---|
-| **User Login & Session Issue** | **Sync** | HTTP POST (`/api/v1/auth/login/`) | `apps.accounts` | ক্লায়েন্টের তাৎক্ষণিক JWT এক্সেস ও রিফ্রেশ টোকেন প্রাপ্তি আবশ্যক। |
-| **Combined Block Window Form (#98)** | **Sync** | ইন-প্রসেস মেথড + PostGIS SQL | `apps.blocks.services` | একই সেকশনে একাধিক ডিপার্টমেন্টের ওভারল্যাপ < ২০০ms-এ নির্ণয়। |
-| **Block Approval & ACID Commit** | **Sync** | HTTP POST ➔ PostgreSQL Commit | `apps.blocks.views` | প্রধান কন্ট্রোলারের অনুমোদনের তাৎক্ষণিক ACID ট্রানজ্যাকশন স্থায়িত্ব। |
-| **Symbolic AI Digital Twin Proof** | **Async** | Celery Task (`symbolic_ai` Queue) | `apps.ontology` (HermiT) | মেমোরি-বাউন্ড ডেসক্রিপশন লজিক রিজনিং; মূল HTTP থ্রেড ব্লক করা নিষিদ্ধ। |
-| **Neural AI "Why #1?" Generation (#94)**| **Async** | Celery ➔ Google Gemini API | `apps.analytics` (LLM) | বহিঃস্থ ক্লাউড এপিআই ল্যাটেন্সি (৫০০-১৫০০ms) হতে ব্যবহারকারীকে মুক্ত রাখা। |
-| **Digital Token Handover (#71)** | **Sync + Async**| DB Commit ➔ Celery `notify` | `apps.blocks` & Twilio SMS | টোকেন হ্যাশ তাৎক্ষণিক তৈরি হয়, এসএমএস ডেলিভারি ব্যাকগ্রাউন্ডে চলে। |
-| **NTES Delay Cascade Recalc (#115)** | **Async** | Redis Stream ➔ Celery `high` | `apps.trains` (Recalculator)| ট্রেনের লেটের কারণে পরবর্তী ৫০টি ব্লকে ক্যাসকেড ইমপ্যাক্ট হিসাব। |
-| **Sanction Order PDF Gen (#107)** | **Async** | Celery Task (`default_low` Queue)| `apps.analytics` (ReportLab)| হাই-রেজোলিউশন কিউআর কোড ও ডিজিটাল সাইন যুক্ত PDF তৈরি। |
-| **Real-time Map Status Broadcast** | **Async** | Redis Pub/Sub ➔ Channels (WSS)| `Daphne ASGI` ➔ React Map | ব্রাউজারে পোলিং না করে সরাসরি ওয়েবসকেটের মাধ্যমে সেকশন লাল/সবুজ করা। |
-| **Emergency SOS Track Breach (#79)** | **Sync + Async**| HTTP POST ➔ Instant WS Broadcast | `apps.emergency` | জীবন-সংকটকালীন নিরাপত্তা: ডেটাবেসে সেভ করে ০ms ল্যাটেন্সিতে লাল ফ্ল্যাশ। |
+**Core Rule:** User-facing mutations are synchronous to MySQL for ACID consistency, then asynchronous via Redis/Celery for side effects. Read queries are purely synchronous.
 
 ---
 
-## 2. In-Process Service Discovery & Module Boundaries
+## 2. Service Discovery
 
-যেহেতু সম্পূর্ণ ব্যাকএন্ড একক মনোলিথ হিসেবে চলে, তাই কনসাল (Consul) বা ইউরেকা (Eureka)-র মতো এক্সটার্নাল সার্ভিস ডিসকভারি ক্লাস্টারের প্রয়োজন নেই। Django-র **App Registry** এবং **Service Layer Interface** ব্যবহার করে মডিউলগুলো একে অপরের সাথে যুক্ত হয়:
+**Pattern:** In-process Django App Registry (No external Consul/Eureka/ZooKeeper required).
+
+**Justification:**  
+Modular monolith architecture — all 8 domains run within the same Python execution environment. There are no inter-service network boundaries, eliminating network latency, serialization overhead, and separate discovery cluster maintenance.
+
+### 2.1 App Registry Mapping
 
 ```python
-# config/settings.py
+# railway_ai/apps.py
 INSTALLED_APPS = [
-    # Core Infrastructure
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    "django.contrib.gis",          # PostGIS Engine
-    "rest_framework",
-    "corsheaders",
-    "channels",
-    
-    # 10 Bounded Context Domain Apps
-    "apps.core",                   # Base Models, Abstract Audits, Middleware
-    "apps.accounts",               # User Auth & Spatial RBAC (#112)
-    "apps.assets",                 # PostGIS Track, Signal, Station Assets
-    "apps.blocks",                 # Block Requests & Combined Window (#98)
-    "apps.departments",            # Gangs, Base Stations & Materials (#100, #101)
-    "apps.emergency",              # Emergency SOS Override & Breaches (#79)
-    "apps.maintenance",            # TMS, SMMS, TDMS Defect Ingestion
-    "apps.notifications",          # WebSockets & SMS Dispatcher
-    "apps.ontology",               # Semantic Digital Twin & HermiT Reasoner
-    "apps.trains",                 # Time Table, NTES Stream & Cascade Recalc (#114, #115)
-    "apps.analytics",              # Asset Availability Score (#50) & PDF Gen (#107)
+    'accounts',      # AUTH: Authentication & RBAC
+    'blocks',        # BLK: Core Block planning & conflict engine
+    'departments',   # DEPT: Crew gangs & material inventory
+    'ontology',      # ONTO: Owlready2 digital twin & SPARQL
+    'trains',        # TRN: Train timetables, routes, impact
+    'assets',        # AST: Physical track, signal, OHE health
+    'analytics',     # ANA: KPI dashboards, PDF export
+    'notifications', # NOTIF: SMS, Email, WebSocket dispatcher
 ]
 ```
 
-### 2.1 Cross-Module Contract Standards
-- একটি মডিউল কখনোই অন্য মডিউলের ইন্টারনাল ডেটাবেস কলাম সরাসরি পরিবর্তন করতে পারবে না।
-- সর্বদা টার্গেট অ্যাপের **Public Service Class** মেথড কল করতে হবে (যেমন: `apps.blocks.services.BlockOptimizationService.get_active_blocks()`)।
-- ডিকাপল্ড সাইড-এফেক্টের জন্য Django Signals ব্যবহার করা হয়, যা ট্রানজ্যাকশন শেষ হওয়ার পর সেলিরিতে ডিসপ্যাচ হয়।
+### 2.2 Cross-App Communication Standard
+
+| Caller App | Called App | Method | Example |
+|------------|------------|--------|---------|
+| `blocks` | `ontology` | Direct import (sync) / Celery (async) | `from ontology.manager import DigitalTwinManager` / `sync_to_graph.delay()` |
+| `blocks` | `notifications` | Celery task only | `notifications.tasks.send_sms.delay()` |
+| `blocks` | `trains` | Django ORM query (MySQL) | `Train.objects.filter(current_section=section_id)` |
+| `ontology` | `trains` | Django ORM query (MySQL) | `Train.objects.filter(route__contains=section_name)` |
+| `analytics` | `blocks` | Django ORM aggregation (MySQL) | `BlockRequest.objects.filter(status='APPROVED').count()` |
 
 ---
 
-## 3. API Versioning Strategy & Deprecation Policy
+## 3. API Versioning Strategy
 
-### 3.1 URI Path Versioning
-সিস্টেমের সমস্ত এপিআই স্পষ্ট সংস্করণ উপসর্গ (URI Path Prefix) দ্বারা পরিচালিত:
+### 3.1 URL Path Versioning
+
+All endpoints are strictly path-versioned:
 ```http
-https://railway-block-ai.gov.in/api/v1/blocks/
-https://railway-block-ai.gov.in/api/v1/safety/token/
-https://railway-block-ai.gov.in/api/v2/blocks/     # ভবিষ্যতে বড় কোনো ব্রেকিং পরিবর্তনের জন্য
+/api/v1/auth/login/
+/api/v1/blocks/
+/api/v1/blocks/approve/
+/api/v2/blocks/          # Future major breaking changes
 ```
 
-### 3.2 Breaking vs Non-Breaking Change Rules
-- **Non-Breaking Changes (সংস্করণ অপরিবর্তিত থাকে `/api/v1/`):**
-  - রেসপন্স অবজেক্টে নতুন কোনো ঐচ্ছিক ফিল্ড যোগ করা।
-  - রিকোয়েস্টে নতুন কোনো ঐচ্ছিক কুয়েরি প্যারামিটার যুক্ত করা।
-  - বিদ্যমান `error_code` অপরিবর্তিত রেখে এরর মেসেজের ভাষা উন্নত করা।
-- **Breaking Changes (নতুন সংস্করণ আবশ্যক `/api/v2/`):**
-  - বিদ্যমান কোনো রিকোয়েস্ট ফিল্ড রিনেম বা মুছে ফেলা।
-  - ডেটা টাইপ পরিবর্তন (যেমন: স্ট্রিং থেকে অ্যারেতে রূপান্তর)।
-  - অথেনটিকেশন মেকানিজম বা টোকেন ক্লেইম পরিবর্তন করা।
+### 3.2 Breaking vs Non-Breaking Changes
 
-### 3.3 Deprecation Policy & Sunset Header
-কোনো এপিআই বাতিল করার সিদ্ধান্ত নেওয়া হলে ক্লায়েন্টকে ৯০ দিনের গ্রেস পিরিয়ড প্রদান করা হয় এবং রেসপন্স হেডারে **Sunset Header** যুক্ত থাকে:
-```http
-HTTP/1.1 200 OK
-Sunset: Wed, 31 Dec 2026 23:59:59 GMT
-Deprecation: @1767225599
-Link: <https://railway-block-ai.gov.in/api/v2/blocks/>; rel="successor-version"
-```
+**Breaking Changes (Requires `/api/v2/`):**
+- Removing or renaming any required request field.
+- Changing field data types (e.g., `string` to `array/object`).
+- Modifying authentication mechanisms or token formats.
+- Reducing existing rate limits.
 
----
+**Non-Breaking Changes (Allowed in `/api/v1/`):**
+- Adding new optional request fields.
+- Adding new response fields.
+- Updating error message human-readable text while keeping `error_code` intact.
 
-## 4. Resilience Architecture: Circuit Breakers (PyBreaker 1.0)
-
-বহিরাগত ক্লাউড এপিআই বা থার্ড-পার্টি সিস্টেমের ব্যর্থতা যাতে আমাদের প্ল্যাটফর্মকে ডাউন না করে, তার জন্য **PyBreaker** সার্কিট ব্রেকার বাস্তবায়ন করা হয়েছে:
-
-```
-                      ┌────────────────────────┐
-                      │  State: CLOSED (Normal)│
-                      └───────────┬────────────┘
-                                  │ Failure threshold exceeded
-                                  ▼
-┌────────────────────────┐  Trip  ┌────────────────────────┐
-│ State: HALF-OPEN       │◄───────│  State: OPEN (Failing) │
-│ • Test single request  │  Reset │ • Fail immediately     │
-│ • Success ➔ CLOSED     │ timeout│ • Route to Fallback    │
-└────────────────────────┘        └────────────────────────┘
-```
-
-### 4.1 Circuit Breaker Configuration Table
-
-| Target Integration | Breaker Name | Failure Threshold (`fail_max`) | Reset Timeout | Fallback Mechanism |
-|:---|:---|:---:|:---:|:---|
-| **Google Gemini API** | `gemini_api_breaker` | ৩ বার ক্রমান্বয়ে ব্যর্থ | ৩০ সেকেন্ড | লোকাল টেমপ্লেট রুল ইঞ্জিন দিয়ে পূর্ব-সংজ্ঞায়িত "Why #1?" কার্ড প্রদান। |
-| **Twilio / CDAC SMS** | `sms_gateway_breaker` | ৫ বার ক্রমান্বয়ে ব্যর্থ | ৬০ সেকেন্ড | ইন-অ্যাপ পুশ নোটিফিকেশন ও ওয়েবসকেট এলার্ট চালু রাখা। |
-| **Open-Meteo Weather**| `weather_api_breaker`| ৩ বার ক্রমান্বয়ে ব্যর্থ | ১২০ সেকেন্ড | শেষ সফল ক্যাশ করা আবহাওয়া ডেটা ও স্ট্যাটিক সেফটি লিমিট ব্যবহার। |
-| **NTES Live Stream** | `ntes_stream_breaker` | ৪ বার ক্রমান্বয়ে ব্যর্থ | ৪৫ সেকেন্ড | ঐতিহাসিক গড় ট্রেনের গতি ও লোকাল সিমুলেটর অ্যাক্টিভেট করা। |
+### 3.3 Version Validation Middleware
 
 ```python
-# apps/core/circuit_breakers.py
-import pybreaker
+# railway_ai/middleware.py
+from django.http import JsonResponse
+
+class APIVersionMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path.startswith('/api/'):
+            # Extract version from path
+            path_parts = request.path.split('/')
+            version = path_parts[2] if len(path_parts) > 2 else 'v1'
+            if version not in ['v1']:
+                return JsonResponse(
+                    {"success": False, "error_code": "SYS-400-001", "message": f"Unsupported API version: {version}"},
+                    status=400
+                )
+            request.api_version = version
+        return self.get_response(request)
+```
+
+---
+
+## 4. Circuit Breaker Configuration
+
+**Library:** `pybreaker` (Python circuit breaker)
+
+### 4.1 External Service Circuits
+
+| Service | Failure Threshold | Open Duration | Half-Open Max Calls | Fallback Action |
+|---------|-------------------|---------------|---------------------|-----------------|
+| **Google Gemini API** | 5 errors in 60s | 120 seconds | 3 calls | Local rule-based engine + offline Ollama (Phi-3) |
+| **Twilio SMS API** | 3 errors in 30s | 60 seconds | 2 calls | In-app WebSocket alert + queue to DLQ |
+| **Open-Meteo API** | 5 errors in 60s | 300 seconds | 3 calls | Use cached last-known weather readings |
+| **NTES Data Feed** | 3 parse errors | 180 seconds | 2 calls | Fallback to offline static timetable fixtures |
+
+### 4.2 Circuit Breaker Implementation
+
+```python
+# services/circuit_breakers.py
+from pybreaker import CircuitBreaker, CircuitBreakerError
+import requests
+import logging
+
+logger = logging.getLogger('railway_ai.circuit')
+
+gemini_breaker = CircuitBreaker(
+    fail_max=5,
+    reset_timeout=120,
+    expected_exception=(requests.RequestException, Exception)
+)
+
+twilio_breaker = CircuitBreaker(
+    fail_max=3,
+    reset_timeout=60,
+    expected_exception=(requests.RequestException, Exception)
+)
+
+def call_gemini_with_fallback(prompt, fallback_text):
+    try:
+        # Wrap Gemini external API call
+        return gemini_breaker.call(actual_gemini_call, prompt)
+    except CircuitBreakerError:
+        logger.warning("Gemini Circuit is OPEN. Triggering local rule-based fallback.")
+        return fallback_text
+```
+
+---
+
+## 5. Retry & Timeout Policies
+
+### 5.1 Policy Table
+
+| Service | Connect Timeout | Read Timeout | Max Retries | Backoff Strategy | Idempotent? |
+|---------|-----------------|--------------|-------------|------------------|-------------|
+| **Gemini API** | 5s | 25s | 2 | Exponential (2s, 4s) | Yes |
+| **Twilio SMS** | 5s | 10s | 3 | Exponential (5s, 10s, 20s) | Yes (deduped by hash) |
+| **Open-Meteo** | 3s | 8s | 2 | Linear (2s, 4s) | Yes (read-only) |
+| **MySQL Database**| 5s | 30s | 0 (fail fast) | None | N/A |
+| **Redis Cache** | 2s | 5s | 2 | Immediate | Yes |
+
+### 5.2 HTTP Client Session with Retries
+
+```python
+# services/external_client.py
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+def get_resilient_session(retries=3, backoff=1, status_codes=(500, 502, 503, 504)):
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=retries,
+        backoff_factor=backoff,
+        status_forcelist=status_codes,
+        allowed_methods=frozenset(['GET', 'POST', 'PUT'])
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    return session
+```
+
+---
+
+## 6. Distributed Transactions: SAGA Pattern
+
+### 6.1 Block Approval SAGA Workflow
+
+```
+[COA Approves Block via POST /api/v1/blocks/{id}/approve/]
+  │
+  ▼
+Step 1: Atomic MySQL Update (Sync)
+  ├─ Action: UPDATE block_requests SET status='APPROVED', approved_by=COA_ID
+  ├─ Action: UPDATE sections SET current_status='BLOCKED', active_block_id=BLK_ID
+  └─ Failure: Automatic Rollback, HTTP 500 returned
+  │
+  ▼ (If Step 1 succeeds, fire async Celery steps)
+Step 2: Sync to Semantic Digital Twin (Async)
+  ├─ Action: ontology.tasks.sync_to_graph.delay(block_id)
+  └─ Failure: Log error, retry 3 times; if unrecoverable, flag in ontology_sync table
+  │
+  ▼
+Step 3: Dispatch SMS to Maintenance Gang (Async)
+  ├─ Action: notifications.tasks.send_sms.delay(crew_phone, message)
+  └─ Failure: Route to dlq:notify:sms, alert COA dashboard (Do NOT rollback block!)
+  │
+  ▼
+Step 4: Record Immutable Audit Log (Async)
+  ├─ Action: audit.tasks.create_log.delay('block_requests', block_id, 'APPROVE')
+  └─ Failure: Write to disk logger, alert SysAdmin
+  │
+  ▼
+Step 5: Broadcast WebSocket Updates (Async)
+  ├─ Action: Channel layer group_send to 'ws:group:COA' and 'ws:group:section:{id}'
+  └─ Failure: Client reconnects or polls on next action
+```
+
+### 6.2 SAGA Service Implementation
+
+```python
+# blocks/services.py
+from django.db import transaction
+from blocks.models import BlockRequest, Section
+from ontology.tasks import sync_to_graph
+from notifications.tasks import send_approval_notification
+from analytics.tasks import create_audit_log
+from blocks.tasks import broadcast_block_update
+
+class BlockApprovalSaga:
+    @classmethod
+    @transaction.atomic
+    def execute(cls, block_id, approver_id):
+        # Step 1: Atomic MySQL updates with row locking
+        block = BlockRequest.objects.select_for_update().get(id=block_id)
+        if block.status != 'PENDING':
+            raise ValueError(f"Block cannot be approved in state: {block.status}")
+
+        block.status = 'APPROVED'
+        block.approved_by_id = approver_id
+        block.save()
+
+        section = Section.objects.select_for_update().get(id=block.section_id)
+        section.current_status = 'BLOCKED'
+        section.active_block_id = block.id
+        section.save()
+
+        # Step 2-5: Post-commit asynchronous side effects
+        transaction.on_commit(lambda: sync_to_graph.delay(str(block.id)))
+        transaction.on_commit(lambda: send_approval_notification.delay(str(block.id)))
+        transaction.on_commit(lambda: create_audit_log.delay('block_requests', str(block.id), 'APPROVE', str(approver_id)))
+        transaction.on_commit(lambda: broadcast_block_update.delay(str(block.id)))
+
+        return block
+```
+
+---
+
+## 7. Distributed Tracing: Correlation ID Propagation
+
+```
+Frontend Request (Header: X-Correlation-ID: req_abc123)
+  │
+  ▼
+Django RequestIDMiddleware (Extracts or generates UUID)
+  │
+  ├──► Binds correlation_id to thread-local logger
+  ├──► Passes correlation_id in Celery task kwargs
+  ├──► Passes correlation_id in external API headers (X-Correlation-ID)
+  ├──► Includes correlation_id in Redis Pub/Sub payloads
+  └──► Echoes X-Correlation-ID in HTTP Response Header
+```
+
+### 7.1 Middleware Implementation
+
+```python
+# railway_ai/middleware.py
+import uuid
 import structlog
 
-logger = structlog.get_logger()
+class RequestIDMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
 
-class CircuitBreakerListener(pybreaker.CircuitBreakerListener):
-    def state_change(self, cb, old_state, new_state):
-        logger.warning(
-            "CIRCUIT_BREAKER_STATE_CHANGED",
-            breaker_name=cb.name,
-            old_state=old_state.name,
-            new_state=new_state.name
-        )
-
-gemini_breaker = pybreaker.CircuitBreaker(
-    fail_max=3,
-    reset_timeout=30,
-    name="gemini_api_breaker",
-    listeners=[CircuitBreakerListener()]
-)
+    def __call__(self, request):
+        correlation_id = request.headers.get('X-Correlation-ID', f"req_{uuid.uuid4().hex[:12]}")
+        request.correlation_id = correlation_id
+        
+        # Bind to structlog contextvars
+        structlog.contextvars.bind_contextvars(correlation_id=correlation_id)
+        
+        response = self.get_response(request)
+        response['X-Correlation-ID'] = correlation_id
+        return response
 ```
 
 ---
 
-## 5. Distributed Transactions & Compensating SAGA Pattern
+## 8. HTTP API Idempotency Handling
 
-ব্লক অনুমোদন ও ফিল্ডে হস্তান্তরের প্রক্রিয়াটি একাধিক স্বতন্ত্র ধাপ সম্পন্ন করে। কোনো একটি ধাপে ব্যর্থ হলে সিস্টেমটিকে সুরক্ষিত অবস্থায় ফিরিয়ে আনতে **Forward-Recovery SAGA with Compensating Transactions** বাস্তবায়ন করা হয়েছে:
-
-```
-[Step 1: Reserve Track] ────► [Step 2: Symbolic Proof] ────► [Step 3: LOTO / OHE Cut] ────► [Step 4: Issue Token]
-       │                              │                              │                              │
-       ▼ (Fail)                       ▼ (Fail)                       ▼ (Fail)                       ▼ (Fail)
-[Compensate 1: Unlock] ◄─── [Compensate 2: Flag Unsafe] ◄── [Compensate 3: Restore Power] ◄ [Compensate 4: Revoke Token]
-```
-
-### 5.1 SAGA Step Specification for Block Approval Workflow
-
-| Step # | Action Description | Primary Service | Failure Condition | Compensating Action (Rollback) |
-|:---:|:---|:---|:---|:---|
-| **1** | পোস্টজিআইএস সেকশনে ট্র্যাক জ্যামিতি রিজার্ভ করা | `apps.blocks` | স্থানিক বা সময়গত বিরোধ | রিজার্ভেশন বাতিল এবং সেকশনকে পুনরায় `FREE` ঘোষণা। |
-| **2** | HermiT সিম্বলিক রিজনার দিয়ে নিরাপত্তা প্রমাণ | `apps.ontology` | লুকায়িত ট্রেনের সাথে ক্ল্যাশ | রিজার্ভেশন বাতিল এবং কনফ্লিক্ট লগ লিপিবদ্ধ করা। |
-| **3** | TRD পাওয়ার আইসোলেশন ও LOTO ভেরিফিকেশন | `apps.departments`| ওএইচই পাওয়ার কাটতে অস্বীকৃতি | ব্লক স্ট্যাটাস রিভার্ট করে `PENDING_TRD_POWER` করা। |
-| **4** | ডিজিটাল টোকেন (#71) ইস্যু ও স্যাংশন PDF জেন | `apps.analytics` | PDF রেন্ডারিং ফেইলিওর | টোকেন অবিলম্বে রিভোক করা এবং কন্ট্রোলারকে অ্যালার্ট পাঠানো। |
-
----
-
-## 6. HTTP API Idempotency Specification
-
-নেটওয়ার্ক বিভ্রাট বা ইউজার কর্তৃক সাবমিট বাটনে একাধিকবার ক্লিকের কারণে যাতে সিস্টেমে ডাবল ব্লক তৈরি বা ডাবল টোকেন ইস্যু না হয়, তার জন্য `X-Idempotency-Key` হেডার বাধ্যতামূলক:
-
-### 6.1 Idempotency Workflow
-1. **ক্লায়েন্ট হেডার:** ক্লায়েন্ট প্রতিটি মিউটেটিং রিকোয়েস্টে (`POST /api/v1/blocks/`, `POST /api/v1/blocks/{id}/approve/`) একটি অনন্য UUID4 হেডার পাঠায়:
-   ```http
-   X-Idempotency-Key: a4f8b9c2-3d1e-4f5a-8b9c-0d1e2f3a4b5c
-   ```
-2. **রেডিস লক যাচাই:** ব্যাকএন্ড চেক করে Redis-এ `railway:idempotency:{key}` বিদ্যমান কিনা।
-3. **যদি নতুন হয়:** রিকোয়েস্টটি প্রসেস করে রেসপন্স পে-লোডটি ২৪ ঘণ্টার জন্য Redis-এ ক্যাশ করা হয় (`SETEX`).
-4. **যদি পুনরাবৃত্তি হয়:** ডেটাবেসে পুনরায় এক্সিকিউট না করে সরাসরি ক্যাশ করা পূর্ববর্তী রেসপন্স ফিরিয়ে দেওয়া হয় (`HTTP 200 OK`).
+Clients send `Idempotency-Key: <UUID>` on all mutating requests (`POST /api/v1/blocks/`, `POST /api/v1/blocks/emergency/`).
 
 ```python
-# apps/core/middleware.py
+# railway_ai/middleware.py
+import json
 from django.core.cache import cache
 from django.http import JsonResponse
 
@@ -196,24 +325,51 @@ class IdempotencyMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.method in ["POST", "PUT", "PATCH"]:
-            idempotency_key = request.headers.get("X-Idempotency-Key")
-            if idempotency_key:
-                cache_key = f"railway:idempotency:{idempotency_key}"
-                cached_response = cache.get(cache_key)
-                if cached_response:
-                    return JsonResponse(cached_response["data"], status=cached_response["status"])
-        
+        if request.method in ['POST', 'PUT', 'PATCH']:
+            idem_key = request.headers.get('Idempotency-Key')
+            if idem_key:
+                cache_key = f"idemp:http:{idem_key}"
+                cached = cache.get(cache_key)
+                if cached:
+                    return JsonResponse(cached['data'], status=cached['status'])
+                request._idempotency_cache_key = cache_key
+
         response = self.get_response(request)
+
+        if hasattr(request, '_idempotency_cache_key') and 200 <= response.status_code < 300:
+            try:
+                cache.set(
+                    request._idempotency_cache_key,
+                    {'data': json.loads(response.content), 'status': response.status_code},
+                    timeout=300  # 5 minutes
+                )
+            except Exception:
+                pass
+
         return response
 ```
 
 ---
 
-## 7. Traceability to Subsequent Specification Documents
+## 9. Next File Dependency Note
 
-| Target Document | Messaging Architecture Dependency |
-|:---|:---|
-| **`01-tech-infra/05-observability.md`** | সার্কিট ব্রেকারের স্টেট পরিবর্তন ও SAGA কম্পেনসেশনের জন্য ডিস্ট্রিবিউটেড ট্রেসিং ও মেট্রিক্স। |
-| **`03-service-blueprints/01-block-planning-service.md`** | SAGA অর্কেস্ট্রেশন ও কম্বাইন্ড ব্লক সার্ভিস মেথডের কোডিং স্পেসিফিকেশন। |
-| **`05-deep-dive-logs/01-common-payloads-and-algorithms.md`** | SAGA কম্পেনসেটিং অ্যালগরিদম ও সার্কিট ব্রেকার হ্যান্ডলিং। |
+> পরবর্তী ফাইল: `01-tech-infra/05-observability.md`
+
+`04-internal-api-and-messaging.md` থেকে `05-observability.md`-এ নেওয়া হবে:
+
+| Internal API Element | Observability Impact |
+|---------------------|----------------------|
+| Circuit breaker states | Metrics: `circuit_breaker_state{service="gemini"}` → P2 alert when open > 2 min |
+| Retry counts | Metrics: `http_request_retries_total{service="twilio"}` |
+| SAGA step durations | Histogram: `saga_step_duration_seconds{step="mysql_update"}` |
+| Correlation ID | Distributed tracing root ID linking Django logs, Celery worker logs, and frontend events |
+| API timeouts | Metrics: `http_request_duration_seconds` SLA threshold tracking (p95 < 500ms) |
+| DLQ depth | Gauge: `dlq_messages_total{queue="notify"}` → P3 alert when > 10 |
+
+`05-observability.md`-এ নিচের বিষয়গুলো থাকবে:
+- Structured JSON logging with `correlation_id` and `span_id`
+- RED method metrics (Rate, Errors, Duration) per endpoint
+- Health check endpoints (`/health/`, `/health/ready/`, `/health/deep/`)
+- Alerting rules (P1/P2/P3) with escalation path
+- Control Room big-screen monitoring dashboard specs
+- Pre-written common log queries (`jq`) for rapid debugging

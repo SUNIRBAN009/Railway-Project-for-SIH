@@ -8,8 +8,8 @@ import { EmergencyBlockButton } from '../components/coa/EmergencyBlockButton';
 import { CoPossessionOptimizer } from '../components/coa/CoPossessionOptimizer';
 import { DepartmentChatRoom } from '../components/coa/DepartmentChatRoom';
 import { WeatherAdvisoryPanel } from '../components/coa/WeatherAdvisoryPanel';
+import { DEMO_BLOCKS } from '../services/demoData';
 import { Block, BlockStatus } from '../types';
-import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import { Link } from 'react-router-dom';
 import { printCorridorDailyPossessionSheet } from '../utils/exportPdf';
 import { exportBlocksToCsv } from '../utils/exportCsv';
@@ -27,12 +27,10 @@ import {
 } from 'lucide-react';
 
 export const ControlRoomDashboard: React.FC = () => {
-  const { blocks, setBlocks } = useLiveBlocks();
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>(DEMO_BLOCKS);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>('blk-004');
 
-  const activeSelectedId = selectedBlockId || (blocks.length > 0 ? blocks[0].id : null);
-  const selectedBlock = blocks.find((b) => b.id === activeSelectedId) || (blocks.length > 0 ? blocks[0] : null);
-
+  const selectedBlock = blocks.find((b) => b.id === selectedBlockId) || null;
 
   const handleSelectBlock = (block: Block) => {
     setSelectedBlockId(block.id);

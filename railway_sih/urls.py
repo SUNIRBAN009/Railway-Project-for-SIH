@@ -32,7 +32,6 @@ urlpatterns = [
     path('api/v1/assets/', include('apps.assets.urls', namespace='assets')),
     path('api/v1/analytics/', include('apps.analytics.urls', namespace='analytics')),
     path('api/v1/notifications/', include('apps.notifications.urls', namespace='notifications')),
-    path('api/v1/demo/', include('apps.demo.urls', namespace='demo')),
 ]
 
 if settings.DEBUG:

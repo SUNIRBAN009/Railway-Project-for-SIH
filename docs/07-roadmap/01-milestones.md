@@ -30,6 +30,7 @@
 - [x] **PostgreSQL 15.6 + PostGIS 3.3** ডেটাবেসে সমস্ত টেবিল ও স্প্যাশিয়াল কলাম মাইগ্রেশন সম্পন্ন।
 - [x] কোডবেস এবং ডকুমেন্টেশন থেকে পুরানো MySQL-এর সমস্ত উল্লেখ সম্পূর্ণ নির্মূল।
 - [x] ভারতীয় রেলওয়ে ক্যানোনিকাল পরিভাষা (TMS, SMMS, TDMS, COA, NTES, OHE, TSR, LOTO, TBT, PTW) সুপ্রতিষ্ঠিত।
+- [x] **Master Demo Data Engine (`apps/demo`)**: ৩৫টি ডেটা-নির্ভর ফিচারের জন্য ১১টি কোর এন্টিটি, ৭টি কোহেরেন্স রুলস এবং ৪টি প্রেজেন্টেশন সিনারিও আর্কিটেকচারে সুসংহত।
 
 ### MS-03: Core Spatial Scheduling & Conflict Detection
 - [x] `corridors`, `blocks`, `trains`, এবং `block_conflicts` টেবিল PostGIS GiST ইনডেক্স সহ সফলভাবে মাইগ্রেট করা।

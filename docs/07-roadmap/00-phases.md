@@ -36,13 +36,14 @@
 
 ## 2. Phase-by-Phase Work Packages & Deliverables (পর্যায়ভিত্তিক কাজের বিবরণ)
 
-### Phase 0: Environment, Spatial Database & Infrastructure Setup (সপ্তাহ ১)
-- **মূল লক্ষ্য:** ডেভলপমেন্ট কন্টেইনার স্থাপন, **PostgreSQL 15.6 + PostGIS 3.3** স্প্যাশিয়াল এক্সটেনশন সক্রিয়করণ, PgBouncer কানেকশন পুলার ও Redis 7 প্রভিশনিং, এবং Django 5.0 মডুলার মনোলিথ কাঠামো প্রস্তুতকরণ।
+### Phase 0: Environment, Spatial Database & Master Demo Data Engine (`apps/demo`) (সপ্তাহ ১)
+- **মূল লক্ষ্য:** ডেভলপমেন্ট কন্টেইনার স্থাপন, **PostgreSQL 15.6 + PostGIS 3.3** স্প্যাশিয়াল এক্সটেনশন সক্রিয়করণ, PgBouncer কানেকশন পুলার ও Redis 7 প্রভিশনিং, এবং ৩৫টি ডেটা-নির্ভর ফিচারের ভিত্তি হিসেবে **Continuous Demo Data Engine (`apps/demo`)** ও ৭টি কোহেরেন্স রুলস প্রতিষ্ঠা।
 - **প্রধান কাজের প্যাকেজ:**
   - স্ট্যান্ডার্ডাইজড `docker-compose.yml` (PostgreSQL 15.6 + PostGIS 3.3, Redis 7, Django, Celery, Daphne)।
   - ডিপেন্ডেন্সি ম্যানেজমেন্ট (`Django==5.0.8`, `djangorestframework==3.15.2`, `psycopg[binary]==3.2.1`, `django-environ`, `celery==5.4.0`, `channels==4.1.0`, `daphne==4.1.2`, `owlready2==0.46`)।
+  - `apps/demo/` ইঞ্জিন: ১১টি কোর এন্টিটি মাস্টার ডেটা, ৭টি কোহেরেন্স রুলস ভ্যালিডেটর, ৪টি জেনারেশন মোড (`SEED`, `RANDOM`, `STREAM`, `SCENARIO`) এবং ৪টি উপস্থাপনা সিনারিও স্ক্রিপ্ট।
   - GitHub Actions CI পাইপলাইনে প্রি-কমিট লিন্টারস (Ruff, Black, ESLint, TypeScript Check) সক্রিয়করণ।
-- **চূড়ান্ত ডেলিভারেবলস:** লোকাল ও ক্লাউড ডেভলপমেন্ট কন্টেইনার ক্লাস্টার যেখানে পোস্টগ্রিস স্প্যাশিয়াল কুয়েরি ও রেডিস চ্যানেল লেয়ার সম্পূর্ণ কার্যকর।
+- **চূড়ান্ত ডেলিভারেবলস:** লোকাল ও ক্লাউড ডেভলপমেন্ট কন্টেইনার ক্লাস্টার যেখানে পোস্টগ্রিস স্প্যাশিয়াল কুয়েরি, রেডিস চ্যানেল লেয়ার এবং কোহেরেন্ট ডেমো সিডার (`python manage.py seed_railway_demo`) সম্পূর্ণ কার্যকর।
 
 ---
 

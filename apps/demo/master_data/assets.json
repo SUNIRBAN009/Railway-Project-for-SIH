@@ -1,0 +1,29 @@
+[
+    {
+        "tms_id": "TMS-RAIL-NDLS-CNB-144.2",
+        "smms_id": "SMMS-SIG-NDLS-CNB-144.2",
+        "tdms_id": "TDMS-OHE-NDLS-CNB-144.2",
+        "type": "TRACK",
+        "name": "60kg Rail Section 144.2",
+        "chainage_km": 144.200,
+        "department": "ENG"
+    },
+    {
+        "tms_id": "TMS-RAIL-NDLS-CNB-145.5",
+        "smms_id": "SMMS-SIG-NDLS-CNB-145.5",
+        "tdms_id": "TDMS-OHE-NDLS-CNB-145.5",
+        "type": "OHE_CATENARY",
+        "name": "OHE Feeder 145.5",
+        "chainage_km": 145.500,
+        "department": "TRD"
+    },
+    {
+        "tms_id": "TMS-RAIL-NDLS-CNB-200.0",
+        "smms_id": "SMMS-SIG-NDLS-CNB-200.0",
+        "tdms_id": "TDMS-OHE-NDLS-CNB-200.0",
+        "type": "POINT_MACHINE",
+        "name": "Point Machine 200.0",
+        "chainage_km": 200.000,
+        "department": "SNT"
+    }
+]

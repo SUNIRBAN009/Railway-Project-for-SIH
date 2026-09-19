@@ -1,0 +1,42 @@
+[
+    {
+        "username": "coa_delhi_chief",
+        "first_name": "Ramesh",
+        "last_name": "Kumar",
+        "role": "CHIEF_CONTROLLER",
+        "department": "OPERATIONS",
+        "phone": "+919999900001"
+    },
+    {
+        "username": "eng_track_pway",
+        "first_name": "Suresh",
+        "last_name": "Singh",
+        "role": "JUNIOR_ENGINEER",
+        "department": "ENG",
+        "phone": "+919999900002"
+    },
+    {
+        "username": "trd_ohe_je",
+        "first_name": "Amit",
+        "last_name": "Sharma",
+        "role": "JUNIOR_ENGINEER",
+        "department": "TRD",
+        "phone": "+919999900003"
+    },
+    {
+        "username": "snt_sig_je",
+        "first_name": "Vikram",
+        "last_name": "Das",
+        "role": "JUNIOR_ENGINEER",
+        "department": "SNT",
+        "phone": "+919999900004"
+    },
+    {
+        "username": "eng_sse",
+        "first_name": "Rajiv",
+        "last_name": "Verma",
+        "role": "SECTION_ENGINEER",
+        "department": "ENG",
+        "phone": "+919999900005"
+    }
+]

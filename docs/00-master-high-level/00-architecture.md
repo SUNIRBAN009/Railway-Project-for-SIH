@@ -49,6 +49,7 @@ Railway-Project-for-SIH/
 │   ├── 📁 assets/                           # PostGIS Assets: Track, Signal, OHE, Stations
 │   ├── 📁 blocks/                            # Block Request, Optimization, Conflict, Combined Window
 │   ├── 📁 core/                              # Base Models, Abstract Audits, Exception Handlers
+│   ├── 📁 demo/                              # Master Demo Data, 7 Coherence Rules, Continuous Streaming & Dynamic Scenario Engine
 │   ├── 📁 departments/                       # ENGG, S&T, TRD Gangs, Equipment, Base-Stations
 │   ├── 📁 emergency/                         # Emergency Block Override, Track Breach, Derailment Guard
 │   ├── 📁 grievances/                        # Driver/Staff Feedback & Crew Safety Reporting

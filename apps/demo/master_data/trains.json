@@ -1,0 +1,58 @@
+[
+    {
+        "train_number": "12301",
+        "name": "Howrah - New Delhi Rajdhani Express",
+        "type": "PRESTIGE",
+        "max_speed_kmph": 130,
+        "schedule": [
+            {"station": "CNB", "arrival": "06:00:00", "departure": "06:05:00", "day": 2},
+            {"station": "NDLS", "arrival": "10:05:00", "departure": "10:05:00", "day": 2}
+        ]
+    },
+    {
+        "train_number": "12424",
+        "name": "New Delhi - Dibrugarh Rajdhani Express",
+        "type": "PRESTIGE",
+        "max_speed_kmph": 130,
+        "schedule": [
+            {"station": "NDLS", "arrival": "16:20:00", "departure": "16:20:00", "day": 1},
+            {"station": "CNB", "arrival": "21:02:00", "departure": "21:07:00", "day": 1}
+        ]
+    },
+    {
+        "train_number": "12004",
+        "name": "New Delhi - Lucknow Swarna Shatabdi",
+        "type": "PRESTIGE",
+        "max_speed_kmph": 130,
+        "schedule": [
+            {"station": "NDLS", "arrival": "06:10:00", "departure": "06:10:00", "day": 1},
+            {"station": "GZB", "arrival": "06:50:00", "departure": "06:52:00", "day": 1},
+            {"station": "ALJN", "arrival": "07:50:00", "departure": "07:52:00", "day": 1},
+            {"station": "CNB", "arrival": "11:20:00", "departure": "11:25:00", "day": 1}
+        ]
+    },
+    {
+        "train_number": "12417",
+        "name": "Prayagraj Express",
+        "type": "EXPRESS",
+        "max_speed_kmph": 110,
+        "schedule": [
+            {"station": "CNB", "arrival": "00:25:00", "departure": "00:30:00", "day": 2},
+            {"station": "ALJN", "arrival": "04:15:00", "departure": "04:17:00", "day": 2},
+            {"station": "GZB", "arrival": "06:13:00", "departure": "06:15:00", "day": 2},
+            {"station": "NDLS", "arrival": "07:00:00", "departure": "07:00:00", "day": 2}
+        ]
+    },
+    {
+        "train_number": "BOXN-998",
+        "name": "Coal Rake BCN",
+        "type": "FREIGHT",
+        "max_speed_kmph": 75,
+        "schedule": [
+            {"station": "CNB", "arrival": "02:00:00", "departure": "02:00:00", "day": 1},
+            {"station": "TDL", "arrival": "05:00:00", "departure": "05:00:00", "day": 1},
+            {"station": "ALJN", "arrival": "06:30:00", "departure": "06:30:00", "day": 1},
+            {"station": "NDLS", "arrival": "09:00:00", "departure": "09:00:00", "day": 1}
+        ]
+    }
+]

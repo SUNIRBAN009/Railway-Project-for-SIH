@@ -1,0 +1,50 @@
+[
+    {
+        "code": "NDLS",
+        "name": "New Delhi",
+        "chainage_km": 0.000,
+        "latitude": 28.6429,
+        "longitude": 77.2191,
+        "is_junction": true
+    },
+    {
+        "code": "GZB",
+        "name": "Ghaziabad",
+        "chainage_km": 24.500,
+        "latitude": 28.6538,
+        "longitude": 77.4262,
+        "is_junction": true
+    },
+    {
+        "code": "ALJN",
+        "name": "Aligarh",
+        "chainage_km": 126.100,
+        "latitude": 27.8937,
+        "longitude": 78.0772,
+        "is_junction": true
+    },
+    {
+        "code": "TDL",
+        "name": "Tundla",
+        "chainage_km": 204.300,
+        "latitude": 27.2043,
+        "longitude": 78.2393,
+        "is_junction": true
+    },
+    {
+        "code": "ETW",
+        "name": "Etawah",
+        "chainage_km": 296.800,
+        "latitude": 26.7865,
+        "longitude": 79.0182,
+        "is_junction": true
+    },
+    {
+        "code": "CNB",
+        "name": "Kanpur Central",
+        "chainage_km": 440.200,
+        "latitude": 26.4525,
+        "longitude": 80.3475,
+        "is_junction": true
+    }
+]

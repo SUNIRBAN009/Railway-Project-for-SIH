@@ -102,6 +102,8 @@ services:
       - DB_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -130,6 +132,8 @@ services:
       - DB_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,6 +162,8 @@ services:
       - DB_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    healthcheck:
+      disable: true
     depends_on:
       redis:
         condition: service_healthy
@@ -184,6 +190,9 @@ services:
       - DB_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+      - ONTOLOGY_FILE_PATH=/app/ontology/railway_digital_twin.owl
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -216,6 +225,8 @@ services:
       - DB_HOST=postgres
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -243,6 +254,8 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${DB_USER:-railway_user}:${DB_PASSWORD:-railway_password}@postgres:5432/${DB_NAME:-railway_sih}
+    healthcheck:
+      disable: true
     depends_on:
       redis:
         condition: service_healthy

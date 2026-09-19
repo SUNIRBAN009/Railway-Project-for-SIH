@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useBlockStore } from '../../stores/blockStore';
-import { DepartmentCode } from '../../types';
+import { DepartmentCode, ConflictItem, Block } from '../../types';
+import { DEMO_CONFLICTS } from '../../services/demoData';
 import {
   Sparkles,
   AlertTriangle,

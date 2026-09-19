@@ -132,3 +132,14 @@ class CorridorConsumer(AsyncJsonWebsocketConsumer):
             "corridor": self.corridor_code,
             "payload": data,
         })
+
+    async def corridor_event(self, event):
+        """
+        Handler invoked when corridor.event message is sent to corridor group.
+        """
+        data = event.get('data', {})
+        await self.send_json({
+            "type": "corridor_event",
+            "corridor": self.corridor_code,
+            "payload": data,
+        })

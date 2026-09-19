@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Block, BlockStatus, DepartmentCode } from '../../types';
-import { DEMO_BLOCKS } from '../../services/demoData';
+import { useLiveBlocks } from '../../hooks/useLiveBlocks';
 import { Link } from 'react-router-dom';
 import {
   Search,
@@ -22,15 +22,17 @@ interface BlockListProps {
 }
 
 export const BlockList: React.FC<BlockListProps> = ({
-  initialBlocks = DEMO_BLOCKS,
+  initialBlocks,
   departmentFilter,
   onSelectBlock,
 }) => {
+  const { blocks: liveBlocks } = useLiveBlocks();
+  const effectiveBlocks = initialBlocks && initialBlocks.length > 0 ? initialBlocks : liveBlocks;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [corridorFilter, setCorridorFilter] = useState<string>('ALL');
 
-  const filteredBlocks = initialBlocks.filter((b) => {
+  const filteredBlocks = effectiveBlocks.filter((b) => {
     // Dept filter
     if (departmentFilter && b.department_code !== departmentFilter) return false;
     // Status filter

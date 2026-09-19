@@ -1,13 +1,9 @@
 """
 Django management command: python manage.py seed_railway_demo
 Master Demo Data Seeder for Indian Railways AI Block Planning Platform (PS 26027).
+Delegates to apps.demo authoritative PostGIS seeder.
 """
-from django.core.management.base import BaseCommand
-from scripts.seed_railway_demo import run_seeder
+from apps.demo.management.commands.seed_railway_demo import Command as DemoSeedCommand
 
-
-class Command(BaseCommand):
-    help = 'Seeds database with realistic Indian Railways mock data for SIH Demo (PS 26027)'
-
-    def handle(self, *args, **options):
-        run_seeder()
+class Command(DemoSeedCommand):
+    help = 'Seeds database with deterministic Indian Railways master demo data for SIH Demo (PS 26027)'

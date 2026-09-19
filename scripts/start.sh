@@ -24,6 +24,17 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
+# Detect docker-compose command
+COMPOSE_CMD="docker-compose"
+if ! command -v docker-compose &> /dev/null; then
+    if docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+    else
+        echo -e "${RED}❌ Neither docker-compose nor docker compose found!${NC}"
+        exit 1
+    fi
+fi
+
 # Create .env if not exists
 if [ ! -f .env ]; then
     if [ -f .env.example ]; then
@@ -34,30 +45,34 @@ fi
 
 # Build and start all services
 echo -e "${BLUE}Building Docker images (first time: 5-10 minutes)...${NC}"
-docker-compose build
+$COMPOSE_CMD build
 
 echo -e "${BLUE}Starting all services...${NC}"
-docker-compose up -d
+$COMPOSE_CMD up -d
 
 echo -e "${BLUE}Waiting for services to become healthy...${NC}"
 sleep 15
 
 # Create Django superuser if not present
 echo -e "${BLUE}Checking Django superuser...${NC}"
-docker-compose exec -T backend python manage.py shell -c "
+$COMPOSE_CMD exec -T backend python manage.py shell -c "
 from django.contrib.auth import get_user_model
+from apps.accounts.models import UserProfile, UserRole, DepartmentCode
 User = get_user_model()
 if not User.objects.filter(username='admin').exists():
     user = User.objects.create_superuser(
         username='admin',
         email='admin@railway.ai',
-        password='admin123',
-        department='COA'
+        password='admin123'
     )
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.role = UserRole.ADMIN
+    profile.department_code = DepartmentCode.OPERATIONS
+    profile.save()
     print('✅ Superuser created: admin / admin123')
 else:
     print('✅ Superuser already exists')
-" 2>/dev/null || echo "⚠️  Superuser creation check completed"
+" 2>/dev/null || echo "⚠️  Superuser check completed"
 
 echo ""
 echo -e "${GREEN}"
@@ -80,10 +95,10 @@ echo "║                                                              ║"
 echo "╠══════════════════════════════════════════════════════════════╣"
 echo "║  💡 Useful Commands:                                         ║"
 echo "║                                                              ║"
-echo "║  View logs:     docker-compose logs -f                       ║"
-echo "║  Stop all:      docker-compose down                          ║"
-echo "║  Restart:       docker-compose restart                       ║"
-echo "║  Rebuild:       docker-compose up --build                    ║"
+echo "║  View logs:     $COMPOSE_CMD logs -f                         ║"
+echo "║  Stop all:      $COMPOSE_CMD down                            ║"
+echo "║  Restart:       $COMPOSE_CMD restart                         ║"
+echo "║  Rebuild:       $COMPOSE_CMD up --build                      ║"
 echo "║                                                              ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"

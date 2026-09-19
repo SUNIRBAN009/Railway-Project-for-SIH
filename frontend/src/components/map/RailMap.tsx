@@ -62,6 +62,19 @@ export const RailMap: React.FC<RailMapProps> = ({ onSelectBlock }) => {
   const [selectedStation, setSelectedStation] = useState<StationData | null>(null);
   const [selectedTrain, setSelectedTrain] = useState<LiveMapTrain | null>(null);
   const [activeInspectorBlock, setActiveInspectorBlock] = useState<Block | null>(null);
+  const [corridorLength, setCorridorLength] = useState<number>(440.2);
+
+  // Fetch live PostGIS SRID 4326 GeoJSON from backend
+  useEffect(() => {
+    fetch('/api/v1/blocks/corridors/NDLS-CNB-MAIN/geojson/')
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData?.data?.properties?.total_length_km) {
+          setCorridorLength(resData.data.properties.total_length_km);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Keyboard shortcut: ESC exits fullscreen
   useEffect(() => {
@@ -365,7 +378,7 @@ export const RailMap: React.FC<RailMapProps> = ({ onSelectBlock }) => {
 
         <div className="h-3 w-px bg-slate-800 hidden sm:block" />
         <span className="text-control-muted">
-          CORRIDOR: <strong className="text-cyan-300">NDLS–GZB–MIU (KM 0.0 – 32.0)</strong>
+          CORRIDOR: <strong className="text-cyan-300">NDLS–GZB–CNB ({corridorLength} KM)</strong>
         </span>
 
         <div className="h-3 w-px bg-slate-800 hidden md:block" />
@@ -377,7 +390,7 @@ export const RailMap: React.FC<RailMapProps> = ({ onSelectBlock }) => {
         <div className="h-3 w-px bg-slate-800 hidden lg:block" />
         <div className="flex items-center gap-1.5 text-emerald-400">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>8 TRAINS • {blocks.length} BLOCKS LIVE</span>
+          <span>8 TRAINS • {blocks.length} BLOCKS LIVE (POSTGIS SRID 4326)</span>
         </div>
       </div>
 

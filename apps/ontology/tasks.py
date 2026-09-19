@@ -37,6 +37,35 @@ def run_hermit_reasoner(self, job_id: str, block_id: str):
         }
         cache.set(cache_key, result_data, timeout=3600)
 
+        # Broadcast event to Django Channels WebSocket for real-time COA Dashboard update
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    "corridor_all",
+                    {
+                        "type": "corridor_event",
+                        "data": {
+                            "event_type": "ONTOLOGY_REASONING_COMPLETED",
+                            "job_id": job_id,
+                            "block_id": block_id,
+                            "violations_count": len(violations),
+                            "hazards": [
+                                {
+                                    "rule": v.rule_identifier,
+                                    "severity": v.severity,
+                                    "type": v.violation_type,
+                                    "narrative": v.explanation_narrative[:300] + "..." if len(v.explanation_narrative) > 300 else v.explanation_narrative,
+                                } for v in violations
+                            ]
+                        }
+                    }
+                )
+        except Exception as ch_err:
+            logger.debug(f"Channels WebSocket broadcast non-fatal: {ch_err}")
+
         # Attempt to broadcast event to Redis pub/sub channel events:ontology
         try:
             import redis

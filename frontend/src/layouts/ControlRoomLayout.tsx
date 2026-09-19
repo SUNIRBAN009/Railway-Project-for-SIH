@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Header } from '../components/layout/Header';
 import { Sidebar } from '../components/layout/Sidebar';
 import { NotificationPanel } from '../components/layout/NotificationPanel';
+import { useSocketStore } from '../stores/socketStore';
 import { Maximize2, Minimize2, ShieldAlert, Sparkles, Activity } from 'lucide-react';
 
 interface ControlRoomLayoutProps {
@@ -10,6 +11,7 @@ interface ControlRoomLayoutProps {
 
 export const ControlRoomLayout: React.FC<ControlRoomLayoutProps> = ({ children }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const liveMetrics = useSocketStore((state) => state.liveMetrics);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -49,15 +51,19 @@ export const ControlRoomLayout: React.FC<ControlRoomLayoutProps> = ({ children }
               <div className="hidden lg:flex items-center space-x-4 text-control-muted">
                 <span className="flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                  Punctuality: <strong className="text-emerald-400">96.8%</strong>
+                  Punctuality: <strong className="text-emerald-400">{liveMetrics.punctuality.toFixed(1)}%</strong>
                 </span>
                 <span>•</span>
                 <span>
-                  Shadow Gain: <strong className="text-cyan-400">+42.5%</strong>
+                  Shadow Gain: <strong className="text-cyan-400">+{liveMetrics.shadowGain.toFixed(1)}%</strong>
                 </span>
                 <span>•</span>
                 <span>
-                  Safety Proofs: <strong className="text-emerald-400">HermiT DL OK</strong>
+                  Active Trains: <strong className="text-cyan-300">{liveMetrics.activeTrains}</strong>
+                </span>
+                <span>•</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-bold">
+                  LIVE 2Hz #{liveMetrics.eventSequence}
                 </span>
               </div>
 

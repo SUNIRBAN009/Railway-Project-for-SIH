@@ -1,551 +1,335 @@
 # 02-data-layer.md
 
 > **ফাইল ক্রম:** ৬/৪৫  
-> **পূর্ববর্তী ফাইল:** `01-tech-infra/01-frontend-core.md` (TanStack Query keys, Zustand auth store, WebSocket groups)  
-> **পরবর্তী ফাইল:** `01-tech-infra/03-event-brokers.md`  
-> **সংযোগ:** এই ফাইলে নির্ধারিত Redis cache key pattern (`cache:blocks:pending:*`, `session:{jwt}`, `ws:group:*`) এবং MySQL `audit_logs` table `03-event-brokers.md`-এর event topic naming convention (`block.created`, `block.approved`, `conflict.detected`) এবং event payload schema নির্ধারণে ব্যবহৃত হবে।
+> **ডিরেক্টরি:** `01-tech-infra/`  
+> **পূর্ববর্তী ফাইল:** `01-tech-infra/01-frontend-core.md` (ক্লায়েন্ট স্টেট, কুয়েরি কি ও জিআইএস লেয়ার)  
+> **পরবর্তী ফাইল:** `01-tech-infra/03-event-brokers.md` (Redis পাব/সাব ও চ্যানেলস ইভেন্ট স্ট্রিম)  
+> **কন্টেন্ট সোর্স:** `RailBlock_Feature_Master_Plan_PS26027(1).xlsx` (১২২টি ফিচার, ৪টি মূল স্তম্ভ, ১৫টি সেফটি ফিচার) এবং `ai-project-spec-generator (1).md`।  
+> **ডাটাবেস নীতি:** সম্পূর্ণ সিস্টেমে **PostgreSQL 15/16 + PostGIS 3.3 (SRID 4326/3857)** ব্যবহৃত হচ্ছে (কোনো MySQL নয়)।
 
 ---
 
-## 1. Database Selection Matrix
+## 1. Database Selection Matrix & CAP Theorem Position
 
-| Database | CAP Position | Used For | Justification |
-|----------|-------------|----------|---------------|
-| **MySQL 8.0 (InnoDB)** | CP (Consistency + Partition tolerance) | Primary relational data | ACID transactions, robust row-level locking, foreign key integrity, native JSON support, MySQL Spatial (GIS) extensions with spatial indexes for railway network geometry, utf8mb4 full unicode support |
-| **Redis 7** | AP (Availability + Partition tolerance) | Cache, session, pub/sub, queue | Sub-millisecond in-memory operations, TTL expiration, native Django Channels Redis layer integration, Celery broker |
-| **SQLite (Owlready2 Quadstore)** | CP | Semantic graph (RDF/OWL) | File-based, zero-configuration embedded quadstore, Git version-controlled, Python-native reasoning with HermiT |
-
-**Rejected Alternatives:**
-- **PostgreSQL 15:** Rejected per project stack standardization on MySQL 8.0 (team expertise, existing MySQL infrastructure, seamless RDS/Managed MySQL availability).
-- **MongoDB 7:** Rejected — Weak ACID multi-table transaction ergonomics compared to relational SQL for critical railway block operations, lacks structured relational foreign keys.
-- **Neo4j:** Future scale consideration, but requires separate Cypher query layer instead of OWL 2 / SPARQL semantic reasoning standard.
+| Database Technology | CAP Theorem Position | Core Operational Responsibility | Justification & Architectural Fit | Rejected Alternative |
+|:---|:---:|:---|:---|:---|
+| **PostgreSQL 15/16 + PostGIS 3.3** | **CP** (Consistency + Partition Tolerance) | প্রাইমারি রিলেশনাল ও স্থানিক (Spatial) ডেটাবেস | রেলওয়ে ট্র্যাক চেইনেজ, সেকশন লাইনস্ট্রিং জিওমেট্রি, GiST স্প্যাশিয়াল ইনডেক্সিং এবং কঠোর ACID ট্রানজ্যাকশন অখণ্ডতা। | **MySQL 8.0:** PostGIS-এর মতো উন্নত লিনিয়ার রেফারেন্সিং (LRS) ও `ST_Intersects` স্থানিক বিশ্লেষণ নেই। |
+| **Redis 7 (Alpine)** | **AP** (Availability + Partition Tolerance) | ইন-মেমোরি ক্যাশ, পাব/সাব, সেশন ও Celery ব্রোকার | সাব-মিলিসেকেন্ড ল্যাটেন্সি, কি-লেভেল টিটিএল (TTL), Django Channels চ্যানেল লেয়ার ও ডিস্ট্রিবিউটেড লক। | **Memcached:** শুধুমাত্র কি-ভ্যালু ক্যাশ; পাব/সাব মেসেজিং বা জটিল ডেটা স্ট্রাকচার নেই। |
+| **SQLite (Owlready2 Quadstore)** | **CP** | সিম্বলিক নলেজ গ্রাফ ও HermiT রিজনার স্টোর | পাইথনের লোকাল মেমোরি-ম্যাপড ফাইল-ভিত্তিক RDF কোয়াডস্টোর, জিরো নেটওয়ার্ক ওভারহেড ও ডেসক্রিপশন লজিক রিজনিং। | **Neo4j:** প্রপার্টি গ্রাফ; নেটিভ OWL 2 DL সেমান্টিক ইন্টারঅপারেবিলিটি এবং HermiT রিজনার সাপোর্ট নেই। |
 
 ---
 
-## 2. Entity Relationship Diagram (ASCII)
+## 2. Master Entity Relationship Diagram (ASCII ERD)
 
-```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│     users       │       │  departments    │       │     crews       │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK, CHAR36) │◄──────│ id (PK, CHAR36) │◄──────│ id (PK, CHAR36) │
-│ username (UQ)   │       │ name            │       │ gang_code (UQ)  │
-│ email (UQ)      │       │ code (UQ)       │       │ dept_id (FK)    │
-│ password_hash   │       │ description     │       │ current_section │
-│ role            │       │ created_at      │       │ status          │
-│ department_id   │──────►│                 │       │ shift_start     │
-│ phone           │       │                 │       │ shift_end       │
-│ is_active       │       │                 │       │ created_at      │
-│ last_login      │       │                 │       └─────────────────┘
-│ created_at      │       └─────────────────┘                │
-└─────────────────┘                │                         │
-        │                          │                  ┌──────┘
-        │                   ┌──────┘                  ▼
-        │                   ▼                 ┌─────────────────┐
-        │           ┌─────────────────┐       │   materials     │
-        │           │     assets      │       ├─────────────────┤
-        │           ├─────────────────┤       │ id (PK, CHAR36) │
-        │           │ id (PK, CHAR36) │       │ name            │
-        │           │ asset_code (UQ) │       │ dept_id (FK)    │
-        │           │ asset_type      │       │ quantity        │
-        │           │ section_id (FK) │       │ unit            │
-        │           │ health_score    │       │ location        │
-        │           │ status          │       └─────────────────┘
-        │           └─────────────────┘
-        ▼
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│  block_requests │       │    sections     │       │     trains      │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK, CHAR36) │◄──────│ id (PK, CHAR36) │◄──────│ id (PK, CHAR36) │
-│ block_code (UQ) │       │ name (UQ)       │       │ train_no (UQ)   │
-│ dept_id (FK)    │──────►│ from_station    │       │ train_name      │
-│ section_id (FK) │──────►│ to_station      │       │ route (JSON)    │
-│ requester_id(FK)│◄──────│ total_km        │       │ current_section │
-│ from_km         │       │ current_status  │       │ schedule (JSON) │
-│ to_km           │       │ line_type       │       │ priority        │
-│ start_time      │       │ district        │       │ delay_minutes   │
-│ end_time        │       │ division        │       │ status          │
-│ priority        │       │ geojson_path    │       │ created_at      │
-│ work_type       │       │ geom (SPATIAL)  │       └─────────────────┘
-│ status          │       │ created_at      │                │
-│ conflict_with   │       └─────────────────┘                │
-│ ai_resolution   │                                          │
-│ approved_by(FK) │       ┌─────────────────┐                │
-│ emergency_flag  │       │  notifications  │                │
-│ photo_url       │       ├─────────────────┤                │
-│ created_at      │       │ id (PK, CHAR36) │                │
-│ updated_at      │       │ type            │                │
-└─────────────────┘       │ recipient_id(FK)│◄───────────────┘
-        │                 │ message         │
-        ▼                 │ status          │
-┌─────────────────┐       │ sent_at         │
-│   audit_logs    │       │ created_at      │
-├─────────────────┤       └─────────────────┘
-│ id (PK, BIGINT) │                  │
-│ table_name      │                  ▼
-│ record_id       │       ┌─────────────────┐
-│ action          │       │ ontology_sync   │
-│ old_data (JSON) │       ├─────────────────┤
-│ new_data (JSON) │       │ id (PK, CHAR36) │
-│ user_id (FK)    │       │ entity_type     │
-│ timestamp       │       │ entity_id       │
-│ ip_address      │       │ rdf_subject     │
-└─────────────────┘       │ rdf_predicate   │
-                          │ rdf_object      │
-                          │ sync_status     │
-                          └─────────────────┘
-
-[FK] = Foreign Key, [UQ] = Unique Constraint, [PK] = Primary Key
-Engine: InnoDB, Charset: utf8mb4, Collation: utf8mb4_unicode_ci
+```text
+┌───────────────────────────┐         ┌───────────────────────────┐         ┌───────────────────────────┐
+│     core_station          │         │       core_section        │         │   maintenance_defectlog   │
+├───────────────────────────┤         ├───────────────────────────┤         ├───────────────────────────┤
+│ id (PK, UUID)             │         │ id (PK, UUID)             │◄────────│ id (PK, UUID)             │
+│ code (UQ, VARCHAR(10))    │◄───┐    │ section_code (UQ)         │         │ source_system (TMS/SMMS)  │
+│ name (VARCHAR(100))       │    │    │ from_station_id (FK)      │──────┐  │ defect_type (VARCHAR(50)) │
+│ division (VARCHAR(50))    │    └───┼│ to_station_id (FK)        │      │  │ section_id (FK)           │
+│ location (Point, 4326)    │        │ line_type (UP/DN/SL)       │      │  │ chainage_km (DECIMAL)     │
+│ created_at (TIMESTAMPTZ)  │         │ start_km, end_km          │      │  │ lof (1-5), cof (1-5)      │
+└───────────────────────────┘         │ geom (LineString, 4326)   │      │  │ defect_aging_days (INT)   │
+                                      │ max_speed_kmph (INT)      │      │  │ is_resolved (BOOLEAN)     │
+                                      │ current_status (STATUS)   │      │  └───────────────────────────┘
+                                      └─────────────┬─────────────┘      │
+                                                    │                    │
+                                                    ▼                    │
+┌───────────────────────────┐         ┌───────────────────────────┐      │  ┌───────────────────────────┐
+│  blocks_combinedwindow    │         │   blocks_blockrequest     │      │  │    departments_gang       │
+│  (Feature #98 Core USP)   │         ├───────────────────────────┤      │  ├───────────────────────────┤
+├───────────────────────────┤         │ id (PK, UUID)             │      │  │ id (PK, UUID)             │
+│ id (PK, UUID)             │◄────────│ combined_window_id (FK)   │      │  │ gang_code (UQ)            │
+│ window_code (UQ)          │         │ request_code (UQ)         │      │  │ department (ENGG/TRD/SNT) │
+│ section_id (FK)           │────────►│ section_id (FK)           │◄─────┘  │ home_base_station_id (FK) │
+│ start_time (TIMESTAMPTZ)  │         │ department (ENGG/TRD/SNT) │         │ headcount (INT)           │
+│ end_time (TIMESTAMPTZ)    │         │ work_type (TAMPING/OHE..) │         │ current_section_id (FK)   │
+│ total_shadow_savings_mins │         │ start_time, end_time      │         └─────────────┬─────────────┘
+│ participating_depts(JSONB)│         │ priority_score (DECIMAL)  │                       │
+│ sanction_pdf_path (TEXT)  │         │ cof_score, lof_score      │                       │
+│ status (APPROVED/ACTIVE)  │         │ status (PENDING/APPROVED) │◄──────────────────────┘
+└───────────────────────────┘         │ is_combined (BOOLEAN)     │
+                                      │ digital_token_hash (TEXT) │
+                                      │ requester_id (FK)         │
+                                      │ approved_by_id (FK)       │
+                                      └─────────────┬─────────────┘
+                                                    │
+                                                    ▼
+┌───────────────────────────┐         ┌───────────────────────────┐         ┌───────────────────────────┐
+│   safety_digitaltoken     │         │   safety_permittowork     │         │   trains_trainlivestatus  │
+│   (Feature #71 Token)     │         │   (Feature #84 PTW)       │         │   (Feature #114 / #116)   │
+├───────────────────────────┤         ├───────────────────────────┤         ├───────────────────────────┤
+│ id (PK, UUID)             │         │ id (PK, UUID)             │         │ id (PK, UUID)             │
+│ token_code (UQ)           │         │ ptw_number (UQ)           │         │ train_no (UQ, VARCHAR(10))│
+│ block_id (FK, 1-to-1)     │◄────────│ block_id (FK, 1-to-1)     │         │ train_name (VARCHAR(100)) │
+│ issued_to_gang_id (FK)    │         │ ohe_power_isolated (BOOL) │         │ current_section_id (FK)   │
+│ issued_by_controller (FK) │         │ loto_verified (BOOL)      │         │ delay_minutes (INT)       │
+│ handover_time             │         │ weather_checked (BOOL)    │         │ schedule_deviation (BOOL) │
+│ section_cleared_time      │         │ crew_headcount_verified   │         │ last_ntes_sync (TIME)     │
+│ clearance_cert_no (#80)   │         │ safety_score_granted (#85)│         │ speed_kmph (DECIMAL)      │
+└───────────────────────────┘         └───────────────────────────┘         └───────────────────────────┘
 ```
 
 ---
 
-## 3. MySQL 8.0 Schema Details
+## 3. PostgreSQL 15 + PostGIS 3.3 Production Schemas (DDL)
 
-All tables use **InnoDB Engine**, `DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`.
-
-### 3.1 Table: `users` (accounts app)
-
+### 3.1 Extensions ও কাস্টম ডোমেন ইনিশিয়ালাইজেশন
 ```sql
-CREATE TABLE `users` (
-  `id` CHAR(36) NOT NULL,
-  `username` VARCHAR(50) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
-  `password` VARCHAR(255) NOT NULL,
-  `first_name` VARCHAR(50) NOT NULL,
-  `last_name` VARCHAR(50) NOT NULL,
-  `role` VARCHAR(20) NOT NULL,
-  `department_id` CHAR(36) NULL,
-  `phone` VARCHAR(15) NULL,
-  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-  `last_login` DATETIME(6) NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_users_username` (`username`),
-  UNIQUE KEY `uq_users_email` (`email`),
-  KEY `idx_users_role_dept` (`role`, `department_id`),
-  KEY `idx_users_phone` (`phone`),
-  KEY `idx_users_active` (`is_active`),
-  CONSTRAINT `fk_users_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
+-- scripts/init_postgres.sh দ্বারা চালিত
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "postgis";
+CREATE EXTENSION IF NOT EXISTS "btree_gist";
 
-- **Roles:** `ENG_JE`, `TRD_JE`, `SNT_JE`, `SE`, `COA`
-- **Estimated Rows:** 50 (MVP / Hackathon demo), 10,000 (Division deployment)
-
----
-
-### 3.2 Table: `departments` (departments app)
-
-```sql
-CREATE TABLE `departments` (
-  `id` CHAR(36) NOT NULL,
-  `name` VARCHAR(50) NOT NULL,
-  `code` VARCHAR(10) NOT NULL,
-  `description` TEXT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_departments_name` (`name`),
-  UNIQUE KEY `uq_departments_code` (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-- **Codes:** `ENG` (Engineering), `TRD` (Traction Distribution), `SNT` (Signal & Telecom)
-- **Estimated Rows:** 3 (Fixed core departments)
-
----
-
-### 3.3 Table: `sections` (trains app — network topology)
-
-```sql
-CREATE TABLE `sections` (
-  `id` CHAR(36) NOT NULL,
-  `name` VARCHAR(100) NOT NULL,
-  `from_station` VARCHAR(50) NOT NULL,
-  `to_station` VARCHAR(50) NOT NULL,
-  `total_km` DECIMAL(6,2) NOT NULL,
-  `current_status` VARCHAR(20) NOT NULL DEFAULT 'FREE',
-  `line_type` VARCHAR(20) NOT NULL DEFAULT 'MAIN',
-  `district` VARCHAR(50) NOT NULL,
-  `division` VARCHAR(50) NOT NULL,
-  `geojson_path` JSON NULL,
-  `geom` LINESTRING SRID 4326 NULL,
-  `active_block_id` CHAR(36) NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_sections_name` (`name`),
-  KEY `idx_sections_status` (`current_status`),
-  KEY `idx_sections_district` (`district`),
-  KEY `idx_sections_division` (`division`),
-  SPATIAL KEY `spx_sections_geom` (`geom`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-- **Spatial Support:** MySQL 8.0 SRID 4326 (WGS 84) `LINESTRING` allows native spatial functions (`ST_Intersects`, `ST_Distance_Sphere`, `ST_AsGeoJSON`).
-- **Estimated Rows:** 50 (West Bengal Divisions: Howrah, Sealdah, Asansol, Kharagpur).
-
----
-
-### 3.4 Table: `block_requests` (blocks app — core table)
-
-```sql
-CREATE TABLE `block_requests` (
-  `id` CHAR(36) NOT NULL,
-  `block_code` VARCHAR(30) NOT NULL,
-  `department_id` CHAR(36) NOT NULL,
-  `section_id` CHAR(36) NOT NULL,
-  `requester_id` CHAR(36) NOT NULL,
-  `from_km` DECIMAL(6,2) NOT NULL,
-  `to_km` DECIMAL(6,2) NOT NULL,
-  `start_time` DATETIME(6) NOT NULL,
-  `end_time` DATETIME(6) NOT NULL,
-  `priority` VARCHAR(20) NOT NULL DEFAULT 'MEDIUM',
-  `work_type` VARCHAR(100) NOT NULL,
-  `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-  `conflict_with` CHAR(36) NULL,
-  `ai_resolution` JSON NULL,
-  `approved_by` CHAR(36) NULL,
-  `emergency_flag` TINYINT(1) NOT NULL DEFAULT 0,
-  `photo_url` VARCHAR(255) NULL,
-  `crew_assigned` JSON NULL,
-  `materials_used` JSON NULL,
-  `completion_photo` VARCHAR(255) NULL,
-  `completion_notes` TEXT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_block_requests_code` (`block_code`),
-  KEY `idx_blocks_section_time` (`section_id`, `start_time`, `end_time`),
-  KEY `idx_blocks_status_priority` (`status`, `priority`),
-  KEY `idx_blocks_dept_status` (`department_id`, `status`),
-  KEY `idx_blocks_emergency` (`emergency_flag`),
-  KEY `idx_blocks_conflict` (`conflict_with`),
-  CONSTRAINT `fk_blocks_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`),
-  CONSTRAINT `fk_blocks_section` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`),
-  CONSTRAINT `fk_blocks_requester` FOREIGN KEY (`requester_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_blocks_approver` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_blocks_conflict` FOREIGN KEY (`conflict_with`) REFERENCES `block_requests` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-- **Conflict Detection Index:** `idx_blocks_section_time` allows fast range checks (`WHERE section_id = ? AND start_time < ? AND end_time > ?`).
-- **Estimated Rows:** 500 (demo), 50,000/year (production).
-
----
-
-### 3.5 Table: `trains` (trains app)
-
-```sql
-CREATE TABLE `trains` (
-  `id` CHAR(36) NOT NULL,
-  `train_no` VARCHAR(10) NOT NULL,
-  `train_name` VARCHAR(100) NOT NULL,
-  `route` JSON NOT NULL,
-  `current_section_id` CHAR(36) NULL,
-  `schedule` JSON NOT NULL,
-  `priority` VARCHAR(20) NOT NULL,
-  `delay_minutes` INT NOT NULL DEFAULT 0,
-  `status` VARCHAR(20) NOT NULL DEFAULT 'ON_TIME',
-  `passenger_count` INT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_trains_no` (`train_no`),
-  KEY `idx_trains_priority` (`priority`),
-  KEY `idx_trains_section` (`current_section_id`),
-  KEY `idx_trains_status` (`status`),
-  CONSTRAINT `fk_trains_section` FOREIGN KEY (`current_section_id`) REFERENCES `sections` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-- **Estimated Rows:** 30 (demo), 500 (production).
-
----
-
-### 3.6 Table: `crews` (departments app)
-
-```sql
-CREATE TABLE `crews` (
-  `id` CHAR(36) NOT NULL,
-  `gang_code` VARCHAR(20) NOT NULL,
-  `department_id` CHAR(36) NOT NULL,
-  `current_section_id` CHAR(36) NULL,
-  `status` VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
-  `shift_start` TIME NOT NULL,
-  `shift_end` TIME NOT NULL,
-  `skills` JSON NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_crews_gang` (`gang_code`),
-  KEY `idx_crews_dept_status` (`department_id`, `status`),
-  KEY `idx_crews_section` (`current_section_id`),
-  CONSTRAINT `fk_crews_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`),
-  CONSTRAINT `fk_crews_section` FOREIGN KEY (`current_section_id`) REFERENCES `sections` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- কাস্টম ট্র্যাফিক স্ট্যাটাস টাইপস
+CREATE TYPE section_traffic_status AS ENUM ('FREE', 'BLOCKED', 'COMBINED_BLOCK', 'CAUTION_TSR');
+CREATE TYPE department_code AS ENUM ('ENGG', 'TRD', 'SNT', 'OPERATIONS', 'SAFETY');
+CREATE TYPE block_lifecycle_status AS ENUM ('DRAFT', 'SUBMITTED', 'PENDING_APPROVAL', 'APPROVED', 'ACTIVE', 'CLEARED', 'CANCELLED', 'REJECTED');
 ```
 
 ---
 
-### 3.7 Table: `materials` (departments app)
-
+### 3.2 টেবিল: `core_section` (রেলওয়ে করিডোর ও ট্র্যাক জিওমেট্রি)
 ```sql
-CREATE TABLE `materials` (
-  `id` CHAR(36) NOT NULL,
-  `name` VARCHAR(100) NOT NULL,
-  `dept_id` CHAR(36) NOT NULL,
-  `quantity` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  `unit` VARCHAR(20) NOT NULL,
-  `location` VARCHAR(100) NOT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `idx_materials_dept` (`dept_id`),
-  CONSTRAINT `fk_materials_department` FOREIGN KEY (`dept_id`) REFERENCES `departments` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE core_section (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    section_code VARCHAR(50) NOT NULL UNIQUE,
+    from_station_id UUID NOT NULL REFERENCES core_station(id) ON DELETE RESTRICT,
+    to_station_id UUID NOT NULL REFERENCES core_station(id) ON DELETE RESTRICT,
+    division VARCHAR(50) NOT NULL, -- HOWRAH, SEALDAH, KHARAGPUR, ASANSOL
+    line_type VARCHAR(10) NOT NULL DEFAULT 'UP', -- UP, DN, SINGLE, CHORD
+    start_chainage_km NUMERIC(8, 3) NOT NULL,    -- যেমন: 15.200
+    end_chainage_km NUMERIC(8, 3) NOT NULL,      -- যেমন: 32.500
+    geom GEOMETRY(LineString, 4326) NOT NULL,    -- PostGIS স্থানিক ট্র্যাক রেখা
+    max_speed_kmph INTEGER NOT NULL DEFAULT 130,
+    current_status section_traffic_status NOT NULL DEFAULT 'FREE',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- স্প্যাশিয়াল ও কম্পোজিট ইনডেক্স
+CREATE INDEX idx_section_geom ON core_section USING GIST(geom);
+CREATE INDEX idx_section_division ON core_section(division);
+CREATE INDEX idx_section_status ON core_section(current_status);
 ```
 
 ---
 
-### 3.8 Table: `assets` (assets app)
-
+### 3.3 টেবিল: `blocks_combinedwindow` (Feature #98 Core USP)
 ```sql
-CREATE TABLE `assets` (
-  `id` CHAR(36) NOT NULL,
-  `asset_code` VARCHAR(30) NOT NULL,
-  `asset_type` VARCHAR(20) NOT NULL,
-  `section_id` CHAR(36) NOT NULL,
-  `km_from` DECIMAL(6,2) NULL,
-  `km_to` DECIMAL(6,2) NULL,
-  `health_score` INT NOT NULL DEFAULT 100,
-  `last_inspection` DATETIME(6) NULL,
-  `next_due` DATETIME(6) NULL,
-  `status` VARCHAR(20) NOT NULL DEFAULT 'OPERATIONAL',
-  `metadata` JSON NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_assets_code` (`asset_code`),
-  KEY `idx_assets_section` (`section_id`),
-  KEY `idx_assets_health` (`health_score`),
-  KEY `idx_assets_due` (`next_due`),
-  CONSTRAINT `fk_assets_section` FOREIGN KEY (`section_id`) REFERENCES `sections` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE blocks_combinedwindow (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    window_code VARCHAR(50) NOT NULL UNIQUE,     -- যেমন: COMB-HWH-20260918-01
+    section_id UUID NOT NULL REFERENCES core_section(id) ON DELETE RESTRICT,
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    total_shadow_savings_mins INTEGER NOT NULL DEFAULT 0, -- ট্রেনের বাঁচানো সময়
+    participating_depts JSONB NOT NULL,                   -- ["ENGG", "TRD", "SNT"]
+    sanction_order_pdf TEXT NULL,                         -- জেনারেট হওয়া PDF পাথ (#107)
+    status block_lifecycle_status NOT NULL DEFAULT 'PENDING_APPROVAL',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_combined_section_time ON blocks_combinedwindow(section_id, start_time, end_time);
+CREATE INDEX idx_combined_status ON blocks_combinedwindow(status);
 ```
 
 ---
 
-### 3.9 Table: `notifications` (notifications app)
-
+### 3.4 টেবিল: `blocks_blockrequest` (মাস্টার ব্লক শিডিউল)
 ```sql
-CREATE TABLE `notifications` (
-  `id` CHAR(36) NOT NULL,
-  `type` VARCHAR(20) NOT NULL,
-  `recipient_id` CHAR(36) NOT NULL,
-  `block_id` CHAR(36) NULL,
-  `message` TEXT NOT NULL,
-  `message_bn` TEXT NULL,
-  `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-  `sent_at` DATETIME(6) NULL,
-  `error_log` TEXT NULL,
-  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  KEY `idx_notifications_recipient_status` (`recipient_id`, `status`),
-  KEY `idx_notifications_created` (`created_at`),
-  CONSTRAINT `fk_notifications_user` FOREIGN KEY (`recipient_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_notifications_block` FOREIGN KEY (`block_id`) REFERENCES `block_requests` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE blocks_blockrequest (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    request_code VARCHAR(50) NOT NULL UNIQUE,    -- যেমন: BLK-20260918-042
+    combined_window_id UUID NULL REFERENCES blocks_combinedwindow(id) ON DELETE SET NULL,
+    section_id UUID NOT NULL REFERENCES core_section(id) ON DELETE RESTRICT,
+    department department_code NOT NULL,
+    work_type VARCHAR(100) NOT NULL,             -- TRACK_TAMPING, OHE_INSPECTION, POINT_MACHINE
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    start_km NUMERIC(8, 3) NOT NULL,
+    end_km NUMERIC(8, 3) NOT NULL,
+    priority_score NUMERIC(5, 2) NOT NULL DEFAULT 50.00,
+    cof_score INTEGER NOT NULL CHECK (cof_score BETWEEN 1 AND 5), -- Consequence of Failure
+    lof_score INTEGER NOT NULL CHECK (lof_score BETWEEN 1 AND 5), -- Likelihood of Failure
+    is_combined BOOLEAN NOT NULL DEFAULT FALSE,
+    digital_token_hash VARCHAR(64) NULL,
+    status block_lifecycle_status NOT NULL DEFAULT 'SUBMITTED',
+    requester_id UUID NOT NULL REFERENCES accounts_user(id) ON DELETE RESTRICT,
+    approved_by_id UUID NULL REFERENCES accounts_user(id) ON DELETE RESTRICT,
+    emergency_override BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_time_window CHECK (end_time > start_time),
+    CONSTRAINT chk_chainage CHECK (end_km >= start_km)
+);
+
+-- কনফ্লিক্ট ডিটেকশনের জন্য কম্পোজিট ইনডেক্স
+CREATE INDEX idx_blocks_section_times ON blocks_blockrequest(section_id, start_time, end_time);
+CREATE INDEX idx_blocks_status_dept ON blocks_blockrequest(status, department);
+CREATE INDEX idx_blocks_priority ON blocks_blockrequest(priority_score DESC);
 ```
 
 ---
 
-### 3.10 Table: `audit_logs` (railway_ai app — cross-cutting)
-
+### 3.5 টেবিল: `safety_digitaltoken` (Feature #71 - Digital Token)
 ```sql
-CREATE TABLE `audit_logs` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `table_name` VARCHAR(50) NOT NULL,
-  `record_id` CHAR(36) NOT NULL,
-  `action` VARCHAR(20) NOT NULL,
-  `old_data` JSON NULL,
-  `new_data` JSON NULL,
-  `user_id` CHAR(36) NULL,
-  `ip_address` VARCHAR(45) NULL,
-  `user_agent` VARCHAR(255) NULL,
-  `timestamp` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`, `timestamp`),
-  KEY `idx_audit_table_record` (`table_name`, `record_id`),
-  KEY `idx_audit_user` (`user_id`),
-  KEY `idx_audit_timestamp` (`timestamp`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-PARTITION BY RANGE (YEAR(timestamp) * 100 + MONTH(timestamp)) (
-  PARTITION p202609 VALUES LESS THAN (202610),
-  PARTITION p202610 VALUES LESS THAN (202611),
-  PARTITION p202611 VALUES LESS THAN (202612),
-  PARTITION p_max VALUES LESS THAN MAXVALUE
+CREATE TABLE safety_digitaltoken (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    token_code VARCHAR(64) NOT NULL UNIQUE,       -- ক্রিপ্টোগ্রাফিক টোকেন স্ট্রিং
+    block_id UUID NOT NULL UNIQUE REFERENCES blocks_blockrequest(id) ON DELETE CASCADE,
+    issued_to_gang_id UUID NOT NULL REFERENCES departments_gang(id) ON DELETE RESTRICT,
+    issued_by_controller_id UUID NOT NULL REFERENCES accounts_user(id) ON DELETE RESTRICT,
+    handover_time TIMESTAMPTZ NOT NULL,
+    section_cleared_time TIMESTAMPTZ NULL,
+    clearance_cert_no VARCHAR(50) NULL,           -- Feature #80 Section Clearance
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_token_active ON safety_digitaltoken(token_code, is_active);
+```
+
+---
+
+### 3.6 টেবিল: `safety_permittowork` (Feature #84 - PTW & Safety Gates)
+```sql
+CREATE TABLE safety_permittowork (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ptw_number VARCHAR(50) NOT NULL UNIQUE,
+    block_id UUID NOT NULL UNIQUE REFERENCES blocks_blockrequest(id) ON DELETE CASCADE,
+    ohe_power_isolated BOOLEAN NOT NULL DEFAULT FALSE,  -- Feature #73
+    loto_verified BOOLEAN NOT NULL DEFAULT FALSE,       -- Feature #74
+    weather_checked BOOLEAN NOT NULL DEFAULT FALSE,     -- Feature #75
+    crew_headcount_verified INTEGER NOT NULL DEFAULT 0, -- Feature #72
+    tool_count_verified INTEGER NOT NULL DEFAULT 0,     -- Feature #81
+    digital_tbt_completed BOOLEAN NOT NULL DEFAULT FALSE,-- Feature #83
+    safety_score_granted NUMERIC(4, 2) NOT NULL DEFAULT 100.00, -- Feature #85
+    approved_by_safety_officer_id UUID NOT NULL REFERENCES accounts_user(id) ON DELETE RESTRICT,
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
 ---
 
-### 3.11 Table: `ontology_sync` (ontology app)
-
+### 3.7 টেবিল: `maintenance_defectlog` (TMS, SMMS, TDMS Ingestion)
 ```sql
-CREATE TABLE `ontology_sync` (
-  `id` CHAR(36) NOT NULL,
-  `entity_type` VARCHAR(50) NOT NULL,
-  `entity_id` CHAR(36) NOT NULL,
-  `rdf_subject` VARCHAR(255) NOT NULL,
-  `rdf_predicate` VARCHAR(255) NOT NULL,
-  `rdf_object` TEXT NOT NULL,
-  `graph_name` VARCHAR(50) NOT NULL DEFAULT 'default',
-  `synced_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `sync_status` VARCHAR(20) NOT NULL DEFAULT 'SYNCED',
-  PRIMARY KEY (`id`),
-  KEY `idx_onto_entity` (`entity_type`, `entity_id`),
-  KEY `idx_onto_subject` (`rdf_subject`),
-  KEY `idx_onto_status` (`sync_status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE maintenance_defectlog (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_system VARCHAR(10) NOT NULL,           -- TMS, SMMS, TDMS
+    defect_code VARCHAR(50) NOT NULL,
+    section_id UUID NOT NULL REFERENCES core_section(id) ON DELETE CASCADE,
+    chainage_km NUMERIC(8, 3) NOT NULL,
+    defect_type VARCHAR(100) NOT NULL,            -- FRACTURE, POINT_SLACK, CATENARY_SAG
+    lof INTEGER NOT NULL CHECK (lof BETWEEN 1 AND 5),
+    cof INTEGER NOT NULL CHECK (cof BETWEEN 1 AND 5),
+    defect_aging_days INTEGER NOT NULL DEFAULT 0, -- Feature #93
+    is_resolved BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_defect_aging ON maintenance_defectlog(is_resolved, defect_aging_days DESC);
+CREATE INDEX idx_defect_system ON maintenance_defectlog(source_system, section_id);
 ```
 
 ---
 
-## 4. Django Database Configuration (MySQL 8.0)
+### 3.8 টেবিল: `trains_trainlivestatus` (NTES Live Delays & Delays Cascade #115, #116)
+```sql
+CREATE TABLE trains_trainlivestatus (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    train_no VARCHAR(10) NOT NULL UNIQUE,         -- 12301, 12305, 13011
+    train_name VARCHAR(100) NOT NULL,
+    priority_class VARCHAR(20) NOT NULL,          -- RAJDHANI, EXPRESS, PASSENGER, FREIGHT
+    current_section_id UUID NULL REFERENCES core_section(id) ON DELETE SET NULL,
+    delay_minutes INTEGER NOT NULL DEFAULT 0,
+    schedule_deviation_detected BOOLEAN NOT NULL DEFAULT FALSE, -- Feature #116
+    last_ntes_sync TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    speed_kmph NUMERIC(5, 2) NOT NULL DEFAULT 0.00
+);
 
-```python
-# settings.py
-import environ
-
-env = environ.Env()
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': env('DB_NAME', default='railway_ai_db'),
-        'USER': env('DB_USER', default='railway_user'),
-        'PASSWORD': env('DB_PASSWORD', default='railway_secret_pass'),
-        'HOST': env('DB_HOST', default='127.0.0.1'),
-        'PORT': env.int('DB_PORT', default=3306),
-        'CONN_MAX_AGE': 600,  # 10 minutes persistent connection pool
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'init_command': (
-                "SET sql_mode='STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO';"
-                "SET default_storage_engine=INNODB;"
-            ),
-            'ssl': {'ca': env('MYSQL_SSL_CA', default=None)} if env('MYSQL_SSL_CA', default=None) else None,
-        }
-    }
-}
+CREATE INDEX idx_train_deviation ON trains_trainlivestatus(schedule_deviation_detected, delay_minutes);
 ```
 
 ---
 
-## 5. Migration Strategy
+## 4. PostGIS Spatial Operations & Queries
 
-**Tool:** Django built-in migrations (`python manage.py makemigrations`, `migrate`)  
-**Naming Convention:** `0001_initial.py`, `0002_add_block_indexes.py`, `0003_add_emergency_flag.py`
+সিস্টেমের মূল সেফটি ও কনফ্লিক্ট যাচাই সরাসরি পোস্টজিআইএস ফাংশন দিয়ে সম্পাদিত হয়:
 
-**Rules:**
-1. Zero raw SQL in schema migrations unless adding MySQL SPATIAL index or partitioning.
-2. One app per migration file.
-3. Every schema migration must have a backward-compatible reverse path.
-4. Data migrations separate from schema migrations.
-
-**Rollback:**
-```bash
-# Rollback specific app
-python manage.py migrate blocks 0004
-
-# Full rollback of app (emergency)
-python manage.py migrate blocks zero
+### 4.1 দুটি কাজের মধ্যে স্থানিক ইন্টারসেকশন শনাক্তকরণ (`ST_Intersects`)
+```sql
+-- চেক করা হচ্ছে যে নতুন প্রস্তাবিত ব্লকের স্থানিক রেখা কোনো বিদ্যমান ব্লকের লাইনে পড়ে কিনা
+SELECT r.request_code, r.department, r.start_time, r.end_time
+FROM blocks_blockrequest r
+JOIN core_section s ON r.section_id = s.id
+WHERE s.id = :target_section_id
+  AND r.status IN ('APPROVED', 'ACTIVE')
+  AND (r.start_time, r.end_time) OVERLAPS (:new_start, :new_end)
+  AND ST_Intersects(
+      s.geom,
+      ST_Buffer(ST_LineSubstring(s.geom, :start_ratio, :end_ratio), 0.0001)
+  );
 ```
 
-**CI/CD Pipeline Order:**
-1. Perform automated `mysqldump` snapshot.
-2. `python manage.py migrate --check` (dry run).
-3. `python manage.py migrate --no-input`.
-4. Verify via `/api/v1/health/ready/`.
-
----
-
-## 6. Caching Strategy (Redis 7)
-
-### 6.1 Cache Key Patterns
-
-| Purpose | Key Pattern | TTL | Invalidation Trigger |
-|---------|-------------|-----|----------------------|
-| **User Session** | `session:{jwt_token_hash}` | 60 min | Logout, token refresh |
-| **Block Pending List** | `cache:blocks:pending:{dept_code}` | 30s | Block created / approved / rejected |
-| **Block Detail** | `cache:block:{block_id}` | 5 min | Block updated |
-| **Section Status** | `cache:section:{section_id}:status` | 1 min | Block status change |
-| **Section List** | `cache:sections:all` | 10 min | Section metadata updated |
-| **Train Schedule** | `cache:train:{train_no}:schedule` | 10 min | Train delay / schedule update |
-| **Crew Availability** | `cache:crews:available:{dept_id}` | 5 min | Crew shift / status change |
-| **Notification Unread** | `cache:notifications:unread:{user_id}` | 2 min | Notification sent / read |
-| **Rate Limit Counter** | `ratelimit:{endpoint}:{ip}:{user_id}` | 1 min | Automatic Redis TTL expiration |
-| **JWT Blacklist** | `blacklist:{refresh_token_jti}` | 7 days | Explicit user logout |
-| **WebSocket Group** | `ws:group:{dept_code}` | Session | Client disconnect |
-| **Conflict Buffer** | `conflict:active:{block_id}` | Until resolved | Resolution accepted |
-| **SPARQL Reasoning** | `cache:sparql:{query_hash}` | 10 min | Ontology sync event |
-
-### 6.2 Invalidation Workflow
-
-```
-Block Approved by COA:
-  │
-  ├──► UPDATE block_requests SET status = 'APPROVED' (MySQL)
-  ├──► UPDATE sections SET current_status = 'BLOCKED' (MySQL)
-  ├──► Redis Invalidation:
-  │      DEL cache:block:{id}
-  │      DEL cache:blocks:pending:ENG
-  │      DEL cache:blocks:pending:COA
-  │      DEL cache:section:HWH-KGP:status
-  └──► Celery Async Tasks:
-         PUBLISH ws:group:COA {"type": "block_update", "id": "..."}
-         PUBLISH ws:group:section:HWH-KGP {"type": "section_status_change", ...}
+### 4.2 লাইভ ট্রেনের নিকটবর্তী বিপজ্জনক কাজের বাফার নির্ণয় (`ST_DWithin`)
+```sql
+-- ট্রেনের বর্তমান কোঅর্ডিনেট থেকে ৫০০ মিটারের ভেতর কোনো সক্রিয় ব্লক বা গ্যাং উপস্থিত কিনা
+SELECT b.request_code, g.gang_code
+FROM blocks_blockrequest b
+JOIN core_section s ON b.section_id = s.id
+JOIN departments_gang g ON b.id = g.current_block_id
+WHERE b.status = 'ACTIVE'
+  AND ST_DWithin(
+      s.geom::geography,
+      ST_SetSRID(ST_MakePoint(:train_lon, :train_lat), 4326)::geography,
+      500 -- 500 Meters Safety Perimeter
+  );
 ```
 
 ---
 
-## 7. Semantic Quadstore (Owlready2)
+## 5. Redis Caching & In-Memory Key Design
 
-- **File Path:** `ontology/railway_digital_twin.owl` + embedded SQLite quadstore cache.
-- **Data Model:** OWL 2 DL ontology linking `Section`, `TrackAsset`, `TrainSchedule`, `Department`, and `BlockEvent`.
-- **Synchronization:** MySQL mutations publish to Celery `ontology` queue → `DigitalTwinManager` updates triples and writes back to disk.
-
----
-
-## 8. Backup & Disaster Recovery
-
-| Aspect | Strategy | RPO | RTO |
-|--------|----------|-----|-----|
-| **MySQL 8.0** | Automated daily snapshot + continuous binary logging (binlog) for Point-In-Time Recovery | 5 minutes | 15 minutes |
-| **Redis 7** | Cache only (Ephemeral). Sessions re-authenticated via refresh token | N/A | N/A |
-| **Ontology File** | Git version control + hourly volume snapshot | 1 hour | 10 minutes |
-| **Media (Photos)** | Mounted Docker persistent volume + scheduled tarball backup | 24 hours | 30 minutes |
+| Key Pattern | Data Structure | TTL | Invalidation Trigger | Architectural Purpose |
+|:---|:---:|:---:|:---|:---|
+| `railway:block:active:list` | Redis Set / JSON | ৬০ সেকেন্ড | ব্লক অনুমোদন বা সমাপ্তি | কন্ট্রোল রুম ম্যাপে ব্লকের লাল/সবুজ স্ট্যাটাস দ্রুত লোড |
+| `railway:section:status:{id}`| String (ENUM) | ১২০ সেকেন্ড | ওয়েবসকেট ইভেন্ট | করিডোর খালি নাকি ব্লক তা অতি-দ্রুত নির্ধারণ |
+| `railway:token:hash:{token}` | String (User/Gang) | ব্লকের স্থায়িত্ব | সেকশন ক্লিয়ারেন্স (#80) | ফিল্ড স্টাফের ডিজিটাল টোকেন ভেরিফিকেশন |
+| `railway:train:live:{train_no}`| Hash | ৩০ সেকেন্ড | NTES স্ট্রিম আপডেট | ট্রেনের বর্তমান লেট ও স্পিড ক্যাশিং |
+| `railway:lock:block:{sec_id}`| String (Distributed Lock)| ১০ সেকেন্ড | ট্রানজ্যাকশন কমিট | একই সেকশনে ডাবল ব্লক বুকিং রোধ (Race Condition) |
 
 ---
 
-## 9. Next File Dependency Note
+## 6. Migration, Backup & Disaster Recovery (DR)
 
-> পরবর্তী ফাইল: `01-tech-infra/03-event-brokers.md`
+### 6.1 মাইগ্রেশন নীতি (Django GeoDjango)
+- تمام ডেটাবেস স্কিমা পরিবর্তন Django-র `makemigrations` কমান্ড দিয়ে নিয়ন্ত্রিত।
+- প্রোডাকশন ডেপ্লয়মেন্টের সময় `entrypoint.sh` স্ক্রিপ্ট স্বয়ংক্রিয়ভাবে `python manage.py migrate --noinput` সম্পন্ন করে।
+- কোনো ব্রেকিং চেঞ্জের ক্ষেত্রে কলাম রিনেম না করে নতুন কলাম যোগ করে ব্যাকওয়ার্ড কম্প্যাটিবিলিটি বজায় রাখা হয়।
 
-`02-data-layer.md` থেকে `03-event-brokers.md`-এ নেওয়া হবে:
+### 6.2 ব্যাকআপ ও ডিজাস্টার রিকভারি SLA
+- **Recovery Point Objective (RPO):** < ১৫ মিনিট (PostgreSQL Write-Ahead Logging / WAL আর্কার্ভিং)।
+- **Recovery Time Objective (RTO):** < ৫ মিনিট (স্বয়ংক্রিয় ডকার কন্টেইনার ফেইলওভার ও হেলথচেক)।
+- **ব্যাকআপ রুটিন:** প্রতিদিন রাত ০২:০০ টায় স্বয়ংক্রিয় `pg_dump` সম্পন্ন হয়ে এনক্রিপ্টেড ব্যাকআপ ভলিউমে সংরক্ষিত হয়।
 
-| Data Layer Element | Event Broker Impact |
-|-------------------|---------------------|
-| `audit_logs` table | `block.created`, `block.approved`, `block.completed` events → Celery async audit insertions |
-| `block_requests` status changes | Event topic: `block.status_changed` with payload `{block_id, old_status, new_status, timestamp}` |
-| `sections.current_status` | `section.status_changed` event → WebSocket broadcast to map clients |
-| `notifications` table | `notification.sent` event → DLQ handling for failed SMS |
-| `ontology_sync` table | `ontology.sync_requested` event → Celery `ontology` queue for SPARQL updates |
-| Redis `ws:group:*` keys | Channels layer group routing: `dept:ENG`, `dept:COA`, `section:HWH-KGP` |
-| Redis `conflict:active:*` | ConflictEngine publishes detected overlap events to `events:conflict` |
-| MySQL `users.role` | Consumer group authorization and recipient routing |
+---
 
-`03-event-brokers.md`-এ নিচের বিষয়গুলো থাকবে:
-- Redis Pub/Sub channel topology
-- Django Channels channel layer configuration
-- Event topic catalog with JSON message schemas
-- Dead letter queue (DLQ) strategy for failed external notifications
-- Celery task routing by queue (`high`, `notify`, `ontology`, `low`, `default`)
-- Idempotency key generation and deduplication logic
+## 7. Connection Pooling
+
+| Environment | Tool | Max Pool Connections | Idle Timeout | Min Spare Connections |
+|:---|:---:|:---:|:---:|:---:|
+| **Local Development** | Django Persistent Conn | ২০ | ৩০০ সেকেন্ড | ৫ |
+| **Production / Cloud VM** | PgBouncer (Transaction Mode)| ১০০ | ৬০ সেকেন্ড | ২০ |
+
+---
+
+## 8. Traceability to Subsequent Infrastructure Documents
+
+| Target Document | Direct Dependency from Data Layer |
+|:---|:---|
+| **`01-tech-infra/03-event-brokers.md`** | ডেটাবেসের টেবিল পরিবর্তন (`post_save`) থেকে Redis পাব/সাব চ্যানেলে ইভেন্ট ডিসপ্যাচ। |
+| **`03-service-blueprints/01-block-planning-service.md`** | `blocks_blockrequest` ও `blocks_combinedwindow` স্কিমার ওপর ভিত্তি করে সার্ভিস মেথড। |
+| **`03-service-blueprints/04-safety-compliance-service.md`** | `safety_digitaltoken` ও `safety_permittowork` টেবিলের ওপর ভিত্তি করে সেফটি ওয়ার্কফ্লো। |

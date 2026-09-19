@@ -1,307 +1,627 @@
 # 00-architecture.md
-<!-- Indian Railways AI Automatic Block Planning Platform (PS 26027) -->
+
 > **ফাইল ক্রম:** ১/৪৫  
+> **ডিরেক্টরি:** `00-master-high-level/`  
 > **পরবর্তী ফাইল:** `00-master-high-level/01-decision-log.md`  
-> **সংযোগ:** এই ফাইলে বর্ণিত Tech Stack, Architecture Pattern, এবং Master Plan-এর ১২২টি ফিচারের আর্কিটেকচারাল ডিসিশনসমূহ `01-decision-log.md`-এ লগ করা আছে।
+> **কন্টেন্ট সোর্স:** `RailBlock_Feature_Master_Plan_PS26027(1).xlsx` (১২২টি ফিচার, ৪টি মূল সমস্যা স্তম্ভ, ১৫টি সেফটি ফিচার, ৬টি ডেমো ডেটা সিস্টেম), `ai-project-spec-generator (1).md` এবং **State-of-the-Art Neuro-Symbolic AI Architecture**।  
+> **ডাটাবেস ও এআই নীতি:** **PostgreSQL 15/16 + PostGIS 3.3** (নো MySQL) এবং **Neuro-Symbolic Hybrid AI** (Symbolic AI: Owlready2 + HermiT ↔ Neural AI: Google Gemini 1.5 Flash)।
 
 ---
 
-## 1. Project Master Identity & PS 26027 Alignment
+## 1. Executive Summary & Problem Context
 
-| বিষয় / Parameter | বিবরণ / Master Value |
-|:---|:---|
-| **Problem Statement ID** | **PS 26027** (Smart India Hackathon) |
-| **Project Title** | **AI-Powered Automatic Block Planning to Maximize Asset Availability for Train Operations on Indian Railways** |
-| **Organization** | **Ministry of Railways** — Category: Software, Theme: Transportation & Logistics |
-| **Core Pain Point** | Engineering (TMS), TRD (TDMS), এবং S&T (SMMS) বিভাগসমূহ বর্তমানে স্বতন্ত্রভাবে ম্যানুয়াল পদ্ধতিতে BDMS-এর মাধ্যমে মেইনটেনেন্স ব্লক প্ল্যান করে। এই বিকেন্দ্রীভূত ও ম্যানুয়াল পদ্ধতির কারণে অকার্যকর ব্লক শিডিউলিং, সমন্বয়হীনতা, ট্রেনের অনাকাঙ্ক্ষিত বিলম্ব এবং ট্র্যাক অ্যাসেটের প্রাপ্যতা (availability) ব্যাহত হয়। |
-| **Primary Value Proposition** | তিন ডিপার্টমেন্টের ডেটা একত্রিত করে একক ইউনিফাইড প্ল্যাটফর্ম তৈরি করা, যার মাধ্যমে **⭐ Combined Block Window (USP)** পদ্ধতিতে যৌথ ব্লক কার্যকর করা যায়, সুইপ-লাইন অ্যালগরিদমে রিয়েল-টাইম কনফ্লিক্ট নিরসন হয় এবং Semantic Digital Twin-এর মাধ্যমে ট্রাফিক ও ওএইচই সেকশনের আন্তঃসম্পর্ক পর্যালোচনা করা যায়। |
-| **Primary Success Metrics** | ১. **Asset Availability Score (#50)** বৃদ্ধি<br>২. **Variance % (#109)** সর্বনিম্ন রাখা<br>৩. **Auto-resolved Conflicts (#31/#32)** ম্যাক্সিমাইজ করা |
-| **Target Users** | Section Engineers (ENG/TRD/SNT), Junior Engineers, Control Office Administrators (COA), Traffic Controllers, এবং On-field Maintenance Gangs |
-| **Expected Scale** | Hackathon MVP (North Central / Eastern Railway Corridor — যেমন: NDLS-GZB-ALJN এবং Howrah-Kharagpur), পরবর্তীতে All-India IR Network |
+### 1.1 Project Identity & Alignment
+- **Problem Statement ID:** PS 26027 (Ministry of Railways — Smart India Hackathon)
+- **Official Problem Statement:** *"AI-Powered Automatic Block Planning to Maximize Asset Availability for Train Operations on Indian Railways"*
+- **Project Name:** RailBlock AI (Automatic Block Planning & Asset Availability Maximization Engine)
+- **Architectural Paradigm:** **Neuro-Symbolic AI Architecture** — যেখানে ১০০% নির্ভুল ডিটারমিনিস্টিক রুল-বেসড সিম্বলিক রিজনিং (OWL 2 DL + HermiT) এবং ল্যাঙ্গুয়েজ ফ্লুয়েন্ট নিউরাল এআই (LLM: Gemini 1.5 Flash) একত্রে কাজ করে।
+- **One-Line Value Pitch:** Engineering (TMS), Signalling (SMMS), এবং Traction (TDMS)-এর বিচ্ছিন্ন ডেটা সাইলোকে রিয়েল-টাইমে একত্রিত করে Neuro-Symbolic AI চালিত Combined Block Window ও PostGIS স্প্যাশিয়াল ডিজিটাল টুইনের মাধ্যমে ট্রেনের সময়ানুবর্তিতা ও লাইনের কার্যক্ষমতা সর্বোচ্চকরণ।
+- **System Classification:** Mission-Critical Railway Decision Support System (DSS) + Enterprise Operational Web Platform + Real-Time Track Availability Dashboard.
+- **Target Users & Personas:**
+  1. **Civil/Track Engineers (ENGG - P-Way):** Junior Engineer (JE) ও Senior Section Engineer (SSE) — Track Maintenance System (TMS) ডিফেক্ট সমাধান।
+  2. **Signal & Telecom Engineers (S&T):** JE/SSE — Signalling Maintenance Management System (SMMS) সিগন্যাল ও পয়েন্ট রক্ষণাবেক্ষণ।
+  3. **Traction Distribution Engineers (TRD):** JE/SSE — Traction Distribution Management System (TDMS) OHE পাওয়ার লাইন ও সাবস্টেশন রক্ষণাবেক্ষণ।
+  4. **Operations & Traffic Controllers (COA):** Chief Controller ও Section Controller — Control Office Application (COA) ও Block Data Management System (BDMS) করিডোর অনুমোদনকারী।
+  5. **Safety Officers & Crew In-Charge:** লাইন ক্লোজার টোকেন ও পারমিট-টু-ওয়ার্ক (PTW) যাচাইকারী।
+- **Expected Scale:**
+  - *Phase 1 (Demonstration / SIH):* Eastern Railway / South Eastern Railway নেটওয়ার্ক (Howrah, Sealdah, Kharagpur, Asansol ডিভিশন) — ৫০+ সেকশন, ১০০+ সমকালীন ট্রেন ও ১৫+ গ্যাং।
+  - *Phase 2 (Zonal Production):* পুরো জোন (Zonal Railway HQ ও Divisional Control Rooms) — ১০,০০০+ সক্রিয় কিমি ট্র্যাক ও দৈনিক ৫০০+ ব্লক রিকোয়েস্ট।
 
----
-
-## 2. PS 26027 Core Architecture Pillars (From Master Plan)
-
-### 📌 Point 1 — Multi-Departmental Data Integration
-- **Legacy Systems Integrated**: Track Management System (**TMS**), Signal Maintenance & Management System (**SMMS**), Traction Distribution Management System (**TDMS**), Control Office Application (**COA**), Block Data Management System (**BDMS**), National Train Enquiry System (**NTES**).
-- **Core Capabilities**:
-  - লাইভ কন্ট্রোল অফিস ফিড ও এনটিইএস ইন্টিগ্রেশন (#42, #48)
-  - ইটিএল সিঙ্ক শিডিউলার (#68) এবং অফলাইন ফাইল-ভিত্তিক ফলব্যাক (#88)
-  - ইউনিফাইড অ্যাসেট রেজিস্ট্রি (#86) ও প্রমিত চেইনেজ নরমালাইজেশন (#87)
-  - ডেটা ফ্রেশনেস মনিটর (#89) এবং মাল্টিপল ডিফেক্ট মার্জার (#90)
-  - গুডস ও ফ্রেট ট্রেনের ফোরকাস্ট এন্ট্রি গেটওয়ে (#91)
-  - অটো ব্লক রিকোয়েস্ট জেনারেটর (#2) ও হিস্টোরিক্যাল লগ অ্যানালিটিক্স (#13)
-
-### 📌 Point 2 — AI-Driven Prioritization Engine
-- **Core Engine**:
-  - স্মার্ট কিউ ম্যানেজমেন্ট (#34)
-  - $CoF \times LoF$ মাল্টি-ফ্যাক্টর রিস্ক ম্যাট্রিক্স (#92)
-  - ডিফেক্ট এজিং স্কোর ক্যালকুলেটর (#93)
-  - **"Why #1?"** এক্সপ্লেনেবল এআই (XAI) ডিসিশন কার্ড (#94)
-  - প্যাসেঞ্জার ও ফ্রেট ট্রেন প্রায়োরিটি ক্লাসিফায়ার (#24, #27)
-  - ক্রিটিক্যাল করিডোর ওয়েটিং (#97)
-  - প্রেডিক্টিভ মেইনটেনেন্স শিডিউলার (#33) ও ডাউনটাইম প্রেডিক্টর (#36)
-  - সিজনাল প্যাটার্ন অ্যানালাইজার (#35) ও ডেফার্ড টাস্ক এসকেলেশন (#95)
-
-### 📌 Point 3 — Optimization & Multi-Department Coordination
-- **Platform USP**: **⭐ Combined Block Window Optimization (#98)** — একই করিডোর ও ট্র্যাক সেকশনে একাধিক বিভাগের জন্য একীভূত কম্বাইন্ড ব্লক শিডিউল তৈরি করা।
-- **Scheduling & Conflict Engine**:
-  - সুইপ-লাইন এআই কনফ্লিক্ট ডিটেকশন (#31) ও অটোম্যাটিক রেজোলিউশন (#32)
-  - টাস্ক ডিপেনডেন্সি ডিরেক্টেড অ্যাসাইক্লিক গ্রাফ (DAG) (#99)
-  - ব্লক ডিউরেশন অপ্টিমাইজার (#5) ও স্প্লিট ব্লক শিডিউলিং (#6)
-  - ওয়ার্কলোড ব্যালেন্সিং (#37) ও মেগা ব্লক প্ল্যানার (#102)
-  - গ্যাং হোম-বেস রাউটিং (#100) ও মেটেরিয়াল ডেলিভারি টাইম-স্লট (#101)
-  - ক্যান্সেলড উইন্ডো ব্যাকফিলিং (#103) ও নাইট ব্লক অগ্রাধিকার (#8)
-  - পিক আওয়ার প্রোটেকশন (#29) ও ফ্রেট করিডোর অপ্টিমাইজেশন (#28)
-  - ফাস্ট ট্র্যাক ক্লিয়ারেন্স (#25) ও মিনিমাম সেফ ওয়ার্ক উইন্ডো গার্ড (#70)
-  - রিয়েল-টাইম ব্লক মনিটর (#3) ও ডিসরাপশন-পরবর্তী অটো রি-প্ল্যানার (#108)
-
-### 📌 Point 4 — Multi-Horizon Planning & Sanction Governance
-- উইকলি ও মান্থলি রোলিং মাস্টার প্ল্যান জেনারেটর (#61)
-- প্ল্যান ফ্রিজ উইন্ডো এনফোর্সমেন্ট (#105) ও ভার্সনিং (#106)
-- ডিজিটাল স্যাংশন অর্ডার পিডিএফ জেনারেটর উইথ কিউআর ভেরিফিকেশন (#107)
-- মাল্টি-লেভেল অ্যাপ্রুভাল ওয়ার্কফ্লো (JE → SE → Sr.DEN → COA) (#11) ও এসএলএ ট্র্যাকার (#63)
-- স্বয়ংক্রিয় কমপ্লায়েন্স ও পারফরম্যান্স রিপোর্ট (#53)
-- ভ্যারিয়েন্স অটো-অ্যানালাইসিস ইঞ্জিন (#109)
-
-### 🚆 Train Schedule Awareness & Disruption Cascade
-- দূরপাল্লার এক্সপ্রেস ট্রেনসমূহের ১+ মাস পূর্বের সময়সূচি ডাটাবেজ: **Train Time Table Master (#114)**
-- লাইভ এনটিইএস ট্র্যাকিংয়ের মাধ্যমে শিডিউল বিচ্যুতি সনাক্তকরণ: **Schedule Deviation Detector (#116)**
-- ট্রেনের বিলম্বের প্রেক্ষিতে তাৎক্ষণিক ব্লক ও ট্রেন শিডিউল পুনঃগণনা: **Delay Cascade Recalculator (#115)**
-
-### 🛡️ Safety Suite (১৫টি কমপ্লিট মডিউল: #71 – #85)
-1. ডিজিটাল টোকেন এক্সচেঞ্জ (#71)
-2. ক্রু হেডকাউন্ট বায়োমেট্রিক/ডিজিটাল চেক (#72)
-3. ওএইচই পাওয়ার আইসোলেশন ও গ্রাউন্ডিং ইন্টারলক (#73)
-4. লক-আউট ট্যাগ-আউট (LOTO) ডিজিটাল রেজিস্ট্রি (#74)
-5. ওয়েদার গেটওয়ে ও অটো-অ্যালার্ট (#75)
-6. ট্রেন অ্যাপ্রোচ আর্লি ওয়ার্নিং সাউন্ড ও ভাইব্রেশন (#76)
-7. ওভারস্টে ডিটেকশন ও অটো টিএসআর (TSR) ইম্পজিশন (#77)
-8. লোন ওয়ার্কার সেফগার্ড মনিটরিং (#78)
-9. এসওএস ও প্যানিক বাটন জরুরি অ্যালার্ট (#79)
-10. সেকশন ক্লিয়ারেন্স সার্টিফিকেট (#80)
-11. মেকানিক্যাল টুলস ও ইকুইপমেন্ট কাউন্ট (#81)
-12. জিও-ট্যাগড ফটো কমপ্লিশন ভেরিফিকেশন (#82)
-13. ডিজিটাল টুলবক্স টক (TBT) ব্রডকাস্ট (#83)
-14. পারমিট-টু-ওয়ার্ক (PTW) ডিজিটাল গভর্নেন্স (#84)
-15. সেফটি কমপ্লায়েন্স ইনডেক্স ও স্কোর (#85)
-
-### 🎲 Demo Data System (৬টি টেস্ট ও প্রেজেন্টেশন ইঞ্জিন: #117 – #122)
-1. **Coherence Rule Engine (#117)**: ৭টি ডেটা অখণ্ডতা রুল যাচাইকারী ইঞ্জিন।
-2. **Master Seed Command (#118)**: `seed_railway_demo` কমান্ড (ফিক্সড সিড: `26027`, ৭টি ফেজে ডেটা জেনারেশন)।
-3. **Demo Reset Command (#119)**: জিরো-স্টেট ডেমো রিসেট অটোমেশন (`reset_railway_demo`)।
-4. **Scenario Injector (#120)**: ৪টি স্ক্রিপ্টেড রিয়েল-লাইফ ডেমো সিনারিও (A/B/C/D)।
-5. **Source Adapter Switch (#121)**: মক ও রিয়েল রেলওয়ে API-এর সিমলেস কনফিগ টগল।
-6. **Demo Role Switcher (#122)**: এক ক্লিকে JE (ENG/TRD/SNT), SE এবং COA কন্ট্রোলারে ভূমিকা পরিবর্তন।
+### 1.2 Core Problem Context (The 4 PS Pillars)
+বর্তমানে ভারতীয় রেলে রক্ষণাবেক্ষণ ব্লক অনুমোদন একটি জটিল, সময়সাপেক্ষ এবং বহুলাংশে ম্যানুয়াল প্রক্রিয়া:
+1. **সাইলয়েড ডেটা আইল্যান্ড (Pillar 1):** ট্র্যাক ডিফেক্টের তথ্য থাকে TMS-এ, সিগন্যালের সমস্যা SMMS-এ, আর ওভারহেড তারের মেইনটেন্যান্স TDMS-এ। অপারেশন কন্ট্রোল (COA) আলাদাভাবে ট্রেনের সময়সূচি নিয়ন্ত্রণ করে। পরস্পরের মধ্যে স্বয়ংক্রিয় কোনো সমন্বয় নেই।
+2. **স্বচ্ছ প্রায়োরিটাইজেশনের অভাব (Pillar 2):** কোন ডিফেক্টটি আগে সারানো জরুরি (CoF × LoF রিস্ক ম্যাট্রিক্স, ডিফেক্ট এজিং, ট্রেনের গুরুত্ব) তা পরিমাপ করার অটোমেটিক গাণিতিক স্কোরিং ব্যবস্থা নেই।
+3. **বিচ্ছিন্ন ব্লক বনাম কম্বাইন্ড ব্লক উইন্ডো (Pillar 3 - Core USP):** একই সেকশনে ট্র্যাক, সিগন্যাল এবং OHE-এর তিনটি আলাদা দল সপ্তাহে ৩ বার আলাদা আলাদা ব্লক নিয়ে ট্রেন থামায়। আমাদের কোর উদ্ভাবন হলো **Combined Block Window (Feature #98)** — যেখানে একাধিক ডিপার্টমেন্ট একসাথে "শ্যাডো ব্লক" আকারে কাজ সম্পন্ন করবে, ফলে ট্রেনের ব্যাঘাত একবারই ঘটবে।
+4. **পরিকল্পনা ও অনুমোদনের জটিলতা (Pillar 4):** সাপ্তাহিক ও মাসিক দীর্ঘমেয়াদী প্ল্যানিংয়ের অভাব, ট্রেনের লেট হলে তাৎক্ষণিক রিক্যালকুলেশনের সুযোগ না থাকা এবং সনাতন কাগুজে মেমোর বদলে ডিজিটাল স্যাংশন অর্ডার PDF ও SLA ট্র্যাকিংয়ের প্রয়োজনীয়তা।
 
 ---
 
-## 3. Comprehensive 122-Feature Master Inventory
+## 2. Complete Directory Structure
 
-প্ল্যাটফর্মের সকল ১২২টি ফিচারের সুনির্দিষ্ট টিয়ারভিত্তিক বণ্টন:
+প্রজেক্টটি আধুনিক **Modular Clean Architecture** অনুসরণ করে গঠিত। ব্যাকএন্ডে Django 5 + Django REST Framework + Channels (WebSockets) + Celery, এবং ফ্রন্টএন্ডে React 18 + TypeScript + Vite + TailwindCSS:
 
 ```
-Total Features: 122
-├── MAIN - Core: 45 Features (Priority 1 — MVP Backbone)
-├── MAIN - Support: 30 Features (Priority 2 — Operational Safety & Sync)
-├── Extra - Additional: 43 Features (Priority 3 — Smart AI & Analytics)
-└── Future Scope: 4 Features (Priority 4 — Autonomous Frontier)
-```
-
-### ক. MAIN - Core Features (45টি)
-| SL | Feature Name | Category | PS Alignment | Key Solution Summary |
-|---|---|---|---|---|
-| 1 | **Unified Department Portal** | Core Block Planning | Point 3 - Optimization & Multi-dept Coordination | Engineering, Traction, Signal & Telecom — 3 departments' block requests on one p... |
-| 2 | **Auto Block Request Generator** | Core Block Planning | Point 1+2 - Data Integration & Auto Prioritization | Department enters work type and location; system auto-generates block request... |
-| 3 | **Real-Time Block Status Monitor** | Core Block Planning | Point 1+3 - Live COA/BDMS Data & Optimization | Live status of which section is blocked and which is free... |
-| 5 | **Block Duration Optimizer** | Core Block Planning | Point 3 - Maximize Uptime | AI calculates exact time needed for maintenance work... |
-| 6 | **Split Block Scheduling** | Core Block Planning | Point 3 - Maximize Uptime | Splits long block into smaller segments to reduce train disruption... |
-| 8 | **Night Block Preference** | Core Block Planning | Point 3 - Minimize Train Disruption | AI suggests night time for maintenance when passenger trains are less... |
-| 9 | **Crew & Gang Deployment Planner** | Core Block Planning | Point 3 - Resource Coordination | Auto-plans which engineering gang goes where and when... |
-| 10 | **Material & Tool Inventory Link** | Core Block Planning | Point 3 - Prevent Empty Blocks | Checks if sleepers, rails, tamper machines are available before approving block... |
-| 24 | **Train Priority Classifier** | Priority & Traffic | Point 2 - Criticality-based Prioritization | Rajdhani/Shatabdi > Mail/Express > Passenger > Freight — auto prioritization... |
-| 25 | **Fast Track Clearance** | Priority & Traffic | Point 3 - Priority Train Clearance | For high priority trains — block auto shortens or reschedules... |
-| 27 | **Passenger Impact Calculator** | Priority & Traffic | Point 2 - Impact-based Prioritization | Shows how many passengers will be late if block is given... |
-| 28 | **Freight Block Optimization** | Priority & Traffic | Point 3 - Freight/Goods Forecast Slots | Separate time slots for freight trains — less passenger disturbance... |
-| 29 | **Peak Hour Protection** | Priority & Traffic | Point 3 - Peak Hour Protection | Auto guard — no blocks during morning/evening rush hours... |
-| 31 | **AI Conflict Detection** | AI & Optimization | Point 3 - Multi-dept Conflict Elimination | Instant alert when two departments want same section same time... |
-| 32 | **Auto Conflict Resolution** | AI & Optimization | Point 3 - Multi-dept Conflict Elimination | AI suggests alternative time/location — 'ENG at 2pm, TRD at 4pm'... |
-| 33 | **Predictive Maintenance Scheduler** | AI & Optimization | Point 2+3 - Predictive Priority & Uptime | Predicts which asset will fail and books block in advance... |
-| 34 | **Smart Queue Management** | AI & Optimization | Point 2 - Priority + Urgency + Impact Ranking | Ranks block requests by priority + urgency + impact... |
-| 35 | **Seasonal Pattern Analyzer** | AI & Optimization | Point 2 - Seasonal Urgency Analysis | Monsoon/winter/fog — which sections have more problems seasonally... |
-| 36 | **Asset Downtime Predictor** | AI & Optimization | Point 2+3 - Asset Downtime Prediction | Predicts track, signal, OHE life and when maintenance is needed... |
-| 37 | **Workload Balancing** | AI & Optimization | Point 3 - Even Workload Distribution | Spreads blocks evenly — avoids multiple blocks on same section same day... |
-| 42 | **Control Office Live Feed** | Communication | Point 1 - COA/BDMS Live Data Integration | Real-time sync with Divisional Control Room — BDMS/COA data... |
-| 45 | **TMS Integration Module** | Multi-System Integration | Point 1 - TMS Integration | Pulls defect and task data from Track Management System... |
-| 46 | **SMMS Integration Module** | Multi-System Integration | Point 1 - SMMS Integration | Pulls signal failure data from Signalling Maintenance System... |
-| 47 | **TDMS Integration Module** | Multi-System Integration | Point 1 - TDMS Integration | Pulls OHE/power data from Traction Distribution System... |
-| 48 | **NTES/Train Status Link** | Multi-System Integration | Point 1 - Train Time Table / NTES Data | Pulls train current status from NTES for block planning... |
-| 61 | **Weekly & Monthly Block Plan Generator** | Core Block Planning | Point 4 - Weekly & Monthly Multi-Horizon Plans | AI generates rolling 7-day and 30-day optimized block schedules per section per ... |
-| 68 | **ETL Sync Scheduler (TMS/SMMS/TDMS/COA Connectors)** | Multi-System Integration | Point 1 - Data Integration Backbone | Configurable scheduler that periodically pulls defects, tasks and corridor data ... |
-| 73 | **OHE Power Isolation Confirmation** | Safety | Point 3 - TRD Safety Lock | TRD operator digitally confirms power OFF + earthing before gang check-in for tr... |
-| 76 | **Train Approach Warning System** | Safety | Point 3 - Crew Safety | When a train comes within 2-3 stations of a blocked section, auto SMS/app alert ... |
-| 77 | **Block Overstay Auto-Escalation + TSR Suggestion** | Safety | Point 3 - Safe Operations Guard | Block time over → countdown alerts to gang, auto-escalation to SE, and Temporary... |
-| 80 | **Section Clearance Certificate** | Safety | Point 3 - Safe Operations Guard | Gang leader + JE dual digital sign-off "line clear, material removed, track safe... |
-| 86 | **Unified Asset Registry** | Multi-System Integration | Point 1 - Unified Asset Master | Master asset mapping: same bridge/signal/OHE mast mapped across TMS, SMMS, TDMS ... |
-| 87 | **Chainage Normalization Engine** | Multi-System Integration | Point 1 - Location Data Foundation | Converts all location formats (KM 45/2, station code, chainage) into standard se... |
-| 92 | **CoF × LoF Risk Matrix** | AI & Optimization | Point 2 - Risk-based Prioritization | Consequence of Failure × Likelihood scoring per asset — international asset-mana... |
-| 93 | **Defect Aging Score** | AI & Optimization | Point 2 - Urgency Scoring | Priority rises exponentially with overdue days — old sleeping defects resurface ... |
-| 94 | **"Why #1?" AI Explanation Card** | AI & Optimization | Point 2 - Explainable AI | Every ranked task shows reasoning: "safety-critical + 38 days overdue + busy cor... |
-| 97 | **Critical Corridor Weighting** | AI & Optimization | Point 2 - Impact Scoring | Busy sections (e.g., Howrah–Bardhaman) weighted higher in priority scoring with ... |
-| 98 | **Combined Block Window Planner ⭐ USP** | Core Block Planning | Point 3 - Maximize Asset Availability (USP) | AI identifies tasks from ENGG+TRD+S&T that can share one section and window — co... |
-| 99 | **Task Dependency Graph Engine** | AI & Optimization | Point 3 - Technically Valid Plans | Hard ordering constraints (rail replacement → tamping → OHE alignment) enforced ... |
-| 102 | **Mega Block Planner** | Core Block Planning | Point 3 - Deep Maintenance Windows | Auto-plans weekly corridor-wide mega block packing big tasks from all department... |
-| 103 | **Cancelled Window Auto-Backfill** | Core Block Planning | Point 3 - Maximize Uptime | Cancelled/freed windows auto-offered to pending urgent tasks after resource avai... |
-| 105 | **Plan Freeze Window** | Core Block Planning | Point 4 - Stable Yet Flexible Plans | Next 48 hours frozen (change needs senior approval), far days flexible — stabili... |
-| 108 | **Auto Re-plan on Disruption** | AI & Optimization | Point 3+4 - Resilient Planning | Emergency/disruption triggers automatic re-optimization of the monthly plan with... |
-| 114 | **Train Time Table Master 🚆** | Multi-System Integration | Point 1 - Train Time Table Base Data | Full published train time table pre-loaded as master data — which train goes whi... |
-| 115 | **Delay Cascade Recalculator 🚆** | Priority & Traffic | Point 3 - Live Re-optimization on Delay | When a train runs late or schedule changes: instantly recalculates conflicting b... |
-
-### খ. MAIN - Support Features (30টি)
-| SL | Feature Name | Category | PS Alignment | Key Solution Summary |
-|---|---|---|---|---|
-| 11 | **Block Approval Workflow** | Core Block Planning | Point 4 - Plan Sanctioning Workflow | Digital hierarchy: JE → SE → Divisional approval with digital signatures... |
-| 13 | **Block History Log** | Core Block Planning | Point 1+2 - Historical Data Foundation | Historical record of when which section had what maintenance... |
-| 49 | **Block Utilization Dashboard** | Reporting | Point 3 - Utilization KPI | How much time block was used vs wasted — KPI... |
-| 50 | **Asset Availability Score** | Reporting | Core KPI - Asset Availability | Percentage time each section was operational... |
-| 53 | **Automated Daily Report** | Reporting | Point 4 - Plan Reporting | Daily block status, conflicts, resolutions — auto PDF... |
-| 63 | **Approval SLA & Escalation Tracker** | Core Block Planning | Point 4 - Plan Sanctioning Support | If JE/SE/Divisional approval pending beyond SLA, auto-escalates to next level wi... |
-| 67 | **Audit Trail & Compliance Log** | Reporting | Point 3 - Accountability for Optimized Plans | Immutable log of every request, edit, approval, override with user, timestamp an... |
-| 70 | **Minimum Work Window Enforcer** | Core Block Planning | Point 3 - Safe Optimization Guard | Safety rule engine — no block can be shortened/rescheduled below the minimum saf... |
-| 71 | **Digital Token System** | Safety | Point 3 - Safe Operations Guard | Control room issues digital "line closed" token to gang leader; block activates ... |
-| 72 | **Crew Headcount Verification** | Safety | Point 3 - Safe Operations Guard | Gang leader confirms full crew (e.g., 12/12) reached section before block sancti... |
-| 74 | **Digital LOTO Record** | Safety | Point 3 - Safe Operations Guard | Lock-Out Tag-Out: who locked which equipment, when, and release time — full digi... |
-| 75 | **Weather Safety Gate** | Safety | Point 3 - Safe Operations Guard | IMD thunderstorm/heavy rain warning auto-suggests suspension of OHE and track wo... |
-| 79 | **SOS Emergency Button** | Safety | Point 3 - Crew Safety | One-tap SOS in crew app sends location-based alert to control room, SE and neare... |
-| 81 | **Tool & Material Return Count** | Safety | Point 3 - Safe Operations Guard | Count of tools/machines taken vs returned confirmed before line clearance; QR fo... |
-| 82 | **Work Completion Photo Geo-tag** | Safety | Point 3 - Plan Quality Data | Before/after geo-tagged photos of completed work — proof + optimizer training da... |
-| 88 | **File-based Fallback Import (CSV/XML)** | Multi-System Integration | Point 1 - Practical Data Ingestion | Upload CSV/XML dumps from TMS/SMMS/TDMS with validation when APIs are unavailabl... |
-| 89 | **Data Freshness Monitor** | Multi-System Integration | Point 1 - Data Quality Guard | Dashboard alert when any source (TMS/SMMS/TDMS dump) is stale beyond threshold —... |
-| 91 | **Goods Forecast Manual Entry** | Multi-System Integration | Point 1 - Goods Train Forecast Input | Control office enters upcoming freight paths via simple validated form — practic... |
-| 95 | **Deferred Task Auto-Escalation** | AI & Optimization | Point 2 - Anti-Deferral Guard | Tasks repeatedly deferred get priority boost + officer alert; deferral reason ca... |
-| 100 | **Gang Home-base Routing** | Core Block Planning | Point 3 - Resource Efficiency | Block scheduling accounts for gang base stations — no more 2-hour travel eating ... |
-| 101 | **Material Delivery Slot Planning** | Core Block Planning | Point 3 - Utilization Guard | Delivery of sleepers/rails/machines scheduled to arrive BEFORE block start — pai... |
-| 106 | **Plan Versioning & Diff View** | Core Block Planning | Point 4 - Plan Governance | Every plan version saved with diff — who changed what and why; full decision his... |
-| 107 | **Sanction Order PDF Generator** | Reporting | Point 4 - Official Plan Output | Railway-format weekly/monthly sanction order PDF ready for officer signature — f... |
-| 109 | **Plan Variance Auto-Analysis** | Reporting | Point 3+4 - Continuous Improvement | Weekly "planned vs actual" with auto root-cause (rain, material, crew) via one-t... |
-| 116 | **Schedule Deviation Detector 🚆** | Multi-System Integration | Point 1 - Live Schedule Change Detection | Compares NTES live status vs published time table to auto-detect delays — trigge... |
-| 117 | **Coherence Rule Engine** | Demo Data System | Demo Data — Integrity Engine | 7 hard rules validate generated demo data (location validity, time order, gang e... |
-| 118 | **Master Seed Command (seed_railway_demo)** | Demo Data System | Demo Data — Entry Point | One Django management command seeds all 21 entities in 7 dependency phases with ... |
-| 119 | **Demo Reset Command (reset_demo)** | Demo Data System | Demo Data — Lifecycle | Wipes all demo data and re-seeds to pristine state in seconds — safe between dem... |
-| 120 | **Scenario Injector (inject_scenario)** | Demo Data System | Demo Data — Live Demo Control | POST endpoint/command injects a scripted event (train delay, emergency defect, c... |
-| 121 | **Source Adapter Switch (Mock ↔ Real)** | Demo Data System | Point 1 - Production Readiness Proof | Single config flag swaps data source between mock server and real CRIS endpoints... |
-
-### গ. Extra - Additional Features (43টি)
-| SL | Feature Name | Category | PS Alignment | Key Solution Summary |
-|---|---|---|---|---|
-| 4 | **Section-wise Corridor View** | Core Block Planning | Supporting / Presentation | Each section (Howrah-Kharagpur, Bardhaman-Asansol etc.) shown as separate cards... |
-| 7 | **Rolling Block System** | Core Block Planning | Supporting / Presentation | As one block ends, next section starts — chain system... |
-| 12 | **Emergency Block Override** | Core Block Planning | Supporting / Presentation | Instant emergency block for breakdown/accident with auto-alert to all department... |
-| 14 | **Interactive GIS Rail Map** | Map & Visualization | Supporting / Presentation | Full railway network on map — click any section for details... |
-| 15 | **Live Train Position Tracker** | Map & Visualization | Supporting / Presentation | Shows live location of every train on map — which section it is in now... |
-| 16 | **West Bengal District-wise View** | Map & Visualization | Supporting / Presentation | Filter by district: Howrah, Hooghly, Bardhaman, Nadia, Murshidabad... |
-| 17 | **Color-Coded Section Status** | Map & Visualization | Supporting / Presentation | Green=Free | Yellow=Pending | Red=Blocked | Black=Conflict... |
-| 19 | **Big Display / Control Room Mode** | Map & Visualization | Supporting / Presentation | Fullscreen dashboard — looks like railway control room... |
-| 20 | **Heatmap of Block Density** | Map & Visualization | Supporting / Presentation | Shows which sections have most blocks — heatmap visualization... |
-| 21 | **Train Route Animation** | Map & Visualization | Supporting / Presentation | Trains move smoothly along line — real-time feel... |
-| 22 | **Up/Down Line Separation** | Map & Visualization | Supporting / Presentation | Up line and Down line shown as separate layouts... |
-| 23 | **Yard & Siding Display** | Map & Visualization | Supporting / Presentation | Shows station yard, shunting lines, sidings... |
-| 26 | **Dynamic Route Diversion** | Priority & Traffic | Supporting / Presentation | If block exists, plans alternative route for train... |
-| 30 | **Platform Occupancy Tracker** | Priority & Traffic | Supporting / Presentation | Which platform has which train when — synced with block plan... |
-| 38 | **AI Chatbot (Rail Mitra)** | AI & Optimization | Supporting / Presentation | 'Is there block on Howrah-Asansol today?' — natural language answer... |
-| 39 | **Voice Command Interface** | AI & Optimization | Supporting / Presentation | 'Show tomorrow block schedule' — voice command... |
-| 40 | **Multi-Channel Alerts** | Communication | Supporting / Presentation | SMS, WhatsApp, Email, Push, In-App — all channels... |
-| 41 | **Crew Notification System** | Communication | Supporting / Presentation | Auto SMS to maintenance gang — 'Tomorrow 6am Bardhaman, Block BLK-102'... |
-| 43 | **Department Chat Room** | Communication | Supporting / Presentation | ENG, TRD, S&T — one chat for block discussion... |
-| 44 | **Public Passenger Alert** | Communication | Supporting / Presentation | SMS/WhatsApp to passengers if train delayed due to block... |
-| 51 | **Cost Impact Report** | Reporting | Supporting / Presentation | How many trains late, how much loss — financial impact... |
-| 52 | **Crew Efficiency Tracker** | Reporting | Supporting / Presentation | Which gang finished work on time — performance metric... |
-| 54 | **Weather-Adaptive Blocking** | External Factors | Supporting / Presentation | Rain/fog/heat — auto adjusts block schedule... |
-| 55 | **Flood/Submersion Alert** | External Factors | Supporting / Presentation | River level rises — auto cancel/postpone block in low sections... |
-| 56 | **Disaster/Emergency Reroute** | External Factors | Supporting / Presentation | Flood/accident — emergency block + rescue train route clear... |
-| 60 | **WhatsApp Bot for Crew** | Advanced/Future | Supporting / Presentation | 'Where is my duty today?' — WhatsApp answer... |
-| 62 | **What-If Scenario Simulator** | AI & Optimization | Supporting / Presentation | Planners test "what if this block moves to Thursday?" — system shows impact on c... |
-| 64 | **Corridor Gantt Timeline View** | Map & Visualization | Supporting / Presentation | Time-vs-section Gantt chart showing all blocks across days — who is where, when,... |
-| 65 | **Offline-First PWA for Field Crew** | Communication | Supporting / Presentation | Crew app works without internet — duty details, block info cached; auto-syncs wh... |
-| 66 | **Multilingual UI (Bengali/Hindi/English)** | Communication | Supporting / Presentation | Full interface in Bengali, Hindi and English — field staff use in their own lang... |
-| 69 | **Optimizer Feedback Loop (Self-Learning)** | AI & Optimization | Supporting / Presentation | Compares planned vs actual block outcomes and retrains duration/conflict models ... |
-| 78 | **Lone Worker Check-in Timer** | Safety | Supporting / Presentation | Solo crew members check in every 30 min; missed check-in auto-alerts supervisor... |
-| 83 | **Digital Toolbox Talk (TBT)** | Safety | Supporting / Presentation | Pre-work safety briefing record: today’s risks, responsibilities; crew check-in ... |
-| 84 | **Digital Permit-to-Work (PTW)** | Safety | Supporting / Presentation | Special permits for height work, welding, confined space — validity, auto-expiry... |
-| 85 | **Gang Safety Score** | Safety | Supporting / Presentation | Safety performance score per gang (violations, near-misses, TBT compliance) for ... |
-| 90 | **Duplicate Defect Merger** | Multi-System Integration | Point 1 - Data Quality Guard | AI similarity detection merges duplicate defect reports across systems before bl... |
-| 96 | **Backlog Burn-down Chart** | Reporting | Supporting / Presentation | Trend of overdue maintenance tasks over weeks — strategic KPI for division/minis... |
-| 104 | **Smart Buffer Auto-Insertion** | AI & Optimization | Point 3 - Plan Reliability | AI inserts buffers in sections with historical overruns — prevents cascade delay... |
-| 110 | **Simulation & Replay Mode** | Advanced/Future | Supporting / Presentation | Replay a full simulated day (trains, blocks, alerts) in 2 minutes for demos and ... |
-| 111 | **Mock Data Generator** | Advanced/Future | Supporting / Presentation | Generates realistic Howrah–Kharagpur corridor data: sections, stations, trains, ... |
-| 112 | **Role-Based Access Control (RBAC)** | Platform Admin | Supporting / Presentation | JE/SE/Officer/Control/Crew roles with least-privilege access; sensitive actions ... |
-| 113 | **Multi-Division Configuration** | Advanced/Future | Supporting / Presentation | Template-based config to deploy for any division/zone — SE Railway today, NR/CR ... |
-| 122 | **Demo Role Accounts & Quick Switch** | Demo Data System | Demo Data — Presentation Support | Pre-seeded logins for JE, SE, Divisional Officer, Control Room, Gang Leader + on... |
-
-### ঘ. Future Scope Features (4টি)
-| SL | Feature Name | Category | PS Alignment | Key Solution Summary |
-|---|---|---|---|---|
-| 18 | **3D Station Visualization** | Map & Visualization | Future Scope | Major stations in 3D model — platform, yard, track layout... |
-| 57 | **Drone Track Inspection** | Advanced/Future | Future Scope | Drone inspects track/OHE — AI spots defects... |
-| 58 | **CCTV Video Analytics** | Advanced/Future | Future Scope | Station/level crossing CCTV — AI detects anomaly... |
-| 59 | **Satellite Image Processing** | Advanced/Future | Future Scope | SAR/satellite images for flood-affected area mapping... |
-
----
-
-## 4. End-to-End System Architecture & C4 Models
-
-### C4 Model 1: System Context Diagram (Level 1)
-```mermaid
-graph TD
-    User_JE["Junior Engineers (ENG/TRD/SNT)"] -->|Submit Requests & Tokens| System["RailBlock AI Platform (PS 26027)"]
-    User_SE["Section Engineers (Supervisors)"] -->|Verify & Prioritize| System
-    User_COA["Control Office (COA / Traffic Control)"] -->|Sanction Combined Blocks| System
-    
-    System -->|Fetch Defects| TMS["TMS (Track System)"]
-    System -->|Fetch OHE Power Grid| TDMS["TDMS (Traction System)"]
-    System -->|Fetch Interlocking & Signals| SMMS["SMMS (Signals System)"]
-    System -->|Live Train Positions| NTES["NTES / COA Live Feed"]
-    System -->|Broadcast Emergency Alerts| AlertGateway["SMS / WhatsApp / Siren Gateway"]
-```
-
-### C4 Model 2: Container Diagram (Level 2)
-```mermaid
-graph TD
-    Client["React 18 + Vite SPA Frontend (Port 3000)"]
-    API["Django REST API Core (Port 8000)"]
-    ASGI["Daphne ASGI WebSocket Server (Port 8001)"]
-    Workers["Celery Distributed Workers & Beat"]
-    DB[("PostgreSQL 15 + PostGIS 3.3 / SQLite")]
-    Broker[("Redis 7 Cache & Channel Layer")]
-    DigitalTwin["Owlready2 + HermiT Semantic Reasoner"]
-
-    Client -->|HTTPS / REST| API
-    Client -->|WSS / WebSockets| ASGI
-    API -->|Read / Write| DB
-    API -->|Dispatch Jobs| Broker
-    ASGI -->|Pub / Sub| Broker
-    Workers -->|Process Jobs| Broker
-    Workers -->|Read / Write| DB
-    Workers -->|Query Graph| DigitalTwin
-    API -->|Reasoning Engine| DigitalTwin
+Railway-Project-for-SIH/
+├── 📁 apps/                                  # Django Modular Core Applications
+│   ├── 📁 accounts/                          # RBAC Authentication, User Personas & Permissions
+│   ├── 📁 analytics/                         # Asset Availability Score, Variance, KPI Engine
+│   ├── 📁 api/                                # Global URL Routing, Swagger/OpenAPI, Versioning
+│   ├── 📁 assets/                           # PostGIS Assets: Track, Signal, OHE, Stations
+│   ├── 📁 blocks/                            # Block Request, Optimization, Conflict, Combined Window
+│   ├── 📁 core/                              # Base Models, Abstract Audits, Exception Handlers
+│   ├── 📁 demo/                              # Master Demo Data, 7 Coherence Rules, Continuous Streaming & Dynamic Scenario Engine
+│   ├── 📁 departments/                       # ENGG, S&T, TRD Gangs, Equipment, Base-Stations
+│   ├── 📁 emergency/                         # Emergency Block Override, Track Breach, Derailment Guard
+│   ├── 📁 grievances/                        # Driver/Staff Feedback & Crew Safety Reporting
+│   ├── 📁 maintenance/                       # TMS/SMMS/TDMS Defect Logs, CoF×LoF Risk Scoring
+│   ├── 📁 notifications/                     # Real-time WebSocket Broadcast, SMS/Email Alerts
+│   ├── 📁 ontology/                          # Semantic Digital Twin (Owlready2, HermiT Reasoner, SHACL)
+│   └── 📁 trains/                            # Train Time Table, Live NTES Delays, Cascade Recalculator
+├── 📁 config/                                # Project Configuration & ASGI/WSGI Roots
+│   ├── __init__.py
+│   ├── asgi.py                               # Daphne ASGI Entrypoint for WebSockets
+│   ├── celery.py                             # Celery Worker Configuration (4 Dedicated Queues)
+│   ├── settings.py                           # PostgreSQL, Redis, PostGIS & Security Settings
+│   ├── urls.py                               # Master Root Router
+│   └── wsgi.py                               # Gunicorn WSGI Entrypoint
+├── 📁 digital_twin/                          # OWL 2 Ontologies & Semantic Graph Storage
+│   ├── railway_digital_twin.owl              # Indian Railways Semantic Network Ontology
+│   └── railway_rules.shacl                   # Semantic Coherence & Conflict Validation Rules
+├── 📁 docker/                                # Container Orchestration Manifests
+│   ├── Dockerfile                            # Multi-stage Python 3.11 Backend Build
+│   ├── entrypoint.sh                         # PostgreSQL wait, migrate, seed & run script
+│   └── nginx.conf                            # Nginx Reverse Proxy, SSL & Static Asset Server
+├── 📁 docs/                                  # 10 Master Specification & Execution Folders
+│   ├── 📁 00-master-high-level/              # Architecture, Decision Log, Glossary
+│   ├── 📁 01-tech-infra/                     # Backend, Frontend, Data Layer, Security, Testing
+│   ├── 📁 02-microservices/                  # Modular App Index & Dependency Matrix
+│   ├── 📁 03-service-blueprints/             # Blueprints for Blocks, Trains, Assets, Safety, Demo
+│   ├── 📁 04-function-maps/                  # Global Function ID Registry & API Signatures
+│   ├── 📁 05-deep-dive-logs/                 # Algorithms, Error Codes, ADRs, REST Contracts
+│   ├── 📁 06-testing-qa/                     # E2E Test Scenarios (A/B/C/D), Data Seeding Specs
+│   ├── 📁 07-roadmap/                        # Implementation Phases, Milestones, Rollback Plans
+│   ├── 📁 08-standards/                      # Coding, API, Commit, Prompt Engineering Standards
+│   └── 📁 09-execution-tracker/              # Living Parallel Backend+Frontend Checklist & Proofs
+├── 📁 frontend/                              # Enterprise React 18 SPA (TypeScript + Vite)
+│   ├── 📁 src/
+│   │   ├── 📁 assets/                        # SVG Icons, Indian Railways Badges, Audio Alerts
+│   │   ├── 📁 components/                    # Modular UI: GIS Corridor Map, Schedule Gantt, Modals
+│   │   ├── 📁 hooks/                         # useWebSocket, useAuth, useCorridorStatus, useLiveTrains
+│   │   ├── 📁 layouts/                       # Control Room Layout, Department Workspace Layout
+│   │   ├── 📁 pages/                         # Dashboard, Block Planning, Safety Suite, Analytics
+│   │   ├── 📁 services/                      # Axios API Clients with Auto-Retry & Error Interceptors
+│   │   ├── 📁 stores/                        # Zustand Global State (Auth, Active Blocks, Live Alerts)
+│   │   ├── 📁 types/                         # Strict TypeScript Interfaces for all API Entities
+│   │   ├── 📁 utils/                         # Date-fns, Chainage Converters, Geometry Parsers
+│   │   ├── App.tsx                           # Master Router & Protected Route Guards
+│   │   ├── index.css                         # Tailwind Directives, Custom Railway Design Tokens
+│   │   └── main.tsx                          # Vite React DOM Bootstrap
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── tailwind.config.js
+│   └── vite.config.ts
+├── 📁 scripts/                               # Operational Tooling & Demo Generators
+│   ├── init_postgres.sh                      # PostGIS Extension Init Script (`CREATE EXTENSION postgis;`)
+│   ├── seed_railway_demo.py                  # Master Seed (Fixed Seed 26027, 7-Phase Execution)
+│   ├── start.ps1                             # One-click Windows PowerShell Startup Engine
+│   └── start.sh                              # One-click Linux/macOS Startup Engine
+├── .env.example                              # Template Environment Variables (Zero Secrets)
+├── .gitignore
+├── docker-compose.yml                        # Production-ready PostGIS, Redis, Backend, Frontend
+├── manage.py                                 # Django CLI Controller
+├── README.md                                 # Top-Level System Overview & Setup Guide
+└── requirements.txt                          # Locked Production Python Dependencies
 ```
 
 ---
 
-## 5. Technology Stack Matrix
+## 3. Master Neuro-Symbolic AI System Architecture
 
-| Layer | Technology | Version | Purpose in PS 26027 | Alternative Rejected |
-|:---|:---|:---|:---|:---|
-| **Backend Core** | Django & Django REST Framework | 5.0.x / 3.14.x | এন্টারপ্রাইজ REST API, RBAC ও অ্যাডমিন কনসোল | FastAPI (অ্যাডমিন প্যানেল ও ম্যাচিউর ORM-এর অভাব) |
-| **Real-time Server** | Daphne + Django Channels | 4.1.x / 4.0.x | ট্রেনের লাইভ অবস্থান ও ট্রেন অ্যাপ্রোচ অ্যালার্ট ব্রডকাস্ট | Socket.io Node (ডিপার্টমেন্ট ডাটার সাথে সিঙ্কের জটিলতা) |
-| **Relational & Spatial DB** | PostgreSQL + PostGIS | 15 / 3.3 | ট্র্যাক চেইনেজ, স্টেশন কোঅর্ডিনেট ও করিডোর জিআইএস ডাটাবেজ (লোকালে SQLite ফলব্যাক) | MySQL (PostGIS-এর মতো স্পেশাল ফাংশনালিটি নেই) |
-| **Task Queue & Scheduler** | Celery + Celery Beat | 5.3.x | সুইপ-লাইন কনফ্লিক্ট ডিটেকশন, ডিলে ক্যাসকেড ও ইটিএল সিডিউল | Cron Bash (ডিস্ট্রিবিউটেড স্টেট ম্যানেজমেন্ট নেই) |
-| **Cache & Event Broker** | Redis | 7.x-alpine | চ্যানেল লেয়ার মেমরি ও ব্যাকগ্রাউন্ড টাস্ক ব্রোকার | RabbitMQ (চ্যানেল লেয়ার হ্যান্ডলিংয়ে রেডিস বেশি উপযোগী) |
-| **Semantic AI Engine** | Owlready2 + HermiT | 0.45 | OWL 2 ডিজিটাল টুইন ম্যাপ ও ক্রস-ডিপার্টমেন্ট ইমপ্যাক্ট রিজনিং | Neo4j (অনটোলজি ইনফারেন্স ইঞ্জিন ইন-প্রসেস রান করানো সুবিধাজনক) |
-| **Frontend Framework** | React + TypeScript + Vite | 18.2 / 5.1 | ডায়নামিক এসপিএ, করিডোর গ্যান্ট চার্ট ও ইন্টারেক্টিভ জিআইএস ম্যাপ | Angular (ডেভেলপমেন্ট স্পিড ও রিঅ্যাক্ট ইকোসিস্টেমের গতি) |
-| **State Management** | Zustand | 4.5.x | রিয়েল-টাইম ডেমো সুইচিং (#122) ও ফিল্টার স্টেট স্টোরেজ | Redux Toolkit (অপ্রয়োজনীয় বয়লারপ্লেট কোড) |
-| **CSS & Design System** | Tailwind CSS + Lucide | 3.4.x | এন্টারপ্রাইজ ডার্ক থিম ও রেসপন্সিভ ড্যাশবোর্ড ডিজাইন | Bootstrap (কাস্টমাইজেশন সীমিত) |
+### 3.1 End-to-End Enterprise Architecture Topology
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              🖥️ CLIENT LAYER (React 18 + Vite + TS)                             │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐   │
+│  │  ENG/TRD/SNT     │  │  Control Room    │  │  Interactive GIS │  │  TanStack Query +      │   │
+│  │  Dashboards      │  │  Big Screen      │  │  Corridor Map    │  │  Zustand State Mgmt    │   │
+│  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘  └───────────┬────────────┘   │
+└───────────┼─────────────────────┼─────────────────────┼────────────────────────┼────────────────┘
+            │ HTTPS / WSS         │                     │                        │
+            ▼                     ▼                     ▼                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              🌐 GATEWAY LAYER (Nginx Reverse Proxy)                             │
+│           Routes /api/* to Gunicorn (Port 8000) and /ws/* to Daphne (Port 8001)                 │
+└──────────────────────────────┬─────────────────────────────────────────┬────────────────────────┘
+                               │                                         │
+                               ▼                                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                           ⚙️ APPLICATION LAYER (Django 5.0 Monolith)                            │
+│                                                                                                 │
+│  ┌────────────────────────────────┐                 ┌────────────────────────────────────────┐  │
+│  │  🦄 Gunicorn (WSGI Server)     │                 │  🐉 Daphne (ASGI WebSocket Server)     │  │
+│  │  Port: 8000                    │                 │  Port: 8001                            │  │
+│  │  • REST API (DRF)              │◄───────────────►│  • Django Channels                     │  │
+│  │  • JWT Auth & RBAC             │      Redis      │  • Real-time Push-to-Invalidate        │  │
+│  │  • Block CRUD & Validation     │     Pub/Sub     │  • Emergency Broadcasts & Map Flashes  │  │
+│  └────────────────┬───────────────┘                 └────────────────────────────────────────┘  │
+│                   │                                                                             │
+└───────────────────┼─────────────────────────────────────────────────────────────────────────────┘
+                    │ Enqueues Tasks via Redis Broker
+                    ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                        🚀 BACKGROUND PROCESSING LAYER (Celery 5.3)                              │
+│                                                                                                 │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐  ┌──────────────────────┐   │
+│  │ ⚡ High Worker │  │ 📱 Notify      │  │ 🧠 Symbolic AI Worker  │  │ 🗄️ Default / Low     │   │
+│  │ • Conflict     │  │   Worker       │  │   (Ontology Engine)    │  │   Worker             │   │
+│  │   Detection    │  │ • SMS (Twilio/ │  │ • Owlready2 Graph      │  │ • Audit Log Archive  │   │
+│  │ • Emergency    │  │   CDAC)        │  │ • HermiT Reasoner      │  │ • ReportLab PDF Gen  │   │
+│  │   Override     │  │ • WS Push      │  │ • DL Rules & Reasoning │  │ • Data Rollup & KPI  │   │
+│  └────────────────┘  └────────────────┘  └────────────────────────┘  └──────────────────────┘   │
+└────────────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                             💾 DATA & AI LAYER (Storage & Intelligence)                         │
+│                                                                                                 │
+│  ┌────────────────────────────────────────┐  ┌───────────────────────────────────────────────┐  │
+│  │  🐘 PostgreSQL 15 + PostGIS 3.3        │  │  ⚡ Redis 7 (In-Memory Data Store)            │  │
+│  │  • Users, Blocks, Trains, Defect Logs  │  │  • Cache (Block lists, Active sessions)       │  │
+│  │  • Spatial Geometry (SRID 4326/3857)   │  │  • Celery Task Broker (4 Dedicated Queues)    │  │
+│  │  • ACID Transactions & GiST Indexes    │  │  • Django Channels Layer (Pub/Sub)            │  │
+│  └────────────────────────────────────────┘  │  • JWT Blacklist & API Rate Limiting          │  │
+│                                              └───────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  🧠 HYBRID AI ENGINE (Neuro-Symbolic Architecture)                                        │  │
+│  │                                                                                           │  │
+│  │  [ Symbolic AI Engine ]                ◄────────────────► [ Neural AI Engine (LLM) ]      │  │
+│  │  • Owlready2 + HermiT Reasoner                             • Google Gemini 1.5 Flash      │  │
+│  │  • Deterministic Rules (100% Safe, 0 Hallucinations)       • Natural Language Generation  │  │
+│  │  • OWL 2 DL Ontology Reasoning                             • Bengali & Hindi Explanations │  │
+│  │  • Physical Railway Track & Power Constraints              • "Why #1?" Explainable Card   │  │
+│  │  • Multi-Dept Hazard & OHE Cut Inference                   • Automated Shift Summary      │  │
+│  └───────────────────────────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   🌍 EXTERNAL SERVICES & ADAPTERS                               │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────┐  ┌──────────────────────┐   │
+│  │ 📱 Twilio / CDAC │  │ 🌦️ Open-Meteo   │  │ 🚆 NTES Live Feed  │  │ 📡 IoT / Sensors     │   │
+│  │   SMS Gateway    │  │   Weather API    │  │   (Time Table &    │  │   (Future Scope:     │   │
+│  │   (Crew Alerts)  │  │   (Flood/Fog)    │  │    Delay Stream)   │  │    Track Sensors)    │   │
+│  └──────────────────┘  └──────────────────┘  └────────────────────┘  └──────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
-*ডকুমেন্ট সম্পূর্ণ সিঙ্ক্রোনাইজড: RailBlock_Feature_Master_Plan_PS26027(1).xlsx*
+
+## 4. Neuro-Symbolic AI Engineering Framework
+
+### 4.1 Neuro-Symbolic Integration Mechanics
+মিশন-ক্রিটিকাল রেলওয়ে অপারেশনসে সেফটি এবং এক্সপ্লেনাবিলিটির সমন্বয় সাধনে সিস্টেমটি দুটি স্বতন্ত্র কিন্তু ইন্টারফেসিং লেয়ার নিয়ে গঠিত:
+1. **Symbolic AI Engine (Deterministic Reasoning & Hard Constraints):**
+   - **টুল ও লাইব্রেরি:** Python `owlready2` + `HermiT OWL 2 DL Reasoner` + `pyshacl`।
+   - **দায়িত্ব:** রেলওয়ে নেটওয়ার্কের টপোলজি, ওভারহেড ক্যাটেনারি তারের ফিড জোন, ইন্টারলকিং সিগন্যাল ও রোলিং স্টকের ভৌত নির্ভরতা মডেল করা।
+   - **জিরো-হ্যালুসিনেশন গ্যারান্টি:** গাণিতিক লজিক প্রুফ (Description Logic) ব্যবহার করে নির্ধারণ করা হয় যে কোনো ব্লকের প্রস্তাব অনুমোদিত হলে কোনো লাইভ ট্রেন বা অন্য বিভাগের কাজের সাথে দ্বন্দ্ব বা নিরাপত্তা বিঘ্ন ঘটবে কিনা।
+2. **Neural AI Engine (Natural Language Generation & Explainability):**
+   - **টুল ও লাইব্রেরি:** `Google Gemini 1.5 Flash` (বা স্থানীয় ফলব্যাক Ollama)।
+   - **দায়িত্ব:** সিম্বলিক এআই-এর জটিল ম্যাথমেটিকাল কনস্ট্রেইন্ট ভায়োলেশন অথবা অপ্টিমাইজেশন রেজাল্ট গ্রহণ করে মানুষের বোধগম্য ভাষায় অনুবাদ করা।
+   - **কঠোর বাউন্ডারি:** নিউরাল এআই কখনোই নিজে সরাসরি ডাটাবেস পরিবর্তন বা ব্লক শিডিউল নির্ধারণ করতে পারে না; এটি কেবলমাত্র সিম্বলিক ইঞ্জিনের প্রস্তুতকৃত প্রুফের ওপর ভিত্তি করে কন্ট্রোলারদের জন্য "Why #1?" এক্সপ্লেনেবল কার্ড (#94) ও দ্বিভাষিক (বাংলা/হিন্দি) অপারেশনাল রিপোর্ট তৈরি করে।
+
+### 4.2 Data Exchange Contract (Symbolic Reasoner ➔ Neural Generator)
+সিম্বলিক ইঞ্জিন যখন কোনো কনফ্লিক্ট বা অপ্টিমাইজড পাথ বের করে, তখন সেটি নিচের স্ট্রাকচার্ড JSON কন্ট্রাক্ট আকারে নিউরাল এআই সার্ভিসকে প্রদান করে:
+
+```json
+{
+  "trace_id": "PROOF-BLK-20260918-0042",
+  "decision_type": "COMBINED_BLOCK_OPTIMIZED",
+  "section_id": "HWH-BWN-L1",
+  "symbolic_proof": {
+    "deterministic_valid": true,
+    "departments_combined": ["ENGG_TRACK", "TRD_OHE"],
+    "time_window": {"start": "02:00", "end": "05:00", "duration_mins": 180},
+    "shadow_window_savings_mins": 120,
+    "impacted_trains": ["12301_RAJDHANI_EXPRESS"],
+    "safety_constraints_satisfied": ["OHE_POWER_ISOLATION_ZONE_4", "TRACK_CIRCUIT_LOCKED", "LOTO_VERIFIED"]
+  },
+  "explanation_prompt_directives": {
+    "target_audience": "Chief Section Controller",
+    "languages": ["bn", "en"],
+    "max_bullet_points": 3
+  }
+}
+```
+
+### 4.3 Deterministic Safety Verification Pipeline
+1. **ইনপুট রিসিভ:** REST API অথবা ব্যাচ ফিডের মাধ্যমে ব্লক রিকোয়েস্ট আসে।
+2. **পোস্টজিআইএস স্থানিক যাচাই:** সেকশন লাইনস্ট্রিং এবং চেইনেজ ইন্টারসেকশন যাচাই করা হয়।
+3. **সিম্বলিক ডিজিটাল টুইন রিজনিং:** Celery-র `symbolic_ai` কিউতে HermiT রিজনার চালানো হয়। কোনো সেফটি নিয়ম বিঘ্নিত হলে তৎক্ষণাৎ `REJECT_UNSAFE` ফ্ল্যাগ ওঠে।
+4. **নিউরাল এক্সপ্লেনেশন জেনারেশন:** রিজনিং সফল হলে কন্ট্রোলারের জন্য "Why #1?" কার্ড প্রস্তুত হয়।
+5. **মানবীয় অনুমোদন (Human-in-the-Loop):** চিফ কন্ট্রোলার ব্যাখ্যা ও ডেটা যাচাই করে চূড়ান্ত অনুমোদন দিলে ডিজিটাল টোকেন ও স্যাংশন PDF ইস্যু হয়।
+
+---
+
+## 5. C4 Model Diagrams (Levels 1 to 4)
+
+### 5.1 System Context Diagram (Level 1)
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                Indian Railways Ecosystem                               │
+│                                                                                        │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌────────────────────────┐ │
+│  │  Engineering (ENGG)     │  │ Signalling & Telecom    │  │ Traction (TRD)         │ │
+│  │  Track Maintenance Team │  │ S&T Maintenance Team    │  │ Overhead Line (OHE)    │ │
+│  │  (TMS Users)            │  │ (SMMS Users)            │  │ (TDMS Users)           │ │
+│  └────────────┬────────────┘  └────────────┬────────────┘  └───────────┬────────────┘ │
+│               │                            │                           │              │
+│               └────────────────────────────┼───────────────────────────┘              │
+│                                            │                                          │
+│                                            ▼                                          │
+│                              ┌───────────────────────────┐                            │
+│                              │  Control Office (COA)     │                            │
+│                              │  Chief Section Controller │                            │
+│                              └─────────────┬─────────────┘                            │
+│                                            │                                          │
+│                                            ▼                                          │
+│                        ┌───────────────────────────────────────┐                      │
+│                        │       RailBlock AI Platform           │                      │
+│                        │       (SIH Problem PS 26027)          │                      │
+│                        │ • TMS/SMMS/TDMS Unified Ingestion     │                      │
+│                        │ • Neuro-Symbolic AI Optimization      │                      │
+│                        │ • Combined Block Optimizer (#98)      │                      │
+│                        │ • Real-time PostGIS Corridor Monitor  │                      │
+│                        │ • 15-Feature Crew Safety Suite        │                      │
+│                        └───────┬───────────────────────┬───────┘                      │
+│                                │                       │                              │
+│                ┌───────────────┘                       └────────────────┐             │
+│                ▼                                                        ▼             │
+│   ┌─────────────────────────┐                              ┌────────────────────────┐ │
+│   │ External Systems / Mocks│                              │ Field Crew & Stations  │ │
+│   │ • COA Live Corridor     │                              │ • Digital Token (71)   │ │
+│   │ • NTES Train Movement   │                              │ • LOTO & Isolation (74)│ │
+│   │ • Open-Meteo Weather    │                              │ • Clear Section (80)   │ │
+│   └─────────────────────────┘                              └────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Container Diagram (Level 2)
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                  RailBlock Platform Containers                                 │
+│                                                                                                │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Client Tier: Modern Browser (Desktop / Tablet)                                            │  │
+│  │  ┌────────────────────────────────────────────────────────────────────────────────────┐  │  │
+│  │  │ Single Page Application (React 18 + TypeScript + Vite + TailwindCSS + Zustand)     │  │  │
+│  │  │ • Multi-Dept Dashboard • Interactive PostGIS Track Map • TanStack Query • Big Screen│  │  │
+│  │  └───────────────────────────────────────────┬────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────┼───────────────────────────────────────────┘  │
+│                                                 │ HTTPS / WSS                                  │
+│                                                 ▼                                              │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Web & Reverse Proxy Tier: Nginx 1.25 Alpine                                              │  │
+│  │ • Port 80/443 Termination • Static/Media Serving • SSL • HTTP/1.1 to Backend Reverse Proxy│  │
+│  └──────────────────────┬───────────────────────────────────────────────┬───────────────────┘  │
+│                         │ HTTP (Port 8000)                              │ WSS (Port 8001)      │
+│                         ▼                                               ▼                      │
+│  ┌──────────────────────────────────────────────┐  ┌────────────────────────────────────────┐  │
+│  │ Application Server: Gunicorn (WSGI)          │  │ ASGI Server: Daphne (Channels)         │  │
+│  │ Django 5.0 + Django REST Framework           │  │ Handles persistent WebSocket channels: │  │
+│  │ • REST API Endpoints (/api/v1/)              │  │ • Live train tracking updates          │  │
+│  │ • Business Logic & Workflow Engine           │  │ • Real-time block state transitions   │  │
+│  │ • Multi-dept CoF×LoF Prioritizer             │  │ • Instant SOS & emergency broadcasts   │  │
+│  └──────────────────────┬───────────────────────┘  └────────────────────┬───────────────────┘  │
+│                         │                                               │                      │
+│                         └───────────────────────┬───────────────────────┘                      │
+│                                                 │                                              │
+│                                                 ▼                                              │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Background Tasks & Event Broker: Celery 5.3 + Redis 7                                    │  │
+│  │ • Celery Worker (High): Real-time Conflict Engine & Emergency Overrides                  │  │
+│  │ • Celery Worker (Notify): SMS via Twilio/CDAC & Push Notifications                       │  │
+│  │ • Celery Worker (Symbolic AI): Owlready2 Semantic Graph & HermiT Reasoner Execution      │  │
+│  │ • Celery Worker (Default/Low): Sanction Order PDF, Audit Logs, Data Rollup               │  │
+│  │ • Redis 7: Shared Channel Layer, Distributed Lock, API Cache, Session Store              │  │
+│  └──────────────────────┬───────────────────────────────────────────────┬───────────────────┘  │
+│                         │                                               │                      │
+│                         ▼                                               ▼                      │
+│  ┌──────────────────────────────────────────────┐  ┌────────────────────────────────────────┐  │
+│  │ Primary Spatial Database:                    │  │ Hybrid AI & Knowledge Layer:           │  │
+│  │ PostgreSQL 15/16 + PostGIS 3.3               │  │ • Symbolic: Owlready2 / HermiT Quadstore│ │
+│  │ • PostGIS Geometries: Tracks, Stations, Line │  │ • Neural: Google Gemini 1.5 Flash API  │  │
+│  │ • Tables: Blocks, Trains, Defects, Gangs     │  │ • Cross-dept constraint inference      │  │
+│  │ • ACID Transactions, Foreign Keys, GiST Idx  │  │ • "Why #1?" Explanations in Bengali    │  │
+│  └──────────────────────────────────────────────┘  └────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.3 Component Diagram (Level 3) — Block Optimization & Neuro-Symbolic Pipeline
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 apps.blocks (Block Planning Core)                               │
+│                                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ API Layer (REST & WebSockets)                                                             │  │
+│  │ • BlockRequestViewSet • PendingApprovalViewSet • CombinedWindowViewSet • SafetyGateViewSet│  │
+│  └─────────────────────────────────────────────┬─────────────────────────────────────────────┘  │
+│                                                │                                                │
+│                                                ▼                                                │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Service & Orchestration Layer                                                             │  │
+│  │ ┌────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────────┐  │  │
+│  │ │ BlockOptimizationSvc   │  │ CombinedWindowOptimizer │  │ ConflictDetectionEngine     │  │  │
+│  │ │ • CoF×LoF prioritization│ │ • Feature #98 Core USP  │  │ • Temporal overlap check    │  │  │
+│  │ │ • Duration predictor   │  │ • Shadow block packing  │  │ • PostGIS spatial clash     │  │  │
+│  │ │ • Workload balancing   │  │ • Joint ENGG+S&T+TRD win│  │ • Auto-resolution proposer   │  │  │
+│  │ └───────────┬────────────┘  └────────────┬────────────┘  └──────────────┬──────────────┘  │  │
+│  │             │                            │                              │                 │  │
+│  │ ┌───────────▼────────────────────────────▼──────────────────────────────▼──────────────┐  │  │
+│  │ │ Neuro-Symbolic Hybrid Bridge                                                         │  │  │
+│  │ │ • Symbolic Validation: Invokes Celery `symbolic_ai` worker (HermiT Reasoner)         │  │  │
+│  │ │ • Proof Extraction: Generates mathematical constraint satisfaction proof             │  │  │
+│  │ │ • Neural Translation: Gemini 1.5 Flash generates "Why #1?" card in Bengali/Hindi     │  │  │
+│  │ └────────────────────────────────────────┬─────────────────────────────────────────────┘  │  │
+│  │                                          │                                                │  │
+│  │ ┌────────────────────────┐  ┌────────────▼────────────┐  ┌─────────────────────────────┐  │  │
+│  │ │ SafetyComplianceGuard  │  │ CascadeDelayRecalculator│  │ SanctionOrderGenerator      │  │  │
+│  │ │ • Digital Token (#71)  │  │ • Live NTES delay feed  │  │ • Official PDF (#107)       │  │  │
+│  │ │ • OHE Isolation (#73)  │  │ • Auto-reschedule (#108)│  │ • Digital Signatures        │  │  │
+│  │ │ • LOTO & TSR (#74, #77)│  │ • Express train priority│  │ • QR verification code      │  │  │
+│  │ └────────────────────────┘  └─────────────────────────┘  └─────────────────────────────┘  │  │
+│  └─────────────────────────────────────────────┬─────────────────────────────────────────────┘  │
+│                                                │                                                │
+│                                                ▼                                                │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Data & Storage Layer (PostgreSQL 15 + PostGIS & Redis)                                    │  │
+│  │ • BlockSchedule (Spatial Lines, Status, Priority) • ConflictMatrix • SafetyPermitToken    │  │
+│  └───────────────────────────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.4 Deployment Diagram (Level 4)
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                             Host Server / Cloud VM (Docker Engine)                              │
+│                                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Docker Network: `railway_network` (Bridge Mode)                                           │  │
+│  │                                                                                           │  │
+│  │  ┌────────────────────────┐      ┌─────────────────────────┐      ┌────────────────────┐  │  │
+│  │  │ container:             │      │ container:              │      │ container:         │  │  │
+│  │  │ railway_nginx          │─────►│ railway_backend         │─────►│ railway_postgres   │  │  │
+│  │  │ (Port 80, 443)         │      │ Gunicorn (Port 8000)    │      │ PostGIS 15-3.3     │  │  │
+│  │  │ Reverse proxy & SSL    │      │ Daphne (Port 8001)      │      │ (Port 5432)        │  │  │
+│  │  └───────────┬────────────┘      └────────────┬────────────┘      └────────────────────┘  │  │
+│  │              │                                │                                           │  │
+│  │              ▼                                ▼                                           │  │
+│  │  ┌────────────────────────┐      ┌─────────────────────────┐                              │  │
+│  │  │ container:             │      │ container:              │                              │  │
+│  │  │ railway_frontend       │      │ railway_celery_worker   │                              │  │
+│  │  │ Vite/Nginx SPA         │      │ (4 Specialized Queues)  │                              │  │
+│  │  │ (Port 3000)            │      └────────────┬────────────┘                              │  │
+│  │  └────────────────────────┘                   │                                           │  │
+│  │                                               ▼                                           │  │
+│  │                                  ┌─────────────────────────┐                              │  │
+│  │                                  │ container:              │                              │  │
+│  │                                  │ railway_redis           │                              │  │
+│  │                                  │ Redis 7 Alpine          │                              │  │
+│  │                                  │ (Port 6379)             │                              │  │
+│  │                                  └─────────────────────────┘                              │  │
+│  └───────────────────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                                 │
+│  Persistent Named Volumes:                                                                      │
+│  • `postgres_data` -> `/var/lib/postgresql/data` (PostgreSQL ACID Data)                         │
+│  • `redis_data`    -> `/data` (Redis AOF/RDB Persistence)                                       │
+│  • `media_volume`  -> `/app/media` (Generated PDFs, Geo-tagged incident photos)                 │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. Comprehensive Tech Stack Table
+
+| Layer | Technology | Version | Purpose in PS 26027 | Rejected Alternative & Concrete Rationale |
+| :--- | :--- | :--- | :--- | :--- |
+| **Database** | **PostgreSQL + PostGIS** | **15-3.3 / 16** | রিয়েল-ওয়ার্ল্ড রেলওয়ে ট্র্যাক চেইনেজ, সেকশন লাইনস্ট্রিং জিওমেট্রি এবং স্থানিক ইন্টারসেকশন কোয়েরি। | **MySQL 8.0:** PostGIS-এর মতো ইন্ডাস্ট্রিয়াল স্প্যাশিয়াল জিওমেট্রি ও চেইনেজ ক্যালকুলেশন লাইব্রেরি নেই। |
+| **Symbolic AI Engine** | **Owlready2 + HermiT** | **0.46** | ভারতীয় রেলের ভৌত নিয়মের ওপর নির্মিত Semantic Digital Twin; ১০০% ডিটারমিনিস্টিক সেফটি রিজনিং ও জিরো হ্যালুসিনেশন। | **Pure LLM Decision:** মিশন-ক্রিটিকাল সেফটিতে হ্যালুসিনেশন ও দুর্ঘটনার ঝুঁকি থাকে। |
+| **Neural AI (LLM)** | **Google Gemini** | **1.5 Flash** | সিম্বলিক এআই-এর জটিল প্রমাণ পড়ে বাংলা/হিন্দিতে "Why #1?" কার্ড ও এক্সপ্লেনেবল রিপোর্ট তৈরি। | **OpenAI GPT-4:** ধীরগতি, ব্যয়বহুল এবং ভারতীয় রেলওয়ে স্থানীয় ভাষা ব্যাখ্যায় সীমাবদ্ধ। |
+| **Backend Framework** | **Django** | **5.0.x** | এন্টারপ্রাইজ রেলওয়ে লজিক, বিল্ট-ইন অ্যাডমিন পোর্টাল, শক্তিশালী ORM এবং মডিউলার অ্যাপ স্ট্রাকচার। | **Node.js/Express:** রেলওয়ের জটিল কোয়ালিটেটিভ অ্যালগরিদম ও ডেটা অ্যানালিটিক্সে Python অপরিহার্য। |
+| **API Architecture** | **Django REST Framework (DRF)** | **3.14.x** | কঠোর ভ্যালিডেশন, সিরিয়ালাইজেশন, ফিল্টারিং ও পেজিনেশন সহ RESTful API। | **FastAPI:** ডাটাবেস অ্যাডমিন কনসোল ও ইন্টিগ্রেটেড মডেল ওয়ার্কফ্লো অনুপস্থিত। |
+| **Real-time WebSockets** | **Django Channels + Daphne** | **4.0.x** | কন্ট্রোল রুম স্ক্রিনে ইনস্ট্যান্ট ট্রেনের অবস্থান, ব্লক অনুমোদন এবং ইমার্জেন্সি লাল ফ্ল্যাশ ব্রডকাস্ট। | **Polling:** উচ্চ লেটেন্সি এবং ঘন ঘন HTTP রিকোয়েস্টে সার্ভার লোড বৃদ্ধি পায়। |
+| **Task Queue & Scheduler** | **Celery + Celery Beat** | **5.3.x** | ৪টি ডেডিকেটেড কিউ (`high`, `notify`, `symbolic_ai`, `default_low`) সহ ডিস্ট্রিবিউটেড ব্যাকগ্রাউন্ড এক্সিকিউশন। | **Django Background Tasks:** হাই-থ্রুপুট রিয়েল-টাইম কিউ ও ডিস্ট্রিবিউটেড স্কেলিং নেই। |
+| **In-Memory Cache & Broker**| **Redis** | **7.0 Alpine** | ডিস্ট্রিবিউটেড চ্যানেল লেয়ার, এপিআই রেট লিমিটিং, অ্যাক্টিভ ব্লক ক্যাশ ও Celery ব্রোকার। | **RabbitMQ:** কেবল মেসেজ কিউ; Redis ক্যাশিং ও চ্যানেল লেয়ারের দ্বৈত সুবিধা একসাথে দেয়। |
+| **Frontend Framework** | **React + Vite** | **18.2 / 5.0** | কম্পোনেন্ট-ভিত্তিক আল্ট্রা-ফাস্ট ইন্টারেক্টিভ ইউজার ইন্টারফেস এবং লাইটওয়েট সিঙ্গেল পেজ আর্কিটেকচার। | **Next.js:** লোকাল ডিভিশনাল রেলওয়ে সার্ভারে ক্লায়েন্ট-সাইড এক্সিকিউশন ও অফলাইন স্টোরেজ বেশি স্থিতিশীল। |
+| **Programming Language (UI)**| **TypeScript** | **5.x** | স্ট্যাটিক টাইপিং — জটিল ব্লক রিকোয়েস্ট ও ট্রেনের পে-লোডে রানটাইম বাগ রোধে অপরিহার্য। | **Plain JavaScript:** ১০০+ ফিল্ড সমৃদ্ধ রেলওয়ে শিডিউল ট্র্যাকিংয়ে টাইপ সেফটি থাকে না। |
+| **UI Styling System** | **TailwindCSS** | **3.4.x** | রেলওয়ের ডার্ক কন্ট্রোল-রুম থিম, কাস্টম কালার প্যালেট ও রেস্পন্সিভ লেআউট সিস্টেম। | **Bootstrap:** কাস্টম ইন্টারফেস ও ডাইনামিক ইন্টারঅ্যাকশনে ভারী এবং অপরিবর্তনীয়। |
+| **State & Data Fetching** | **Zustand + TanStack Query** | **4.5 / 5.x** | সুপার-ফাস্ট ক্লায়েন্ট স্টেট ও সার্ভার স্টেট সিনক্রোনাইজেশন উইথ অটো-রিট্রাই ও ক্যাশিং। | **Redux Toolkit:** বয়লারপ্লেট বেশি এবং অপ্রয়োজনীয় ওভারহেড তৈরি করে। |
+| **GIS Map Engine** | **Leaflet / Mapbox** | **1.9 / 2.15** | ডিভিশনাল ট্র্যাক, চেইনেজ মার্কার ও লাইভ ট্রেনের অবস্থান নির্দেশক হাই-পারফরম্যান্স স্প্যাশিয়াল ম্যাপ। | **Google Maps API:** অফলাইন রেলওয়ে ইন্ট্রানেটে টোকেন ও লাইসেন্সিং জটিলতা। |
+| **Document Generation** | **ReportLab** | **4.0.x** | অফিসিয়াল ভারতীয় রেলওয়ে ফরম্যাটে ডিজিটাল সাইন ও কিউআর কোড সহ স্যাংশন অর্ডার PDF জেনারেশন (#107)। | **Weasyprint:** অতিরিক্ত সিস্টেম ডিপেন্ডেন্সি ও ফন্ট রেন্ডারিং ইস্যু থাকে। |
+| **Container Engine** | **Docker + Compose** | **24+ / 2.24+** | এক কমান্ডে সম্পূর্ণ ডেটাবেস, ব্রোকার ও অ্যাপ ইন্সট্যান্স তৈরি ও আইসোলেশন। | **Bare Metal:** বিভিন্ন ওএসে লাইব্রেরি ও PostGIS ইন্সটলেশনে অসংগতি ঘটে। |
+
+---
+
+## 7. Step-by-Step Data Flows (Top 3 Mission-Critical Use Cases)
+
+### Use Case 1: Multi-Department Combined Block Window Planning & Sanction (Features #98, #11, #107)
+*বর্ণনা:* ট্র্যাক, সিগন্যাল ও OHE বিভাগ একই সেকশনে কাজের আবেদন জানালে Neuro-Symbolic AI ইঞ্জিন তাদের পৃথক ব্লক অনুমোদন না দিয়ে একটি একক "Combined Block Window" তৈরি করে এবং অফিসিয়াল PDF স্যাংশন অর্ডার ইস্যু করে।
+
+```text
+┌─────────────┐     ┌────────────────────────────────────────────────────────────────────────┐     ┌───────────────────────┐
+│ ENGG / S&T  │     │                       RailBlock AI Platform Core                       │     │  Control Office (COA) │
+│ Field Dept  │     │                                                                        │     │  Chief Controller     │
+└──────┬──────┘     └───────────────────────────────────┬────────────────────────────────────┘     └───────────┬───────────┘
+       │                                                │                                                      │
+       │ 1. POST /api/v1/blocks/ (TMS/SMMS/TDMS)        │                                                      │
+       │───────────────────────────────────────────────►│                                                      │
+       │    Payload: {section_id: "HWH-BWN-L1",         │                                                      │
+       │              dept: "ENGG", type: "TAMPING",    │                                                      │
+       │              duration_req: 180 mins}           │                                                      │
+       │                                                │ 2. Priority & Risk Engine                            │
+       │                                                │    • CoF×LoF Score Calculation (#92)                 │
+       │                                                │    • Defect Aging Score (#93)                        │
+       │                                                │    • Train Timetable Clashes (#114)                  │
+       │                                                │                                                      │
+       │                                                │ 3. Combined Block Optimizer (#98)                    │
+       │                                                │    • Detects TRD OHE Maintenance Request             │
+       │                                                │      on same corridor (HWH-BWN-L1)                   │
+       │                                                │    • Merges into Single Combined Window              │
+       │                                                │    • "Shadow Block" Created (Saves 120 mins)         │
+       │                                                │                                                      │
+       │                                                │ 4. Symbolic Engine (HermiT): Proves 0 Hazards        │
+       │                                                │ 5. Neural Engine (Gemini): Generates "Why #1?" Card  │
+       │                                                │                                                      │
+       │                                                │ 6. WebSocket Broadcast: NEW_BLOCK_PENDING            │
+       │                                                │─────────────────────────────────────────────────────►│
+       │                                                │                                                      │
+       │                                                │ 7. Review "Why #1?" Card (#94) & Combined Stats      │
+       │                                                │    Controller checks impact on 12301 Rajdhani        │
+       │                                                │                                                      │
+       │                                                │ 8. POST /api/v1/blocks/{id}/approve/                 │
+       │                                                │◄─────────────────────────────────────────────────────│
+       │                                                │                                                      │
+       │                                                │ 9. Celery Worker Triggers:                           │
+       │                                                │    • Generate Sanction Order PDF (#107)              │
+       │                                                │    • Issue Digital Safety Token (#71)                │
+       │                                                │    • Lock PostGIS Corridor Geometry                  │
+       │                                                │                                                      │
+       │ 10. Real-Time Notification & PDF Download      │ 11. Real-Time Map Update (Section turns AMBER)       │
+       │◄───────────────────────────────────────────────│─────────────────────────────────────────────────────►│
+       │                                                │                                                      │
+```
+
+### Use Case 2: Schedule Deviation & Real-Time Disruption Cascade Auto-Replan (Features #115, #116, #108)
+*বর্ণনা:* NTES ফিড থেকে জানা গেল ১২৩০৫ রাজধানী এক্সপ্রেস ৪৫ মিনিট বিলম্বে চলছে। ফলে নির্ধারিত রক্ষণাবেক্ষণ ব্লক এবং ট্রেনের মধ্যে সম্ভাব্য সংঘর্ষ তৈরি হয়েছে। সিস্টেম কোনো মানবিক হস্তক্ষেপ ছাড়াই তাৎক্ষণিক পুনরায় গণনা করে এবং স্লট পুনর্বিন্যাস করে।
+
+```text
+┌──────────────────┐     ┌────────────────────────────────────────────────────────┐     ┌────────────────────────┐
+│ NTES Live Stream │     │                RailBlock Automation Engine             │     │ Corridor Station & Crew│
+└────────┬─────────┘     └───────────────────────────┬────────────────────────────┘     └───────────┬────────────┘
+         │                                           │                                              │
+         │ 1. NTES Delay Event Detected              │                                              │
+         │    Train 12305: +45 mins delay at ASN     │                                              │
+         │──────────────────────────────────────────►│                                              │
+         │                                           │ 2. Schedule Deviation Detector (#116)        │
+         │                                           │    Identifies collision with Block #B-402    │
+         │                                           │    scheduled at 14:00 (BWN-KGR Section)      │
+         │                                           │                                              │
+         │                                           │ 3. Delay Cascade Recalculator (#115)         │
+         │                                           │    Simulates passenger delay propagation     │
+         │                                           │                                              │
+         │                                           │ 4. Auto Re-Plan On Disruption (#108)         │
+         │                                           │    • Auto-adjusts Block #B-402 to 14:50      │
+         │                                           │    • Preserves Minimum Work Window (#70)     │
+         │                                           │    • Backfills Cancelled Window (#103) with  │
+         │                                           │      freight train slot (#28)                │
+         │                                           │                                              │
+         │                                           │ 5. Audit Log & State Persistence             │
+         │                                           │    Saved in PostgreSQL with Versioning (#106)│
+         │                                           │                                              │
+         │                                           │ 6. Real-Time Alert Broadcast                 │
+         │                                           │    WebSocket: "SCHEDULE_REOPTIMIZED"         │
+         │                                           │─────────────────────────────────────────────►│
+         │                                           │    Gantt chart and Track Map update instantly│
+```
+
+### Use Case 3: 15-Point Safety Suite Execution — Permit-to-Work, LOTO & Clearance (Features #71, #73, #74, #80)
+*বর্ণনা:* ব্লক শুরু করার পূর্বে কন্ট্রোল ও ফিল্ড গ্যাংয়ের মধ্যে ডিজিটাল টোকেন আদান-প্রদান, OHE পাওয়ার আইসোলেশন ও LOTO নিশ্চিতকরণ, এবং কাজ শেষে সম্পূর্ণ সেকশন ক্লিয়ারেন্স সার্টিফিকেট প্রদান।
+
+```text
+┌──────────────────┐     ┌────────────────────────────────────────────────────────┐     ┌────────────────────────┐
+│ Field Maintenance│     │                Safety Compliance Engine                │     │ Section Controller     │
+│ Gang Supervisor  │     │                                                        │     │ (Power & Traffic)      │
+└────────┬─────────┘     └───────────────────────────┬────────────────────────────┘     └───────────┬────────────┘
+         │                                           │                                              │
+         │ 1. Request Digital Token Issue (#71)      │                                              │
+         │──────────────────────────────────────────►│                                              │
+         │                                           │ 2. Verification Gate:                        │
+         │                                           │    • Weather Gate (#75): Wind < 50 km/h      │
+         │                                           │    • Crew Headcount (#72): Verified 12/12    │
+         │                                           │    • Digital TBT Briefing (#83): Logged      │
+         │                                           │                                              │
+         │                                           │ 3. TRD Power Isolation Request (#73)         │
+         │                                           │─────────────────────────────────────────────►│
+         │                                           │                                              │
+         │                                           │ 4. OHE Power Isolated & LOTO Activated (#74) │
+         │                                           │◄─────────────────────────────────────────────│
+         │                                           │                                              │
+         │ 5. Digital Token Handed Over              │ 6. Section Status in PostGIS: LOCKED (RED)   │
+         │◄──────────────────────────────────────────│                                              │
+         │    Permit-to-Work Active (#84)            │                                              │
+         │                                           │                                              │
+         │ [Work is executed safely on track]        │                                              │
+         │                                           │                                              │
+         │ 7. Work Completed: Submit Clearance       │                                              │
+         │    • Tool Count Verified (24/24) (#81)    │                                              │
+         │    • Geo-tagged Photo Uploaded (#82)      │                                              │
+         │    • All Staff Accounted For (#72)        │                                              │
+         │──────────────────────────────────────────►│                                              │
+         │                                           │ 8. Generate Section Clearance Cert (#80)     │
+         │                                           │    Verify no overstay / Temporary Speed      │
+         │                                           │    Restriction (TSR) enforced (#77)          │
+         │                                           │                                              │
+         │                                           │ 9. Track Restored: GREEN                     │
+         │                                           │─────────────────────────────────────────────►│
+```
+
+---
+
+## 8. External Integrations & Data Adapters
+
+যেহেতু হ্যাকাথন ও ডেমো পরিবেশে সব লাইভ রেলওয়ে সিস্টেম সরাসরি ইন্টারনেটে উন্মুক্ত থাকে না, তাই আমাদের আর্কিটেকচারে একটি **Source Adapter Switch (Feature #121)** রয়েছে যা কনফিগারেশনের ভিত্তিতে সিমুলেটেড মক ডেটা এবং লাইভ প্রোডাকশন API-এর মধ্যে তাৎক্ষণিক সুইচ করতে পারে:
+
+| Integration Name | Operational Purpose | Integration Method | Authentication | Rate Limits / Polling | Fallback / Mock Behavior |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **TMS (Track Management System)** | ট্র্যাক ফ্র্যাকচার, ওয়েল্ড ডিফেক্ট ও ট্র্যাক প্যারামিটার ডেটা আনা (Pillar 1)। | REST Adapter / Daily Batch CSV Ingestion | Bearer Token / IP Whitelist | প্রতি ২ ঘণ্টা পর সিঙ্ক | `seed_railway_demo.py` হতে প্রি-জেনারেটেড ৫০টি সিন্থেটিক ট্র্যাক ডিফেক্ট লগ। |
+| **SMMS (Signalling Management)** | পয়েন্ট মেশিন, ট্র্যাক সার্কিট ও সিগন্যাল ফেইলিওর লগ ডেটা সংগ্রহ। | REST Webhook / Polling | OAuth2 Client Credentials | প্রতি ৫ মিনিট | সিমুলেটেড ইন্টারলকিং ও পয়েন্ট ফেইলিওর ডেটাসেট। |
+| **TDMS (Traction Distribution)** | OHE ক্যাটেনারি ইন্সপেকশন, পাওয়ার ব্লকের প্রয়োজনীয়তা ও সাবস্টেশন স্ট্যাটাস। | REST API (JSON) | API Key Header | প্রতি ১৫ মিনিট | OHE সেকশন পাওয়ার আইসোলেশন ও ক্যাটেনারি লগ মক। |
+| **COA (Control Office App)** | লাইভ সেকশন অকুপ্যান্সি, ট্রেনের রানিং শিডিউল ও গুডস ট্রেনের পূর্বাভাস (#28)। | Enterprise Message Queue / WebSocket | mTLS / Service Token | রিয়েল-টাইম ইভেন্ট স্ট্রিম | লোকাল ট্র্যাফিক সিমুলেটর (`train_live_status` টেবিল)। |
+| **NTES (National Train Enquiry)** | লাইভ ট্রেনের অবস্থান, লেট মিনিট ও প্ল্যাটফর্ম পরিবর্তনের তথ্য (#114, #116)। | HTTPS REST Gateway | API Secret Key | ৬০ রিকোয়েস্ট/মিনিট | ঐতিহাসিক ট্রেনের লেট প্যাটার্ন ও স্ক্রিপ্টেড সিনারিও C। |
+| **Open-Meteo Weather API** | ট্র্যাকের তাপমাত্রা, ভারী বৃষ্টি, দৃশ্যমানতা ও ঝড়ঝঞ্ঝা যাচাই (#75 Weather Gate)। | HTTPS REST GET (`api.open-meteo.com/v1/forecast`) | কোনো প্রমাণীকরণ প্রয়োজন নেই (Open Data) | ১০,০০০ কল/দিন | চরম আবহাওয়া সতর্কতার জন্য লোকাল ফলব্যাক ক্যাশ। |
+| **Google Gemini API** | জটিল সিদ্ধান্তের যৌক্তিক ব্যাখ্যা ("Why #1?" Card #94) এবং বহুভাষিক রিপোর্ট তৈরি। | HTTPS REST POST (`generativelanguage.googleapis.com`) | `x-goog-api-key` Header | ১৫ RPM (Free Tier) | রুল-বেসড টেমপ্লেট ও লোকাল ফলব্যাক জেনারেটর। |
+| **PDF Generation Engine** | ফরম্যাট অনুমোদিত অফিশিয়াল ব্লক স্যাংশন অর্ডার PDF জেনারেশন (#107)। | Internal Native Python (ReportLab Library) | ইন-প্রসেস মেমোরি এক্সিকিউশন | কোনো লিমিট নেই | সরাসরি সার্ভার সাইড স্ট্যাটিক ফাইল ও ডাউনলোড স্ট্রিম। |
+
+---
+
+## 9. Security Architecture & RBAC
+
+### 9.1 Authentication & Token Lifecycle
+- **Stateless JWT Architecture:**
+  - `Access Token`: HS256 / RS256 অ্যালগরিদম, মেয়াদ ১৫ মিনিট। পে-লোডে থাকে `{user_id, username, role, department_code, division}`।
+  - `Refresh Token`: মেয়াদ ৭ দিন। ব্রাউজারে নিরাপদ `httpOnly, Secure, SameSite=Strict` কুকিতে সংরক্ষিত হয়।
+- **Token Invalidation & Blacklist:**
+  - ইউজার লগআউট করলে অথবা সেশন বাতিল হলে Refresh Token-টি তাৎক্ষণিকভাবে Redis Blacklist-এ জমা হয় এবং মেয়াদ শেষ না হওয়া পর্যন্ত আর ব্যবহার করা যায় না।
+
+### 9.2 Role-Based Access Control (RBAC) Matrix (Feature #112)
+
+| User Role | View Corridor Map | Submit Block Request | Approve Normal Block | Approve Emergency / Mega Block | Safety Token Handover | Admin Console |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Junior Engineer (JE - ENGG/TRD/S&T)** | ✅ | ✅ (Own Dept Only) | ❌ | ❌ | ❌ | ❌ |
+| **Senior Section Engineer (SSE)** | ✅ | ✅ (Own Dept Only) | ✅ (Up to 2 Hours) | ❌ | ✅ | ❌ |
+| **Chief Controller (Operations - COA)**| ✅ | ✅ (All Depts) | ✅ (Full Authority) | ✅ | ✅ | ❌ |
+| **Safety Officer (Safety Suite)** | ✅ | ❌ | ❌ | ❌ | ✅ (LOTO & Token Verify) | ❌ |
+| **Platform Administrator** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### 9.3 Data Protection & Operational Integrity
+- **Password Security:** Django-র সমন্বিত Argon2 + PBKDF2 হ্যাশিং।
+- **Spatial Fencing:** PostGIS বাফার দিয়ে নিশ্চিত করা হয় যে ফিল্ড গ্যাং শুধুমাত্র তাদের অনুমোদিত সেকশনের ভেতর থেকেই "Digital TBT" অথবা "Clearance Photo" আপলোড করতে পারবে।
+- **Audit Trails:** প্রতিটি ব্লক রিকোয়েস্টের অনুমোদন, পরিমার্জন ও বাতিলের জন্য আলাদা `block_audit_log` টেবিলে টাইমস্ট্যাম্প ও ইউজারের বিবরণ সংরক্ষিত থাকে।
+
+---
+
+## 10. Traceability to Subsequent Documents
+
+এই আর্কিটেকচার ফাইলের সিদ্ধান্তসমূহ পরবর্তী স্পেসিফিকেশন ফাইলগুলোতে সরাসরি কার্যকর হবে:
+
+| Document Path | Dependency / Architectural Output from this Document |
+| :--- | :--- |
+| **`00-master-high-level/01-decision-log.md`** | PostgreSQL বনাম MySQL, Neuro-Symbolic AI বনাম Pure LLM, 4 Celery Workers এবং React+TS নির্বাচনের বিস্তারিত ADR রেকর্ড। |
+| **`00-master-high-level/02-glossary.md`** | TMS, SMMS, TDMS, COA, BDMS, NTES, OHE, LOTO, TBT, PTW, Neuro-Symbolic AI সহ ২৫+ মূল রেলওয়ে ও এআই পরিভাষার সংজ্ঞা। |
+| **`01-tech-infra/02-data-layer.md`** | PostgreSQL 15/16 + PostGIS টেবিল স্কিমা, জিওমেট্রি কলাম, ইন্ডেক্স ও মাইগ্রেশন পলিসি। |
+| **`09-execution-tracker/00-implementation-checklist.md`** | ১-১২২ ফিচারের জন্য প্যারালাল ব্যাকএন্ড ও ফ্রন্টএন্ড কোডিং ও আউটপুট ভেরিফিকেশন চেকলিস্ট। |

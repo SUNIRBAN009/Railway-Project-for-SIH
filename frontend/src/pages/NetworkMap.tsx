@@ -3,6 +3,7 @@ import { ControlRoomLayout } from '../layouts/ControlRoomLayout';
 import { RailMap } from '../components/map/RailMap';
 import { Block } from '../types';
 import { useBlockStore } from '../stores/blockStore';
+import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import { LIVE_MAP_TRAINS } from '../services/mapGeoData';
 import {
   MapPin,
@@ -19,7 +20,9 @@ import {
 
 export const NetworkMapPage: React.FC = () => {
   const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
-  const blocks = useBlockStore((state) => state.blocks);
+  const storeBlocks = useBlockStore((state) => state.blocks);
+  const { blocks: liveBlocks } = useLiveBlocks();
+  const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks;
 
   const activeBlocks = blocks.filter((b) => b.status === 'ACTIVE');
   const coordinatedBlocks = blocks.filter((b) => b.status === 'COORDINATED' || b.status === 'SANCTIONED');

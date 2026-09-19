@@ -1,16 +1,18 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { UserRole } from '../../types';
+import { UserRole, DepartmentCode } from '../../types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
+  allowedDepartments?: DepartmentCode[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles,
+  allowedDepartments,
 }) => {
   const location = useLocation();
   const { isAuthenticated, user, isLoading } = useAuthStore();
@@ -32,7 +34,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   const [demoBypass, setDemoBypass] = React.useState(false);
 
+  // 1. Role Clearance Check
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role) && !demoBypass) {
+
     return (
       <div className="min-h-screen bg-control-bg p-8 flex items-center justify-center font-sans">
         <div className="max-w-md w-full bg-control-panel border border-cyan-500/30 p-6 rounded-xl shadow-2xl text-center">
@@ -86,6 +90,30 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
               Switch User / Logout
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Departmental Isolation Check (Chief Controller and Admin have corridor-wide clearance)
+  const isSuperUser = user.role === 'ADMIN' || user.role === 'CHIEF_CONTROLLER';
+  if (!isSuperUser && allowedDepartments && allowedDepartments.length > 0 && !allowedDepartments.includes(user.department_code)) {
+    return (
+      <div className="min-h-screen bg-control-bg p-8 flex items-center justify-center">
+        <div className="max-w-md w-full bg-control-panel border border-amber-500/50 p-6 rounded-xl shadow-2xl text-center">
+          <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-4 font-bold text-xl">
+            !
+          </div>
+          <h2 className="text-xl font-bold text-amber-400 mb-2">Departmental Isolation Clearance</h2>
+          <p className="text-sm text-control-muted mb-4">
+            Your department ({user.department_code}) is restricted from accessing this operational console ({allowedDepartments.join(', ')} only).
+          </p>
+          <button
+            onClick={() => window.history.back()}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-semibold rounded text-white transition"
+          >
+            Return to Safety
+          </button>
         </div>
       </div>
     );

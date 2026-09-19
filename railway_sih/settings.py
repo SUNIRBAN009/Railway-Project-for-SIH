@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.gis",
     "rest_framework",
     "corsheaders",
     "channels",
@@ -36,6 +37,7 @@ INSTALLED_APPS = [
     "apps.analytics",
     "apps.notifications",
     "apps.api",
+    "apps.demo",
 ]
 
 # Conditionally load GIS app if PostGIS & GDAL are active
@@ -203,6 +205,10 @@ CELERY_BEAT_SCHEDULE = {
     "purge-stale-notifications": {
         "task": "apps.notifications.tasks.purge_old_notifications_task",
         "schedule": 86400.0 * 7,  # Runs weekly
+    },
+    "live-coa-train-feed-simulation": {
+        "task": "apps.trains.tasks.ingest_coa_feed",
+        "schedule": 30.0,  # Runs every 30 seconds (Train position simulation)
     },
 }
 

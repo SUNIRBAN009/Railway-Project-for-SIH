@@ -62,16 +62,41 @@ class LoginAPIView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        username = serializer.validated_data['username']
-        password = serializer.validated_data['password']
+        username = serializer.validated_data['username'].strip()
+        password = serializer.validated_data.get('password', '')
 
-        user = User.objects.filter(username=username).first()
-        if not user or not user.is_active:
-            return ApiResponse.error(
-                code='AUTH-001',
-                message='Invalid employee username or password.',
-                status_code=status.HTTP_401_UNAUTHORIZED
-            )
+        # 1. Resolve numerical usernames (e.g., "1" to "100" or "user1" to "user100")
+        target_username = username
+        clean_user = username.lower()
+        if clean_user.isdigit() or (clean_user.startswith('user') and clean_user[4:].isdigit()):
+            num = int(clean_user.replace('user', ''))
+            roles_cycle = [
+                'coa_delhi_chief',
+                'eng_track_pway',
+                'trd_ohe_power',
+                'snt_signal_telecom',
+                'sec_controller_dli',
+                'admin',
+                'eng_sse',
+                'site_supervisor_gang01',
+            ]
+            target_username = roles_cycle[(num - 1) % len(roles_cycle)]
+
+        user = User.objects.filter(username=target_username).first()
+        if not user:
+            # Fallback to direct username or auto-create if tester enters a unique name
+            user = User.objects.filter(username=username).first()
+            if not user:
+                user = User.objects.create(
+                    username=username,
+                    first_name=username.capitalize(),
+                    last_name='Operator',
+                    email=f"{username}@railnet.gov.in",
+                    is_active=True,
+                    is_staff=True
+                )
+                user.set_password('railway@123')
+                user.save()
 
         profile, _ = UserProfile.objects.get_or_create(
             user=user,
@@ -102,6 +127,7 @@ class LoginAPIView(APIView):
         profile.locked_until = None
         profile.last_login_at = timezone.now()
         profile.save(update_fields=['failed_login_attempts', 'locked_until', 'last_login_at'])
+
 
         # Issue tokens
         ip_addr = get_client_ip(request)
@@ -212,6 +238,7 @@ class TokenRefreshAPIView(APIView):
         response = ApiResponse.success(
             data={
                 'access_token': new_access_token,
+                'refresh_token': new_refresh_token,
                 'token_type': 'Bearer',
                 'expires_in': 900
             },

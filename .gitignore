@@ -43,3 +43,17 @@ frontend/dist/
 frontend/.vite/
 .turbo/
 *.tsbuildinfo
+
+# Large Installers & Binary executables
+*.exe
+*.msi
+DockerDesktopInstaller.exe
+
+# Windows Shortcuts
+*.lnk
+
+# Celery state & runtime
+celerybeat-schedule
+celerybeat-schedule.*
+*.pid
+

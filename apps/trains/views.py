@@ -39,8 +39,12 @@ class TrainMasterListAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        if Train.objects.count() < 12:
+            ingest_coa_feed()
+
         search_query = request.GET.get('search', '').strip()
         train_type = request.GET.get('type', '').strip()
+        direction = request.GET.get('direction', '').strip()
         corridor = request.GET.get('corridor', '').strip()
         priority_max = request.GET.get('priority_max', '').strip()
 
@@ -55,8 +59,10 @@ class TrainMasterListAPIView(APIView):
         if train_type:
             trains = trains.filter(train_type=train_type)
 
+        if direction:
+            trains = trains.filter(direction=direction.upper())
+
         if corridor:
-            # e.g. NDLS-CNB
             stations = corridor.split('-')
             if len(stations) == 2:
                 trains = trains.filter(
@@ -93,6 +99,7 @@ class TrainScheduleDetailAPIView(APIView):
                 'train_number': train.train_number,
                 'train_name': train.train_name,
                 'train_type': train.train_type,
+                'direction': train.direction,
                 'schedules': serializer.data
             },
             message=f"Schedule for train {train.train_number} retrieved"
@@ -108,17 +115,40 @@ class TrainLiveStatusListAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        if TrainLiveStatus.objects.count() < 12:
+            ingest_coa_feed()
+
         today = timezone.now().date()
         delay_min = request.GET.get('delay_greater_than', '')
         status_filter = request.GET.get('status', '').strip()
+        direction = request.GET.get('direction', '').strip()
 
-        live_qs = TrainLiveStatus.objects.select_related('train').all()
+        # Prioritize today's live telemetry records
+        live_qs = TrainLiveStatus.objects.filter(journey_date=today).select_related('train')
+        if not live_qs.exists():
+            live_qs = TrainLiveStatus.objects.select_related('train').all()
+
+        # Guarantee spatial coordinates exist for all returned records
+        from apps.trains.tasks import calculate_train_spatial_position
+        for rec in live_qs:
+            if rec.latitude is None or rec.longitude is None:
+                dir_val = getattr(rec.train, 'direction', 'DOWN')
+                sp = calculate_train_spatial_position(float(rec.current_km or 0.0), direction=dir_val)
+                rec.latitude = sp['latitude']
+                rec.longitude = sp['longitude']
+                rec.heading = sp['heading']
+                rec.current_section = sp['current_section']
+                rec.current_station_code = sp['current_station_code']
+                rec.save(update_fields=['latitude', 'longitude', 'heading', 'current_section', 'current_station_code'])
 
         if delay_min and (delay_min.isdigit() or (delay_min.startswith('-') and delay_min[1:].isdigit())):
             live_qs = live_qs.filter(delay_minutes__gte=int(delay_min))
 
         if status_filter:
-            live_qs = live_qs.filter(status=status_filter)
+            live_qs = live_qs.filter(status=status_filter.upper())
+
+        if direction:
+            live_qs = live_qs.filter(train__direction=direction.upper())
 
         serializer = TrainLiveStatusSerializer(live_qs, many=True)
         return ApiResponse.success(
@@ -128,6 +158,13 @@ class TrainLiveStatusListAPIView(APIView):
             },
             message="Live running train positions retrieved"
         )
+
+    def post(self, request):
+        """Advances live telemetry step for all trains (Simulation tick)."""
+        from apps.trains.tasks import simulate_train_movement
+        delta_sec = int(request.data.get('delta_seconds', 30))
+        res = simulate_train_movement(delta_seconds=delta_sec)
+        return ApiResponse.success(data=res, message="Train telemetry simulation advanced")
 
 
 class DelayCascadeSimulationAPIView(APIView):

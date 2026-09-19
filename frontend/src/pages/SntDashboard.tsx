@@ -6,14 +6,13 @@ import { BlockTimeline } from '../components/blocks/BlockTimeline';
 import { CrewAssignment } from '../components/departments/CrewAssignment';
 import { MaterialInventory } from '../components/departments/MaterialInventory';
 import { CalendarView } from '../components/blocks/CalendarView';
-import { DEMO_BLOCKS } from '../services/demoData';
 import { Block } from '../types';
 import { useBlockStore } from '../stores/blockStore';
+import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import {
   Radio,
   Plus,
-  Zap,
-  Clock,
+  AlertTriangle,
   Layers,
   Calendar,
   Users,
@@ -25,11 +24,14 @@ import {
 
 export const SntDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BLOCKS' | 'PROPOSE' | 'TIMELINE' | 'CREW' | 'INVENTORY' | 'CALENDAR'>('BLOCKS');
-  const { blocks, submitBlockProposal } = useBlockStore();
+  const { blocks: storeBlocks, submitBlockProposal } = useBlockStore();
+  const { blocks: liveBlocks, setBlocks, refetch } = useLiveBlocks('SNT');
+  const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks.filter((b) => b.department_code === 'SNT');
 
   const handleBlockCreated = async (newBlock: Partial<Block>) => {
     await submitBlockProposal(newBlock);
     setActiveTab('BLOCKS');
+    refetch();
   };
 
   return (
@@ -188,7 +190,7 @@ export const SntDashboard: React.FC = () => {
         )}
 
         {activeTab === 'TIMELINE' && (
-          <BlockTimeline corridorCode="NDLS-GZB-UP" />
+          <BlockTimeline corridorCode="NDLS-CNB-MAIN" />
         )}
 
         {activeTab === 'CREW' && (

@@ -4,7 +4,7 @@
 # ============================================
 
 # Stage 1: Build dependencies
-FROM python:3.11-slim-bookworm as builder
+FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --default-timeout=120 --retries=5 --no-cache-dir --prefix=/install -r requirements.txt
 
 # Stage 2: Final runtime image
 FROM python:3.11-slim-bookworm
@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     curl \
     postgresql-client \
+    default-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder

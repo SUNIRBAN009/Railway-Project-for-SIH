@@ -5,23 +5,22 @@ import {
   Wrench,
   Zap,
   Radio,
-  Clock,
-  ShieldCheck,
-  AlertTriangle,
   Sparkles,
-  CheckCircle2,
-  Flame,
 } from 'lucide-react';
 
 interface BlockOverlayProps {
+  blocks?: Block[];
   onSelectBlock?: (block: Block) => void;
 }
 
-export const BlockOverlay: React.FC<BlockOverlayProps> = ({ onSelectBlock }) => {
-  const { blocks, setSelectedBlockId } = useBlockStore();
+export const BlockOverlay: React.FC<BlockOverlayProps> = ({ blocks: propBlocks, onSelectBlock }) => {
+  const storeBlocks = useBlockStore((s) => s.blocks);
+  const setSelectedBlockId = useBlockStore((s) => s.setSelectedBlockId);
+
+  const effectiveBlocks = propBlocks && propBlocks.length > 0 ? propBlocks : storeBlocks;
 
   // Show all relevant blocks: active, sanctioned, AI deconflicted (coordinated), and pending new requests
-  const visibleBlocks = blocks.filter((b) =>
+  const visibleBlocks = effectiveBlocks.filter((b) =>
     ['ACTIVE', 'SANCTIONED', 'COORDINATED', 'PENDING_APPROVAL', 'CONFLICT_DETECTED', 'SUBMITTED'].includes(b.status)
   );
 
@@ -144,7 +143,7 @@ export const BlockOverlay: React.FC<BlockOverlayProps> = ({ onSelectBlock }) => 
 
             {/* Persistent Mini KM Tag */}
             <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-1 rounded bg-black/80 border border-slate-700 text-[9px] font-mono text-cyan-300 whitespace-nowrap shadow-sm">
-              KM {startKm.toFixed(1)}–{endKm.toFixed(1)}
+              KM {startKm.toFixed(1)}–${endKm.toFixed(1)}
             </div>
 
             {/* Hover Detailed Pill */}

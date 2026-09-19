@@ -1,0 +1,8 @@
+[OK] admin - True, Role: ADMIN
+[OK] coa_delhi_chief - True, Role: CHIEF_CONTROLLER
+[OK] sec_controller_dli - True, Role: SECTION_CONTROLLER
+[OK] eng_track_pway - True, Role: DEPT_ENGINEER
+[OK] trd_ohe_power - True, Role: DEPT_ENGINEER
+[OK] snt_signal_telecom - True, Role: DEPT_ENGINEER
+[OK] site_supervisor - True, Role: SITE_SUPERVISOR
+[OK] safety_auditor - True, Role: AUDITOR

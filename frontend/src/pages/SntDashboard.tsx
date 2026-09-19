@@ -8,6 +8,7 @@ import { MaterialInventory } from '../components/departments/MaterialInventory';
 import { CalendarView } from '../components/blocks/CalendarView';
 import { DEMO_BLOCKS } from '../services/demoData';
 import { Block } from '../types';
+import { useBlockStore } from '../stores/blockStore';
 import {
   Radio,
   Plus,
@@ -24,10 +25,10 @@ import {
 
 export const SntDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BLOCKS' | 'PROPOSE' | 'TIMELINE' | 'CREW' | 'INVENTORY' | 'CALENDAR'>('BLOCKS');
-  const [blocks, setBlocks] = useState<Block[]>(DEMO_BLOCKS);
+  const { blocks, submitBlockProposal } = useBlockStore();
 
-  const handleBlockCreated = (newBlock: Partial<Block>) => {
-    setBlocks((prev) => [newBlock as Block, ...prev]);
+  const handleBlockCreated = async (newBlock: Partial<Block>) => {
+    await submitBlockProposal(newBlock);
     setActiveTab('BLOCKS');
   };
 

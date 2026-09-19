@@ -65,7 +65,7 @@ def run_seeder():
             'email': f"{username}@railnet.gov.in",
             'is_staff': True,
         })
-        user.set_password('Sunirban#2003')
+        user.set_password('9999')
         user.save()
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.employee_id = empid

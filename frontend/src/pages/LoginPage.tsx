@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/api';
 import { UserRole, DepartmentCode } from '../types';
-import { ShieldCheck, Train, KeyRound, User as UserIcon, AlertCircle, Sparkles } from 'lucide-react';
+import { getDestinationRoute } from '../utils/routeHelpers';
+import { ShieldCheck, Train, KeyRound, User as UserIcon, AlertCircle, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 interface DemoPreset {
   label: string;
@@ -56,6 +57,22 @@ const DEMO_PRESETS: DemoPreset[] = [
     targetRoute: '/coa',
   },
   {
+    label: 'Site Supervisor',
+    role: 'SITE_SUPERVISOR',
+    department: 'ENG',
+    username: 'site_supervisor',
+    badgeColor: 'border-teal-500/50 text-teal-400 bg-teal-950/40',
+    targetRoute: '/eng',
+  },
+  {
+    label: 'Safety Auditor',
+    role: 'AUDITOR',
+    department: 'SAFETY',
+    username: 'safety_auditor',
+    badgeColor: 'border-orange-500/50 text-orange-400 bg-orange-950/40',
+    targetRoute: '/coa',
+  },
+  {
     label: 'Lead Administrator',
     role: 'ADMIN',
     department: 'OPERATIONS',
@@ -65,22 +82,7 @@ const DEMO_PRESETS: DemoPreset[] = [
   },
 ];
 
-export const getDestinationRoute = (role: UserRole, department: DepartmentCode): string => {
-  switch (role) {
-    case 'CHIEF_CONTROLLER':
-    case 'SECTION_CONTROLLER':
-    case 'ADMIN':
-      return '/coa';
-    case 'DEPT_ENGINEER':
-    case 'SITE_SUPERVISOR':
-      if (department === 'ENG') return '/eng';
-      if (department === 'TRD') return '/trd';
-      if (department === 'SNT') return '/snt';
-      return '/coa';
-    default:
-      return '/coa';
-  }
-};
+export { getDestinationRoute };
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -88,13 +90,14 @@ export const LoginPage: React.FC = () => {
   const { setAuth } = useAuthStore();
 
   const [username, setUsername] = useState('coa_delhi_chief');
-  const [password, setPassword] = useState('Sunirban#2003');
+  const [password, setPassword] = useState('9999');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSelectPreset = (preset: DemoPreset) => {
     setUsername(preset.username);
-    setPassword('Sunirban#2003');
+    setPassword('9999');
     setErrorMessage(null);
   };
 
@@ -107,21 +110,28 @@ export const LoginPage: React.FC = () => {
       const response = await authService.login(username.trim(), password);
 
       if (response.success && response.data) {
-        const { user, access_token } = response.data;
-        setAuth(user, access_token);
+        const { user, access_token, refresh_token } = response.data;
+        setAuth(user, access_token, refresh_token);
 
-        // Determine destination route based on role matrix or prior attempt
+        // Determine destination route based on role matrix
+        const roleDestination = getDestinationRoute(user.role, user.department_code);
         const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
-        const targetRoute = fromPath || getDestinationRoute(user.role, user.department_code);
+        
+        // If fromPath was missing or was the default / or /coa redirect, send the user to their department console
+        const targetRoute = (fromPath && fromPath !== '/' && fromPath !== '/coa')
+          ? fromPath
+          : roleDestination;
+
         navigate(targetRoute, { replace: true });
       } else {
         setErrorMessage(response.message || 'Authentication rejected by security gateway.');
       }
     } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } } };
+      const errorData = (err as { response?: { data?: { error?: { message?: string }; message?: string } } })?.response?.data;
       const message =
-        errorObj.response?.data?.message ||
-        'Invalid operational credentials. Please verify username and demo password.';
+        errorData?.error?.message ||
+        errorData?.message ||
+        'Authentication failed. Please verify username and enter demo password: 9999';
       setErrorMessage(message);
     } finally {
       setIsLoading(false);
@@ -152,11 +162,11 @@ export const LoginPage: React.FC = () => {
                 Demo Credentials Presets
               </span>
               <span className="text-[11px] font-mono text-cyan-400/80 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/30">
-                PWD: Sunirban#2003
+                PWD: 9999
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {DEMO_PRESETS.map((p) => (
                 <button
                   key={p.username}
@@ -221,13 +231,22 @@ export const LoginPage: React.FC = () => {
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 bg-control-bg border border-control-border rounded-lg text-sm text-white font-mono placeholder-control-muted focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
-                  placeholder="••••••••••••"
+                  className="w-full pl-10 pr-10 py-2.5 bg-control-bg border border-control-border rounded-lg text-sm text-white font-mono placeholder-control-muted focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
+                  placeholder="9999"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-control-muted hover:text-cyan-400 transition"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 

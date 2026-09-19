@@ -21,12 +21,16 @@ export const TrainMarker: React.FC<TrainMarkerProps> = ({
 
   const getMarkerColor = (type: string) => {
     switch (type) {
+      case 'VANDE_BHARAT':
+        return 'bg-cyan-400 border-white text-black shadow-cyan-950';
       case 'SUPERFAST':
         return 'bg-rose-600 border-white text-white shadow-rose-950';
       case 'SHATABDI':
         return 'bg-amber-500 border-white text-black shadow-amber-950';
       case 'DURONTO':
         return 'bg-emerald-600 border-white text-white shadow-emerald-950';
+      case 'EXPRESS':
+        return 'bg-blue-600 border-white text-white shadow-blue-950';
       case 'FREIGHT':
       default:
         return 'bg-slate-700 border-slate-400 text-white shadow-slate-950';

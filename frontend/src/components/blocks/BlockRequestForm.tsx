@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { DepartmentCode, LineType, Block } from '../../types';
 import { DEMO_CORRIDORS, DEMO_MACHINERY, DEMO_GANGS } from '../../services/demoData';
+import { useBlockStore } from '../../stores/blockStore';
+import { useAuthStore } from '../../stores/authStore';
 import {
   Wrench,
   Zap,
@@ -94,6 +96,9 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
       work_description: workDescription,
       version: 1,
     };
+
+    const user = useAuthStore.getState().user;
+    useBlockStore.getState().submitBlockProposal(newBlock, user?.username || 'Field Engineer');
 
     if (onSuccess) {
       onSuccess(newBlock);

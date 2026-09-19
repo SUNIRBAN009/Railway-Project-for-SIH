@@ -137,3 +137,38 @@ def blacklist_jti(jti, remaining_seconds=3600):
         r.setex(key, max(60, int(remaining_seconds)), "revoked")
     except Exception:
         pass
+
+
+from rest_framework.authentication import BaseAuthentication
+from rest_framework import exceptions
+from django.contrib.auth.models import User
+
+
+class JWTAuthentication(BaseAuthentication):
+    """
+    DRF authentication class to authenticate requests carrying Bearer JWT in Authorization header.
+    """
+    def authenticate(self, request):
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return None
+
+        token = auth_header.split(' ', 1)[1].strip()
+        try:
+            payload = decode_token(token)
+        except Exception as e:
+            raise exceptions.AuthenticationFailed(f"Invalid or expired token: {str(e)}")
+
+        jti = payload.get('jti')
+        if jti and is_jti_blacklisted(jti):
+            raise exceptions.AuthenticationFailed("Token has been revoked.")
+
+        user_id = payload.get('user_id')
+        if not user_id:
+            raise exceptions.AuthenticationFailed("Token payload missing user_id.")
+
+        user = User.objects.filter(id=user_id, is_active=True).first()
+        if not user:
+            raise exceptions.AuthenticationFailed("User not found or inactive.")
+
+        return (user, token)

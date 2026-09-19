@@ -87,11 +87,11 @@ if USE_POSTGIS:
     DATABASES = {
         "default": {
             "ENGINE": "django.contrib.gis.db.backends.postgis",
-            "NAME": config("POSTGRES_DB", default="railway_sih"),
-            "USER": config("POSTGRES_USER", default="railway_user"),
-            "PASSWORD": config("POSTGRES_PASSWORD", default="railway_password"),
-            "HOST": config("POSTGRES_HOST", default="db"),
-            "PORT": config("POSTGRES_PORT", default="5432"),
+            "NAME": config("POSTGRES_DB", default=config("DB_NAME", default="railway_sih")),
+            "USER": config("POSTGRES_USER", default=config("DB_USER", default="railway_user")),
+            "PASSWORD": config("POSTGRES_PASSWORD", default=config("DB_PASSWORD", default="railway_password")),
+            "HOST": config("POSTGRES_HOST", default=config("DB_HOST", default="postgres")),
+            "PORT": config("POSTGRES_PORT", default=config("DB_PORT", default="5432")),
         }
     }
 else:
@@ -139,6 +139,7 @@ LOGOUT_REDIRECT_URL = "/"
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.accounts.auth_tokens.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -148,14 +149,34 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Redis Channel Layer for Django Channels + Daphne (TSK-P0-007)
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [config("REDIS_URL", default="redis://redis:6379/0")],
-        },
+_redis_url = config("REDIS_URL", default="redis://127.0.0.1:6379/0")
+
+
+def _is_redis_available(url_str):
+    import urllib.parse, socket
+    try:
+        parsed = urllib.parse.urlparse(url_str)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 6379
+        with socket.create_connection((host, port), timeout=0.5):
+            return True
+    except Exception:
+        return False
+
+
+if _is_redis_available(_redis_url):
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [_redis_url]},
+        }
     }
-}
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 # Celery 5.3 Task Broker & Multi-tier Queues (TSK-P0-006)
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://redis:6379/0")
@@ -185,8 +206,8 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# JWT Token Configuration (SVC-AUTH)
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES = 15
+# JWT Token Configuration (SVC-AUTH) - Extended to 7 days for resilient multi-device demos
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = 60 * 24 * 7
 JWT_REFRESH_TOKEN_LIFETIME_DAYS = 7
 
 LOGGING = {

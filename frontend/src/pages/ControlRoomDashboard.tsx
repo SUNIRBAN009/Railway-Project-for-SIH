@@ -13,6 +13,8 @@ import { Block, BlockStatus } from '../types';
 import { Link } from 'react-router-dom';
 import { printCorridorDailyPossessionSheet } from '../utils/exportPdf';
 import { exportBlocksToCsv } from '../utils/exportCsv';
+import { useBlockStore } from '../stores/blockStore';
+import { useAuthStore } from '../stores/authStore';
 import {
   Activity,
   Maximize2,
@@ -27,52 +29,38 @@ import {
 } from 'lucide-react';
 
 export const ControlRoomDashboard: React.FC = () => {
-  const [blocks, setBlocks] = useState<Block[]>(DEMO_BLOCKS);
+  const { blocks, sanctionBlock, reviseBlock, submitBlockProposal } = useBlockStore();
+  const { user } = useAuthStore();
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>('blk-004');
 
-  const selectedBlock = blocks.find((b) => b.id === selectedBlockId) || null;
+  const selectedBlock = blocks.find((b) => b.id === selectedBlockId) || (blocks.length > 0 ? blocks[0] : null);
 
   const handleSelectBlock = (block: Block) => {
     setSelectedBlockId(block.id);
   };
 
   const handleSanction = (blockId: string, remarks: string) => {
-    setBlocks((prev) =>
-      prev.map((b) =>
-        b.id === blockId
-          ? { ...b, status: 'SANCTIONED' as BlockStatus, version: b.version + 1 }
-          : b
-      )
+    sanctionBlock(
+      blockId,
+      remarks,
+      user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)'
     );
   };
 
   const handleConditionalSanction = (blockId: string, cautionSpeed: number, remarks: string) => {
-    setBlocks((prev) =>
-      prev.map((b) =>
-        b.id === blockId
-          ? {
-              ...b,
-              status: 'SANCTIONED' as BlockStatus,
-              work_description: `${b.work_description} [CONDITIONAL: Speed cap ${cautionSpeed} km/h. ${remarks}]`,
-              version: b.version + 1,
-            }
-          : b
-      )
+    sanctionBlock(
+      blockId,
+      remarks,
+      user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)',
+      cautionSpeed
     );
   };
 
   const handleRevise = (blockId: string, reason: string) => {
-    setBlocks((prev) =>
-      prev.map((b) =>
-        b.id === blockId
-          ? {
-              ...b,
-              status: 'DRAFT' as BlockStatus,
-              work_description: `${b.work_description} [REVISED BY COA: ${reason}]`,
-              version: b.version + 1,
-            }
-          : b
-      )
+    reviseBlock(
+      blockId,
+      reason,
+      user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)'
     );
   };
 
@@ -80,7 +68,7 @@ export const ControlRoomDashboard: React.FC = () => {
     const emergencyBlock: Block = {
       id: `blk-emg-${Date.now()}`,
       block_code: `EMG-${corridor.substring(0, 4)}-${Math.floor(100 + Math.random() * 900)}`,
-      corridor: blocks[0].corridor,
+      corridor: blocks[0]?.corridor || DEMO_BLOCKS[0].corridor,
       line_type: 'UP',
       department_code: 'ENG',
       work_type: `EMERGENCY HALT: ${reason}`,
@@ -93,7 +81,7 @@ export const ControlRoomDashboard: React.FC = () => {
       work_description: `IMMEDIATE SECTION HALT ENFORCED BY CHIEF CONTROLLER: ${reason}`,
       version: 1,
     };
-    setBlocks((prev) => [emergencyBlock, ...prev]);
+    submitBlockProposal(emergencyBlock, user?.username || 'Chief Controller');
     setSelectedBlockId(emergencyBlock.id);
   };
 

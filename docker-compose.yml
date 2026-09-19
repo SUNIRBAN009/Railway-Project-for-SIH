@@ -109,6 +109,8 @@ services:
         condition: service_healthy
     networks:
       - railway_network
+    healthcheck:
+      disable: true
 
   # ============================================
   # Celery Worker - High Priority (Conflict Detection)
@@ -135,6 +137,8 @@ services:
         condition: service_healthy
     networks:
       - railway_network
+    healthcheck:
+      disable: true
 
   # ============================================
   # Celery Worker - Notifications (SMS & WebSockets)
@@ -159,6 +163,8 @@ services:
         condition: service_healthy
     networks:
       - railway_network
+    healthcheck:
+      disable: true
 
   # ============================================
   # Celery Worker - Ontology (HermiT Reasoner)
@@ -189,6 +195,8 @@ services:
           memory: 4G
     networks:
       - railway_network
+    healthcheck:
+      disable: true
 
   # ============================================
   # Celery Worker - Default & Low Priority
@@ -215,6 +223,8 @@ services:
         condition: service_healthy
     networks:
       - railway_network
+    healthcheck:
+      disable: true
 
   # ============================================
   # Celery Beat (Scheduled Operational Rollups)
@@ -238,6 +248,8 @@ services:
         condition: service_healthy
     networks:
       - railway_network
+    healthcheck:
+      disable: true
 
   # ============================================
   # React Frontend (Vite Dev Server)
@@ -258,6 +270,8 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8000/api/v1
       - VITE_WS_URL=ws://localhost:8001
+      - VITE_BACKEND_URL=http://backend:8000
+      - VITE_WS_BACKEND_URL=ws://channels:8001
       - VITE_MAPBOX_TOKEN=${MAPBOX_ACCESS_TOKEN:-}
       - CHOKIDAR_USEPOLLING=true
     depends_on:
@@ -308,7 +322,7 @@ services:
       - backend
 
   grafana:
-    image: grafana:10.2.2
+    image: grafana/grafana:10.2.2
     container_name: railway_grafana
     ports:
       - "3001:3000"

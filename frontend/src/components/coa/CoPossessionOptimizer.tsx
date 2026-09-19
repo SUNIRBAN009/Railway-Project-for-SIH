@@ -1,8 +1,23 @@
 import React, { useState } from 'react';
+import { useBlockStore } from '../../stores/blockStore';
 import { Sparkles, Layers, CheckCircle2, ShieldCheck, ArrowRight, Zap, Radio, Wrench } from 'lucide-react';
 
 export const CoPossessionOptimizer: React.FC = () => {
+  const { blocks, sanctionBlock } = useBlockStore();
   const [bundled, setBundled] = useState(false);
+
+  const handleBundle = () => {
+    setBundled(true);
+    // Sanction / coordinate the bundled TRD and S&T shadow candidates if present
+    const sntBlock = blocks.find((b) => b.id === 'blk-003' || b.department_code === 'SNT');
+    if (sntBlock && sntBlock.status !== 'SANCTIONED') {
+      sanctionBlock(sntBlock.id, 'Co-allocated shadow possession bundled with ENG Track window.');
+    }
+    const trdBlock = blocks.find((b) => b.id === 'blk-002' || b.department_code === 'TRD');
+    if (trdBlock && trdBlock.status !== 'SANCTIONED') {
+      sanctionBlock(trdBlock.id, 'Catenary power isolation aligned with ENG heavy track window.');
+    }
+  };
 
   return (
     <div className="bg-control-panel border border-control-border rounded-xl p-5 shadow-lg space-y-4">
@@ -88,7 +103,7 @@ export const CoPossessionOptimizer: React.FC = () => {
           ) : (
             <button
               type="button"
-              onClick={() => setBundled(true)}
+              onClick={handleBundle}
               className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-cyan-900/40"
             >
               <Sparkles className="w-3.5 h-3.5" />

@@ -30,7 +30,7 @@ class KPIAggregationService:
         Persists or updates CorridorDailyKPI record.
         """
         if target_date is None:
-            target_date = timezone.now().date()
+            target_date = timezone.localdate()
 
         corridor = Corridor.objects.filter(code=corridor_code).first()
         division_code = getattr(corridor, 'division', 'DLI')
@@ -124,7 +124,7 @@ class KPIAggregationService:
         """
         FUNC-ANA-001: Aggregates executive cards and rolling daily trend for the dashboard.
         """
-        end_date = timezone.now().date()
+        end_date = timezone.localdate()
         start_date = end_date - timedelta(days=days_range - 1)
 
         qs = CorridorDailyKPI.objects.filter(
@@ -192,7 +192,7 @@ class KPIAggregationService:
         Matrix comparing operational efficiency across multiple corridors.
         """
         if end_date is None:
-            end_date = timezone.now().date()
+            end_date = timezone.localdate()
         if start_date is None:
             start_date = end_date - timedelta(days=7)
 

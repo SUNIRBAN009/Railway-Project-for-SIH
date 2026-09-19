@@ -14,10 +14,10 @@ urlpatterns = [
     # RESTful API Endpoints (SVC-BLK)
     path('proposals/', views.BlockProposalCreateAPIView.as_view(), name='api_proposal_create'),
     path('', views.BlockListAPIView.as_view(), name='api_block_list'),
-    path('<uuid:pk>/', views.BlockDetailAPIView.as_view(), name='api_block_detail'),
-    path('<uuid:pk>/validate/', views.BlockValidateAPIView.as_view(), name='api_block_validate'),
-    path('<uuid:pk>/sanction/', views.BlockSanctionAPIView.as_view(), name='api_block_sanction'),
-    path('<uuid:pk>/activate/', views.BlockActivateAPIView.as_view(), name='api_block_activate'),
-    path('<uuid:pk>/complete/', views.BlockCompleteAPIView.as_view(), name='api_block_complete'),
-    path('<uuid:pk>/cancel/', views.BlockCancelAPIView.as_view(), name='api_block_cancel'),
+    path('<str:pk>/', views.BlockDetailAPIView.as_view(), name='api_block_detail'),
+    path('<str:pk>/validate/', views.BlockValidateAPIView.as_view(), name='api_block_validate'),
+    path('<str:pk>/sanction/', views.BlockSanctionAPIView.as_view(), name='api_block_sanction'),
+    path('<str:pk>/activate/', views.BlockActivateAPIView.as_view(), name='api_block_activate'),
+    path('<str:pk>/complete/', views.BlockCompleteAPIView.as_view(), name='api_block_complete'),
+    path('<str:pk>/cancel/', views.BlockCancelAPIView.as_view(), name='api_block_cancel'),
 ]

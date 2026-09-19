@@ -91,6 +91,12 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
                     <span className="text-xs font-bold font-mono text-white">
                       {b.block_code}
                     </span>
+                    <span
+                      title="Optimistic Lock Version"
+                      className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-900 border border-cyan-500/40 text-cyan-300"
+                    >
+                      v{b.version ?? 1}
+                    </span>
                   </div>
 
                   <span className={`px-2 py-0.2 rounded text-[10px] font-mono font-bold border ${getDepartmentColor(b.department_code)}`}>
@@ -105,7 +111,7 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
                 <div className="flex items-center justify-between text-[11px] font-mono text-control-muted border-t border-control-border/60 pt-2">
                   <div className="flex items-center gap-2">
                     <span className="text-cyan-400 font-bold">
-                      KM {b.start_km.toFixed(1)}–{b.end_km.toFixed(1)}
+                      KM {Number(b.start_km).toFixed(1)}–{Number(b.end_km).toFixed(1)}
                     </span>
                     <span>•</span>
                     <span className="text-slate-300">{b.line_type} LINE</span>

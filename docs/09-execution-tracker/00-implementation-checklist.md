@@ -12,6 +12,19 @@
 
 ---
 
+## 0. Quick Start & Shutdown Commands
+- **Start Project (Single Command):**
+  - PowerShell: `.\scripts\start.ps1`
+  - Windows Desktop: Double-click `Run Railway Project.bat` (or `scripts\start.bat`)
+  - Linux/macOS: `./scripts/start.sh`
+- **Stop Project (Single Command):**
+  - PowerShell: `.\scripts\stop.ps1`
+  - Windows Desktop: Double-click `Stop Railway Project.bat` (or `scripts\stop.bat`)
+  - Linux/macOS: `./scripts/stop.sh`
+  - Native Docker: `docker compose down`
+
+---
+
 ## Phase 0: Infrastructure & Foundation Setup
 
 - [x] **TSK-P0-01-BE:** Initialize Django 5.0 project, configure PostgreSQL 15 + PostGIS 3.3, and set up Redis 7.2 & Celery 5.3 worker queues.
@@ -42,66 +55,66 @@
 
 
 ### Feature 4: Dynamic Scenario Builder & The 4 Presentation Stories
-- [ ] **TSK-P0.5-04-BE:** Implement `BaseScenario` runner and the 4 golden demonstration scripts:
+- [x] **TSK-P0.5-04-BE:** Implement `BaseScenario` runner and the 4 golden demonstration scripts:
   - `Scenario A`: "Morning Dashboard" (2 mins, 8 scheduled blocks, "Why #1?" card)
   - `Scenario B`: "Conflict -> Combined Block" (USP #98, ENG + TRD overlap, 3.5h track time saved)
   - `Scenario C`: "Live Disruption & Breathing Plan" (#115 Delay Cascade, #116 Deviation)
   - `Scenario D`: "Zero-Fatality Digital Safety Protocol" (#71 Digital Token, LOTO, Headcount, Clearance Photo)
-- [ ] **TSK-P0.5-04-FE:** Build Interactive Scenario Player modal with Step-by-step Narration, Live Map Zooming, and Audio Chimes.
-- [ ] **TSK-P0.5-04-TEST:** Execute `python manage.py run_scenario eng_vs_trd_conflict --live --broadcast` end-to-end; verify step execution, DB state transitions, and WebSocket event receipt on the React frontend in <100ms.
+- [x] **TSK-P0.5-04-FE:** Build Interactive Scenario Player modal with Step-by-step Narration, Live Map Zooming, and Audio Chimes.
+- [x] **TSK-P0.5-04-TEST:** Execute `python manage.py run_scenario eng_vs_trd_conflict --live --broadcast` end-to-end; verify step execution, DB state transitions, and WebSocket event receipt on the React frontend in <100ms.
 
 ### Feature 5: Management Commands & Continuous Streaming Engine
-- [ ] **TSK-P0.5-05-BE:** Implement `seed_railway_demo.py`, `stream_demo_data.py`, `run_scenario.py`, `list_scenarios.py`, and `reset_demo.py` management commands with Daphne WebSocket broadcast support.
-- [ ] **TSK-P0.5-05-FE:** Connect frontend WebSocket subscriber to corridor channel and verify live dynamic HUD counters updating without page refresh.
-- [ ] **TSK-P0.5-05-TEST:** Stream events for 60 seconds at 2Hz; confirm no memory leaks, no orphaned DB locks, and real-time DOM updates.
+- [x] **TSK-P0.5-05-BE:** Implement `seed_railway_demo.py`, `stream_demo_data.py`, `run_scenario.py`, `list_scenarios.py`, and `reset_demo.py` management commands with Daphne WebSocket broadcast support.
+- [x] **TSK-P0.5-05-FE:** Connect frontend WebSocket subscriber to corridor channel and verify live dynamic HUD counters updating without page refresh.
+- [x] **TSK-P0.5-05-TEST:** Stream events for 60 seconds at 2Hz; confirm no memory leaks, no orphaned DB locks, and real-time DOM updates.
 
 ---
 
 ## Phase 1: Identity, Security & RBAC (`SVC-AUTH`)
 
 ### Feature: JWT Authentication & User Sessions
-- [ ] **TSK-P1-01-BE:** Implement Argon2id User Profile, RBAC Roles, and JWT Token Login/Refresh API endpoints (`/api/v1/auth/login/`) seeded with the 8 demo staff personas.
-- [ ] **TSK-P1-01-FE:** Implement Zustand `authStore`, Axios interceptors, and Login Page UI with credential validation and demo persona quick-switcher.
-- [ ] **TSK-P1-01-TEST:** Perform E2E Login test with `coa_delhi_chief` and `eng_track_pway`; verify token storage in browser and validate role-based route guarding.
+- [x] **TSK-P1-01-BE:** Implement Argon2id User Profile, RBAC Roles, and JWT Token Login/Refresh API endpoints (`/api/v1/auth/login/`) seeded with the 8 demo staff personas.
+- [x] **TSK-P1-01-FE:** Implement Zustand `authStore`, Axios interceptors, and Login Page UI with credential validation and demo persona quick-switcher.
+- [x] **TSK-P1-01-TEST:** Perform E2E Login test with `coa_delhi_chief` and `eng_track_pway`; verify token storage in browser and validate role-based route guarding.
 
 ### Feature: Current User Context & Role Routing
-- [ ] **TSK-P1-02-BE:** Implement `/api/v1/auth/me/` endpoint returning user profile, department code, and operational capabilities.
-- [ ] **TSK-P1-02-FE:** Implement ProtectedRoutes in React Router based on user context.
-- [ ] **TSK-P1-02-TEST:** Verify `COA`, `ENG`, `TRD`, and `SNT` test users are correctly routed to their respective departmental dashboards.
+- [x] **TSK-P1-02-BE:** Implement `/api/v1/auth/me/` endpoint returning user profile, department code, and operational capabilities.
+- [x] **TSK-P1-02-FE:** Implement ProtectedRoutes in React Router based on user context.
+- [x] **TSK-P1-02-TEST:** Verify `COA`, `ENG`, `TRD`, and `SNT` test users are correctly routed to their respective departmental dashboards.
 
 ---
 
 ## Phase 2: Core Domain Microservices (`SVC-BLK`, `SVC-TRN`, `SVC-DEPT`)
 
 ### Feature: Geospatial Corridor Definition
-- [ ] **TSK-P2-01-BE:** Implement `Corridor` model with PostGIS `LINESTRING` and SRID 4326 API endpoints seeded by `apps/demo`.
-- [ ] **TSK-P2-01-FE:** Initialize Mapbox GL JS with Dark theme and render the NDLS–CNB trunk corridor GeoJSON layer with 3D perspective tilt (45°).
-- [ ] **TSK-P2-01-TEST:** Verify the 3D pitch Mapbox canvas successfully renders the PostGIS track geometry on the UI.
+- [x] **TSK-P2-01-BE:** Implement `Corridor` model with PostGIS `LINESTRING` and SRID 4326 API endpoints seeded by `apps/demo`.
+- [x] **TSK-P2-01-FE:** Initialize Mapbox GL JS with Dark theme and render the NDLS–CNB trunk corridor GeoJSON layer with 3D perspective tilt (45°).
+- [x] **TSK-P2-01-TEST:** Verify the 3D pitch Mapbox canvas successfully renders the PostGIS track geometry on the UI.
 
 ### Feature: Departmental Possession Block Request (ENG/TRD/SNT)
-- [ ] **TSK-P2-02-BE:** Implement `Block` model and `POST /api/v1/blocks/` API for block proposal submission with Coherence validation.
-- [ ] **TSK-P2-02-FE:** Implement multi-step Possession Request Form (Wizard) with chainage and time-interval selection.
-- [ ] **TSK-P2-02-TEST:** Submit a block request via the frontend and verify it persists correctly in the backend database.
+- [x] **TSK-P2-02-BE:** Implement `Block` model and `POST /api/v1/blocks/` API for block proposal submission with Coherence validation.
+- [x] **TSK-P2-02-FE:** Implement multi-step Possession Request Form (Wizard) with chainage and time-interval selection.
+- [x] **TSK-P2-02-TEST:** Submit a block request via the frontend and verify it persists correctly in the backend database.
 
 ### Feature: Sweep-line Spatial-Temporal Conflict Engine & Combined Block USP (#98)
-- [ ] **TSK-P2-03-BE:** Implement PostGIS `ST_Intersects` and interval tree algorithm in Celery to detect overlapping blocks and suggest AI Combined Blocks.
-- [ ] **TSK-P2-03-FE:** Implement Gantt/Timeline deconfliction view, conflict warning badges, and AI Combined Block Recommendation card (#98).
-- [ ] **TSK-P2-03-TEST:** Submit overlapping ENG and TRD block requests (from Scenario B) and verify the frontend visually flags the conflict and shows the combined block recommendation.
+- [x] **TSK-P2-03-BE:** Implement PostGIS `ST_Intersects` and interval tree algorithm in Celery to detect overlapping blocks and suggest AI Combined Blocks.
+- [x] **TSK-P2-03-FE:** Implement Gantt/Timeline deconfliction view, conflict warning badges, and AI Combined Block Recommendation card (#98).
+- [x] **TSK-P2-03-TEST:** Submit overlapping ENG and TRD block requests (from Scenario B) and verify the frontend visually flags the conflict and shows the combined block recommendation.
 
 ### Feature: Chief Controller (COA) Sanctioning
-- [ ] **TSK-P2-04-BE:** Implement Sanction Block endpoint with optimistic locking (`version`).
-- [ ] **TSK-P2-04-FE:** Implement COA Command Console with one-click sanctioning interface.
-- [ ] **TSK-P2-04-TEST:** Approve a block via COA UI, verify `version` increments, and test concurrent sanctioning rejection (HTTP 409).
+- [x] **TSK-P2-04-BE:** Implement Sanction Block endpoint with optimistic locking (`version`).
+- [x] **TSK-P2-04-FE:** Implement COA Command Console with one-click sanctioning interface.
+- [x] **TSK-P2-04-TEST:** Approve a block via COA UI, verify `version` increments, and test concurrent sanctioning rejection (HTTP 409).
 
 ### Feature: Train Schedule & Live Telemetry (#114, #116)
-- [ ] **TSK-P2-05-BE:** Implement `Train`, `TrainLiveStatus` models and ingestion worker for COA timetable feeds seeded with the 12 master trains.
+- [x] **TSK-P2-05-BE:** Implement `Train`, `TrainLiveStatus` models and ingestion worker for COA timetable feeds seeded with the 12 master trains.
 - [ ] **TSK-P2-05-FE:** Implement 60 FPS requestAnimationFrame train tracking markers on the Mapbox canvas with direction heading and speed badges.
 - [ ] **TSK-P2-05-TEST:** Verify train markers move smoothly on the UI based on backend telemetry coordinates.
 
 ### Feature: Departmental Equipment & Gang Rosters (#100, #101)
-- [ ] **TSK-P2-06-BE:** Implement `Gang`, `MaintenanceEquipment` models and availability query APIs seeded with the 6 gangs and 5 heavy machines.
-- [ ] **TSK-P2-06-FE:** Implement gang/equipment reservation pickers in the block request UI.
-- [ ] **TSK-P2-06-TEST:** Verify gangs cannot be double-booked in the same time window across the frontend and backend.
+- [] **TSK-P2-06-BE:** Implement `Gang`, `MaintenanceEquipment` models and availability query APIs seeded with the 6 gangs and 5 heavy machines.
+- [] **TSK-P2-06-FE:** Implement gang/equipment reservation pickers in the block request UI.
+- [] **TSK-P2-06-TEST:** Verify gangs cannot be double-booked in the same time window across the frontend and backend.
 
 ---
 

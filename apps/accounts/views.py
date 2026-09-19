@@ -76,7 +76,9 @@ class LoginAPIView(APIView):
                 'trd_ohe_power',
                 'snt_signal_telecom',
                 'sec_controller_dli',
-                'admin'
+                'admin',
+                'eng_sse',
+                'site_supervisor_gang01',
             ]
             target_username = roles_cycle[(num - 1) % len(roles_cycle)]
 
@@ -122,6 +124,7 @@ class LoginAPIView(APIView):
         response = ApiResponse.success(
             data={
                 'access_token': access_token,
+                'refresh_token': refresh_token,
                 'token_type': 'Bearer',
                 'expires_in': 900,
                 'user': {
@@ -213,6 +216,7 @@ class TokenRefreshAPIView(APIView):
         response = ApiResponse.success(
             data={
                 'access_token': new_access_token,
+                'refresh_token': new_refresh_token,
                 'token_type': 'Bearer',
                 'expires_in': 900
             },

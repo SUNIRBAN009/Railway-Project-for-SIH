@@ -11,6 +11,7 @@ import owlready2
 from apps.ontology.models import OntologyGraph, SemanticViolation
 from apps.blocks.models import Block, WorkType
 from apps.trains.models import Train, TrainSchedule, TrainLiveStatus, TractionType
+from apps.ontology.services.explanation_service import ExplanationService
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +33,15 @@ class DigitalTwinService:
     def get_ontology_file_path(cls) -> str:
         """Locates the active OWL 2 DL ontology file."""
         candidates = [
-            os.path.join(settings.BASE_DIR, 'digital_twin', 'railway_ontology.owl'),
+            getattr(settings, 'ONTOLOGY_FILE_PATH', ''),
+            os.path.join(settings.BASE_DIR, 'ontology', 'railway_digital_twin.owl'),
             os.path.join(settings.BASE_DIR, 'ontology', 'railway_ontology.owl'),
+            os.path.join(settings.BASE_DIR, 'digital_twin', 'railway_ontology.owl'),
         ]
         for p in candidates:
-            if os.path.exists(p):
+            if p and os.path.exists(p):
                 return p
-        raise FileNotFoundError("Railway OWL ontology file not found in digital_twin/ or ontology/.")
+        raise FileNotFoundError("Railway OWL ontology file not found in ontology/ or digital_twin/.")
 
     @classmethod
     def compute_file_hash(cls, filepath: str) -> str:
@@ -249,13 +252,24 @@ class DigitalTwinService:
                         f"5. Conclusion: De-energizing catenary strands train {train.train_number} without tractive power."
                     )
 
+                    track_span = f"KM {block.start_km:.1f} to {block.end_km:.1f}"
+                    ai_narrative = ExplanationService.explain_semantic_violation(
+                        violation_type="STRANDED_ELECTRIC_TRAIN",
+                        block_code=block.block_code,
+                        train_number=train.train_number,
+                        train_name=train.train_name,
+                        track_info=track_span,
+                        language="bn"
+                    )
+                    full_narrative = f"{ai_narrative}\n\n[Formal DL Axiom Proof]:\n{proof}"
+
                     violation = SemanticViolation.objects.create(
                         graph=graph_record,
                         block_id=str(block.id),
                         rule_identifier="RULE-OHE-ELECTRIC-ISOLATION-04",
                         violation_type=SemanticViolation.ViolationType.STRANDED_ELECTRIC_TRAIN,
                         severity=SemanticViolation.Severity.CRITICAL_SAFETY,
-                        explanation_narrative=proof,
+                        explanation_narrative=full_narrative,
                         involved_owl_individuals=[
                             str(block_ind.iri),
                             str(ohe_ind.iri),
@@ -283,13 +297,24 @@ class DigitalTwinService:
                     f"4. Conclusion: Route setting deadlock blocks train movements through station neck."
                 )
 
+                track_span = f"KM {block.start_km:.1f}"
+                ai_narrative = ExplanationService.explain_semantic_violation(
+                    violation_type="CROSSOVER_POINTS_DEADLOCK",
+                    block_code=block.block_code,
+                    train_number=train.train_number,
+                    train_name=train.train_name,
+                    track_info=track_span,
+                    language="bn"
+                )
+                full_narrative = f"{ai_narrative}\n\n[Formal DL Axiom Proof]:\n{proof}"
+
                 violation = SemanticViolation.objects.create(
                     graph=graph_record,
                     block_id=str(block.id),
                     rule_identifier="RULE-SIGNAL-CROSSOVER-DEADLOCK-02",
                     violation_type=SemanticViolation.ViolationType.CROSSOVER_POINTS_DEADLOCK,
                     severity=SemanticViolation.Severity.CRITICAL_SAFETY,
-                    explanation_narrative=proof,
+                    explanation_narrative=full_narrative,
                     involved_owl_individuals=[
                         str(block_ind.iri),
                         str(track_ind.iri),

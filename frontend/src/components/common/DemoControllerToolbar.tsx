@@ -70,7 +70,7 @@ export const DemoControllerToolbar: React.FC = () => {
   const handleInjectConflict = async (conflictType: 'COMBINED_BLOCK' | 'TRAIN_PRECEDENCE' | 'RESOURCE_PHYSICS') => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/demo/inject-conflict/', {
+      const res = await fetch('/api/v1/demo/inject-conflict/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conflict_type: conflictType }),
@@ -104,7 +104,7 @@ export const DemoControllerToolbar: React.FC = () => {
   const handleGenerateBlocks = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/demo/generate/blocks/', {
+      const res = await fetch('/api/v1/demo/generate/blocks/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 5, mode: activeMode }),
@@ -132,7 +132,7 @@ export const DemoControllerToolbar: React.FC = () => {
   const handleGenerateDefects = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/demo/generate/defects/', {
+      const res = await fetch('/api/v1/demo/generate/defects/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 4, mode: activeMode }),

@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework import permissions, status
 
@@ -25,6 +26,42 @@ from apps.blocks.serializers import (
     BlockCompletionSerializer,
 )
 from apps.blocks.conflict_engine import ConflictDetector
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+
+def broadcast_block_event(event_type: str, block, extra=None):
+    """Broadcast real-time push-to-invalidate event to Daphne Redis channel groups."""
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    corridor_code = getattr(block.corridor, 'code', 'ALL').lower()
+    payload = {
+        'event_type': event_type,
+        'type': event_type,
+        'block_id': str(block.id),
+        'block_code': block.block_code,
+        'status': block.status,
+        'version': block.version,
+        'department': block.department_code,
+        'start_km': float(block.start_km),
+        'end_km': float(block.end_km),
+        'timestamp': timezone.now().isoformat(),
+    }
+    if extra:
+        payload.update(extra)
+
+    for grp in [f"corridor_{corridor_code}", "corridor_all", "corridor_ndls-gzb"]:
+        try:
+            async_to_sync(channel_layer.group_send)(
+                grp,
+                {
+                    "type": "corridor_event",
+                    "data": payload
+                }
+            )
+        except Exception:
+            pass
 
 
 # ============================================================================
@@ -49,7 +86,40 @@ class BlockProposalCreateAPIView(APIView):
             )
 
         data = serializer.validated_data
-        dept = data['department_code']
+        user_profile = getattr(request.user, 'profile', None)
+        dept = data.get('department_code')
+        if not dept and user_profile and user_profile.department_code:
+            dept = user_profile.department_code
+            data['department_code'] = dept
+        if not dept:
+            dept = 'ENG'
+            data['department_code'] = dept
+
+        # Enforce Coherence Rules Engine (7 Rules validation)
+        try:
+            from apps.demo.coherence import CoherenceEngine, CoherenceViolation
+            engine = CoherenceEngine()
+            block_dict = {
+                'start_km': float(data['start_km']),
+                'end_km': float(data['end_km']),
+                'scheduled_start_time': data['scheduled_start_time'],
+                'scheduled_end_time': data['scheduled_end_time'],
+                'department': dept,
+                'gang_id': data.get('gang_id', ''),
+                'equipment_id': data.get('equipment_required', ''),
+                'line_type': data.get('line_type', LineType.DOWN),
+            }
+            engine.validate_block(block_dict)
+        except CoherenceViolation as cv:
+            return ApiResponse.error(
+                code=f'COHERENCE-RULE-{cv.rule_number or 0}',
+                message=cv.message,
+                details=cv.details,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception:
+            pass
+
         today_str = timezone.now().strftime('%Y%m%d')
         seq = Block.objects.filter(block_code__startswith=f"BLK-{today_str}").count() + 1
         block_code = f"BLK-{today_str}-{dept}-{seq:03d}"
@@ -76,6 +146,18 @@ class BlockProposalCreateAPIView(APIView):
         detector = ConflictDetector(block)
         sweep_report = detector.run_sweep()
 
+        # Dispatch Semantic Digital Twin Reasoning Task (HermiT / Description Logic)
+        try:
+            import uuid
+            from apps.ontology.tasks import run_hermit_reasoner
+            job_id = str(uuid.uuid4())
+            run_hermit_reasoner.delay(job_id, str(block.id))
+        except Exception:
+            pass
+
+        # Real-time WebSocket dispatch (TSK-P3-01)
+        broadcast_block_event('BLOCK_PROPOSED', block, {'sweep_report': sweep_report})
+
         detail_serializer = BlockDetailSerializer(block)
         return ApiResponse.success(
             data={
@@ -89,10 +171,17 @@ class BlockProposalCreateAPIView(APIView):
 
 class BlockListAPIView(APIView):
     """
-    FUNC-BLK-002: List & Filter Block Schedule
-    GET /api/v1/blocks/
+    FUNC-BLK-002: List & Filter Block Schedule / Submit Proposal
+    GET /api/v1/blocks/ - List all blocks
+    POST /api/v1/blocks/ - Submit block proposal with RBAC enforcement
     """
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated(), IsDepartmentalEngineer()]
+        return [permissions.IsAuthenticated()]
+
+    def post(self, request):
+        return BlockProposalCreateAPIView.as_view()(request._request)
 
     def get(self, request):
         qs = Block.objects.select_related('corridor', 'requested_by').prefetch_related('conflicts').all()
@@ -146,15 +235,51 @@ class BlockValidateAPIView(APIView):
         return ApiResponse.success(data=results, message='Conflict sweep completed.')
 
 
+class BlockCombinedRecommendationAPIView(APIView):
+    """
+    USP #98: Retrieve AI Combined Block Recommendation for a specific block.
+    GET /api/v1/blocks/<id>/combined-recommendation/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        block = get_object_or_404(Block, id=pk)
+        detector = ConflictDetector(block)
+        rec = detector.get_combined_recommendation()
+        return ApiResponse.success(
+            data=rec,
+            message='AI Combined Block synergy evaluated.'
+        )
+
+
+class CombinedRecommendationsListAPIView(APIView):
+    """
+    USP #98: List all corridor-wide AI Combined Block Recommendations.
+    GET /api/v1/blocks/recommendations/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        corridor_id = request.query_params.get('corridor')
+        recs = ConflictDetector.find_corridor_combined_opportunities(corridor_id=corridor_id)
+        return ApiResponse.success(
+            data=recs,
+            extra={'total_recommendations': len(recs)},
+            message=f"Found {len(recs)} AI Combined Block opportunities."
+        )
+
+
+
 class BlockSanctionAPIView(APIView):
     """
-    FUNC-BLK-005: Sanction Block Possession with Optimistic Concurrency Control
+    FUNC-BLK-005: Sanction Block Possession with Optimistic Concurrency Control (TSK-P2-04-BE)
     POST /api/v1/blocks/<id>/sanction/
+    Chief Controller (COA) / Admin only.
+    Enforces optimistic locking on `version` and returns HTTP 409 Conflict if stale.
     """
     permission_classes = [permissions.IsAuthenticated, IsChiefController]
 
     def post(self, request, pk):
-        block = get_object_or_404(Block, id=pk)
         serializer = BlockSanctionSerializer(data=request.data)
         if not serializer.is_valid():
             return ApiResponse.error(code='BLK-400', message='Sanction input invalid.', details=serializer.errors)
@@ -162,35 +287,64 @@ class BlockSanctionAPIView(APIView):
         submitted_version = serializer.validated_data['version']
         action = serializer.validated_data['action']
         remarks = serializer.validated_data.get('remarks', '')
+        caution_speed = serializer.validated_data.get('caution_speed')
 
-        # Optimistic Locking Check (TSK-P2-006)
-        if block.version != submitted_version:
-            return ApiResponse.error(
-                code='BLK-409',
-                message=f'Concurrency Conflict: Block was modified by another controller. (Current version: {block.version}, Submitted: {submitted_version})',
-                status_code=status.HTTP_409_CONFLICT
-            )
+        with transaction.atomic():
+            block = Block.objects.select_for_update().filter(id=pk).first()
+            if not block:
+                return ApiResponse.error(code='BLK-404', message='Block not found.', status_code=status.HTTP_404_NOT_FOUND)
 
-        if action == 'SANCTION':
-            if not block.can_transition_to(BlockStatus.SANCTIONED):
+            # Optimistic Concurrency Control (TSK-P2-04-BE)
+            if block.version != submitted_version:
                 return ApiResponse.error(
-                    code='BLK-400',
-                    message=f"Cannot transition from {block.status} to SANCTIONED."
+                    code='BLK-409',
+                    message=f'Concurrency Conflict: Block was modified by another controller. (Current version: {block.version}, Submitted: {submitted_version})',
+                    details={
+                        'current_version': block.version,
+                        'submitted_version': submitted_version,
+                        'status': block.status,
+                    },
+                    status_code=status.HTTP_409_CONFLICT
                 )
-            block.status = BlockStatus.SANCTIONED
-            block.sanctioned_by = request.user
-            block.sanctioned_at = timezone.now()
-            block.version += 1
-            block.save()
-            msg = f"Block {block.block_code} sanctioned by Chief Controller {request.user.username}."
-        else: # REJECT
-            block.status = BlockStatus.REJECTED
-            block.rejection_reason = remarks
-            block.version += 1
-            block.save()
-            msg = f"Block {block.block_code} rejected by Chief Controller."
+
+            if action in ['SANCTION', 'CONDITIONAL_SANCTION']:
+                if not block.can_transition_to(BlockStatus.SANCTIONED):
+                    return ApiResponse.error(
+                        code='BLK-400',
+                        message=f"Cannot transition from {block.status} to SANCTIONED."
+                    )
+                block.status = BlockStatus.SANCTIONED
+                block.sanctioned_by = request.user
+                block.sanctioned_at = timezone.now()
+                block.version += 1
+
+                if action == 'CONDITIONAL_SANCTION':
+                    speed_cap = caution_speed or 30
+                    block.caution_order_id = f"CO-{block.block_code}-{speed_cap}KMH"
+                    block.work_description = f"{block.work_description} [CONDITIONAL SANCTION: Speed cap {speed_cap} km/h. Remarks: {remarks}]".strip()
+                    msg = f"Block {block.block_code} conditionally sanctioned by Chief Controller {request.user.username} with {speed_cap} km/h speed restriction."
+                else:
+                    if remarks:
+                        block.work_description = f"{block.work_description} [COA Remarks: {remarks}]".strip()
+                    msg = f"Block {block.block_code} sanctioned by Chief Controller {request.user.username}."
+
+                block.save()
+                broadcast_block_event('BLOCK_SANCTIONED', block, {'action': action, 'remarks': remarks, 'caution_speed': caution_speed})
+            else:  # REJECT
+                if not block.can_transition_to(BlockStatus.REJECTED):
+                    return ApiResponse.error(
+                        code='BLK-400',
+                        message=f"Cannot transition from {block.status} to REJECTED."
+                    )
+                block.status = BlockStatus.REJECTED
+                block.rejection_reason = remarks or 'Rejected by Chief Controller'
+                block.version += 1
+                block.save()
+                broadcast_block_event('BLOCK_REJECTED', block, {'remarks': remarks})
+                msg = f"Block {block.block_code} rejected by Chief Controller {request.user.username}."
 
         return ApiResponse.success(data=BlockDetailSerializer(block).data, message=msg)
+
 
 
 class BlockActivateAPIView(APIView):
@@ -214,6 +368,7 @@ class BlockActivateAPIView(APIView):
         block.actual_start_time = timezone.now()
         block.version += 1
         block.save()
+        broadcast_block_event('BLOCK_ACTIVATED', block)
 
         return ApiResponse.success(
             data=BlockDetailSerializer(block).data,
@@ -242,6 +397,7 @@ class BlockCompleteAPIView(APIView):
         block.actual_end_time = timezone.now()
         block.version += 1
         block.save()
+        broadcast_block_event('BLOCK_COMPLETED', block)
 
         return ApiResponse.success(
             data=BlockDetailSerializer(block).data,
@@ -261,7 +417,168 @@ class BlockCancelAPIView(APIView):
         block.status = BlockStatus.CANCELLED
         block.version += 1
         block.save()
+        broadcast_block_event('BLOCK_CANCELLED', block)
         return ApiResponse.success(data=BlockDetailSerializer(block).data, message=f"Block {block.block_code} cancelled.")
+
+
+class CorridorListAPIView(APIView):
+    """
+    FUNC-COR-001: List Railway Corridors
+    GET /api/v1/blocks/corridors/
+    Returns all monitored physical rail corridors with PostGIS SRID 4326 metadata.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        corridors = Corridor.objects.all().order_by('code')
+        serializer = CorridorSerializer(corridors, many=True)
+        return ApiResponse.success(data=serializer.data, extra={'total_corridors': corridors.count()})
+
+
+class CorridorDetailAPIView(APIView):
+    """
+    FUNC-COR-002: Corridor Detail & PostGIS SRID 4326 GeoJSON
+    GET /api/v1/blocks/corridors/<str:identifier>/
+    Returns detailed corridor specs, station sequences, and GeoJSON LineString geometry.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, identifier):
+        corridor = Corridor.objects.filter(code__iexact=identifier).first()
+        if not corridor:
+            try:
+                corridor = Corridor.objects.filter(id=identifier).first()
+            except Exception:
+                pass
+        if not corridor:
+            return ApiResponse.error(code='COR-404', message='Corridor not found.', status_code=status.HTTP_404_NOT_FOUND)
+
+        serializer = CorridorSerializer(corridor)
+        
+        # Load station nodes in sequence
+        from apps.trains.models import Station
+        stations = Station.objects.all().order_by('km_from_source')
+        station_features = []
+        line_coords = []
+
+        for stn in stations:
+            if stn.latitude and stn.longitude:
+                line_coords.append([float(stn.longitude), float(stn.latitude)])
+                station_features.append({
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [float(stn.longitude), float(stn.latitude)]
+                    },
+                    'properties': {
+                        'code': stn.code,
+                        'name': stn.name,
+                        'km_from_source': float(stn.km_from_source),
+                        'platforms': stn.number_of_platforms,
+                        'has_wifi': stn.has_wifi,
+                    }
+                })
+
+        geojson = {
+            'type': 'FeatureCollection',
+            'properties': {
+                'corridor_code': corridor.code,
+                'corridor_name': corridor.name,
+                'srid': 4326,
+                'total_length_km': corridor.total_length_km,
+                'max_speed': corridor.max_permissible_speed_kmh,
+            },
+            'features': [
+                {
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': line_coords
+                    },
+                    'properties': {
+                        'corridor_code': corridor.code,
+                        'name': corridor.name,
+                        'stroke': '#00f0ff',
+                        'stroke_width': 4,
+                    }
+                },
+                *station_features
+            ]
+        }
+
+        return ApiResponse.success(data={
+            **serializer.data,
+            'geojson': geojson
+        })
+
+
+class CorridorGeoJSONAPIView(APIView):
+    """
+    GET /api/v1/blocks/corridors/<str:identifier>/geojson/
+    Returns direct PostGIS SRID 4326 GeoJSON FeatureCollection for Mapbox / GIS layers.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, identifier):
+        corridor = Corridor.objects.filter(code__iexact=identifier).first()
+        if not corridor:
+            try:
+                corridor = Corridor.objects.filter(id=identifier).first()
+            except Exception:
+                pass
+        if not corridor:
+            return ApiResponse.error(code='COR-404', message='Corridor not found.', status_code=status.HTTP_404_NOT_FOUND)
+
+        from apps.trains.models import Station
+        stations = Station.objects.all().order_by('km_from_source')
+        station_features = []
+        line_coords = []
+
+        for stn in stations:
+            if stn.latitude and stn.longitude:
+                line_coords.append([float(stn.longitude), float(stn.latitude)])
+                station_features.append({
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [float(stn.longitude), float(stn.latitude)]
+                    },
+                    'properties': {
+                        'code': stn.code,
+                        'name': stn.name,
+                        'km_from_source': float(stn.km_from_source),
+                        'platforms': stn.number_of_platforms,
+                        'has_wifi': stn.has_wifi,
+                    }
+                })
+
+        geojson = {
+            'type': 'FeatureCollection',
+            'properties': {
+                'corridor_code': corridor.code,
+                'corridor_name': corridor.name,
+                'srid': 4326,
+                'total_length_km': corridor.total_length_km,
+                'max_speed': corridor.max_permissible_speed_kmh,
+            },
+            'features': [
+                {
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': line_coords
+                    },
+                    'properties': {
+                        'corridor_code': corridor.code,
+                        'name': corridor.name,
+                        'stroke': '#00f0ff',
+                        'stroke_width': 4,
+                    }
+                },
+                *station_features
+            ]
+        }
+        return ApiResponse.success(data=geojson)
 
 
 # ============================================================================

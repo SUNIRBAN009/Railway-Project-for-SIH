@@ -19,6 +19,14 @@ export interface SocketEventLog {
   payload: any;
 }
 
+export interface LiveCorridorMetrics {
+  punctuality: number;
+  shadowGain: number;
+  activeTrains: number;
+  activePossessions: number;
+  eventSequence: number;
+}
+
 interface SocketState {
   status: SocketStatus;
   latency: number;
@@ -27,6 +35,7 @@ interface SocketState {
   activeCorridor: string;
   emergencyAlert: EmergencyEvent | null;
   recentEvents: SocketEventLog[];
+  liveMetrics: LiveCorridorMetrics;
 
   setStatus: (status: SocketStatus) => void;
   setLatency: (latency: number) => void;
@@ -35,6 +44,7 @@ interface SocketState {
   setEmergencyAlert: (alert: EmergencyEvent | null) => void;
   clearEmergencyAlert: () => void;
   addEvent: (type: string, payload: any) => void;
+  setLiveMetrics: (metrics: Partial<LiveCorridorMetrics>) => void;
   triggerDemoEmergency: () => void;
 }
 
@@ -46,6 +56,13 @@ export const useSocketStore = create<SocketState>((set) => ({
   activeCorridor: 'NDLS-GZB',
   emergencyAlert: null,
   recentEvents: [],
+  liveMetrics: {
+    punctuality: 96.8,
+    shadowGain: 42.5,
+    activeTrains: 12,
+    activePossessions: 8,
+    eventSequence: 1,
+  },
 
   setStatus: (status) => set({ status }),
   setLatency: (latency) => set({ latency }),
@@ -67,6 +84,10 @@ export const useSocketStore = create<SocketState>((set) => ({
         },
         ...state.recentEvents.slice(0, 49),
       ],
+    })),
+  setLiveMetrics: (metrics) =>
+    set((state) => ({
+      liveMetrics: { ...state.liveMetrics, ...metrics },
     })),
   triggerDemoEmergency: () =>
     set({

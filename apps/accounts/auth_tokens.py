@@ -3,6 +3,9 @@ import uuid
 import jwt
 from django.conf import settings
 from django.utils import timezone
+from django.contrib.auth.models import User
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 from apps.accounts.models import UserSession, UserProfile
 
 # Cache / Redis key patterns
@@ -137,3 +140,44 @@ def blacklist_jti(jti, remaining_seconds=3600):
         r.setex(key, max(60, int(remaining_seconds)), "revoked")
     except Exception:
         pass
+
+
+class JWTAuthentication(BaseAuthentication):
+    """
+    DRF Authentication backend for Bearer JWT tokens issued by issue_access_token().
+    Enforces expiration, token type, JTI blacklisting, and user active status.
+    """
+    def authenticate(self, request):
+        auth_header = request.headers.get('Authorization') or request.META.get('HTTP_AUTHORIZATION')
+        if not auth_header:
+            return None
+
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != 'bearer':
+            return None
+
+        raw_token = parts[1]
+        try:
+            payload = decode_token(raw_token, verify_exp=True)
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationFailed('Access token has expired.')
+        except jwt.PyJWTError:
+            raise AuthenticationFailed('Invalid access token.')
+
+        if payload.get('token_type') != 'access':
+            raise AuthenticationFailed('Invalid token type.')
+
+        jti = payload.get('jti')
+        if jti and is_jti_blacklisted(jti):
+            raise AuthenticationFailed('Token has been revoked.')
+
+        user_id = payload.get('user_id')
+        user = User.objects.filter(id=user_id, is_active=True).first()
+        if not user:
+            raise AuthenticationFailed('User not found or account inactive.')
+
+        return (user, raw_token)
+
+    def authenticate_header(self, request):
+        return 'Bearer realm="api"'
+

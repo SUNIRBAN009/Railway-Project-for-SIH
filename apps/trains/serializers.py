@@ -22,6 +22,8 @@ class TrainLiveStatusSerializer(serializers.ModelSerializer):
     train_name = serializers.CharField(source='train.train_name', read_only=True)
     train_type = serializers.CharField(source='train.train_type', read_only=True)
     priority_rank = serializers.IntegerField(source='train.priority_rank', read_only=True)
+    direction = serializers.CharField(source='train.direction', read_only=True)
+    pax_capacity = serializers.IntegerField(source='train.pax_capacity', read_only=True)
     is_punctual = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -33,9 +35,15 @@ class TrainLiveStatusSerializer(serializers.ModelSerializer):
             'train_name',
             'train_type',
             'priority_rank',
+            'direction',
+            'pax_capacity',
             'journey_date',
             'current_station_code',
+            'current_section',
             'current_km',
+            'latitude',
+            'longitude',
+            'heading',
             'delay_minutes',
             'speed_kmh',
             'status',
@@ -59,6 +67,8 @@ class TrainMasterSerializer(serializers.ModelSerializer):
             'train_name',
             'train_type',
             'priority_rank',
+            'direction',
+            'pax_capacity',
             'source_station',
             'destination_station',
             'is_daily',

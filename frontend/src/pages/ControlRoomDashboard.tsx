@@ -27,15 +27,24 @@ import {
 } from 'lucide-react';
 
 export const ControlRoomDashboard: React.FC = () => {
-  const { blocks, setBlocks } = useLiveBlocks();
+  const { blocks, setBlocks, refetch } = useLiveBlocks();
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   const activeSelectedId = selectedBlockId || (blocks.length > 0 ? blocks[0].id : null);
   const selectedBlock = blocks.find((b) => b.id === activeSelectedId) || (blocks.length > 0 ? blocks[0] : null);
 
-
   const handleSelectBlock = (block: Block) => {
     setSelectedBlockId(block.id);
+  };
+
+  const handleSanctionSuccess = (updatedBlock: Block) => {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === updatedBlock.id ? { ...b, ...updatedBlock } : b))
+    );
+    // Refresh to get latest state from backend
+    setTimeout(() => {
+      refetch();
+    }, 400);
   };
 
   const handleSanction = (blockId: string, remarks: string) => {
@@ -222,6 +231,8 @@ export const ControlRoomDashboard: React.FC = () => {
               onSanction={handleSanction}
               onConditionalSanction={handleConditionalSanction}
               onRevise={handleRevise}
+              onSanctionSuccess={handleSanctionSuccess}
+              onRefresh={refetch}
             />
 
             <ConflictResolutionPanel />

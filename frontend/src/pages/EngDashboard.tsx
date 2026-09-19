@@ -193,7 +193,7 @@ export const EngDashboard: React.FC = () => {
         )}
 
         {activeTab === 'TIMELINE' && (
-          <BlockTimeline corridorCode="NDLS-GZB-UP" />
+          <BlockTimeline corridorCode="NDLS-CNB-MAIN" />
         )}
 
         {activeTab === 'CREW' && (

@@ -18,7 +18,8 @@ export type BlockStatus =
   | 'COMPLETED'
   | 'CANCELLED'
   | 'CONFLICT_DETECTED'
-  | 'PENDING_APPROVAL';
+  | 'PENDING_APPROVAL'
+  | 'REJECTED';
 
 export type LineType = 'UP' | 'DOWN' | 'SINGLE' | 'BOTH';
 
@@ -48,10 +49,47 @@ export interface Corridor {
   max_permissible_speed_kmh: number;
 }
 
+export interface BlockConflict {
+  id: string;
+  conflict_type: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  conflicting_entity_id: string;
+  conflicting_entity_label: string;
+  overlap_start_km: number;
+  overlap_end_km: number;
+  conflict_start_time: string;
+  conflict_end_time: string;
+  resolution_status: 'UNRESOLVED' | 'AUTO_RESOLVED' | 'SHADOW_MERGED' | 'RESOLVED_BY_COA';
+  resolution_notes: string;
+  created_at?: string;
+}
+
+export interface CombinedRecommendation {
+  is_combined_candidate: boolean;
+  primary_block_code?: string;
+  secondary_block_code?: string;
+  candidate_blocks?: string[];
+  departments?: string[];
+  work_types?: string[];
+  overlap_span_km?: number;
+  overlap_start_km?: number;
+  overlap_end_km?: number;
+  unified_span_km?: string;
+  unified_window?: string;
+  track_capacity_saved_hours?: number;
+  train_delay_prevented_minutes?: number;
+  shadow_bundling_efficiency?: string;
+  synergy_tier?: string;
+  ai_rationale?: string;
+  status?: string;
+}
+
 export interface Block {
   id: string;
   block_code: string;
-  corridor: Corridor;
+  corridor: Corridor | { code: string; name: string; [key: string]: any };
+  corridor_code?: string;
+  corridor_name?: string;
   line_type: LineType;
   department_code: DepartmentCode;
   work_type: string;
@@ -67,7 +105,12 @@ export interface Block {
   traction_power_cutoff_required: boolean;
   work_description: string;
   version: number;
+  rejection_reason?: string;
+  caution_order_id?: string;
+  conflicts?: BlockConflict[];
+  combined_recommendation?: CombinedRecommendation;
 }
+
 
 export interface Train {
   id: string;

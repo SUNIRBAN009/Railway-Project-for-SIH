@@ -79,11 +79,15 @@ apiClient.interceptors.response.use(
       try {
         const refreshResponse = await axios.post<{
           success: boolean;
-          data: { access_token: string };
+          data: { access_token: string; refresh_token?: string };
         }>('/api/v1/auth/refresh/', { refresh_token: refreshToken });
 
         const newAccessToken = refreshResponse.data.data.access_token;
+        const newRefreshToken = refreshResponse.data.data.refresh_token;
         useAuthStore.getState().setAccessToken(newAccessToken);
+        if (newRefreshToken) {
+          useAuthStore.setState({ refreshToken: newRefreshToken });
+        }
 
         processQueue(null, newAccessToken);
 
@@ -110,6 +114,7 @@ export interface LoginResponse {
   message: string;
   data: {
     access_token: string;
+    refresh_token?: string;
     token_type: string;
     expires_in: number;
     user: User;
@@ -138,3 +143,64 @@ export const authService = {
     }
   },
 };
+
+// Block Service API Wrappers
+export interface CreateBlockPayload {
+  corridor?: string;
+  corridor_code?: string;
+  department?: string;
+  department_code?: string;
+  line_type?: string;
+  work_type?: string;
+  start_km: number;
+  end_km: number;
+  scheduled_start_time: string;
+  scheduled_end_time?: string;
+  duration_minutes?: number;
+  traction_power_cutoff_required?: boolean;
+  gang_id?: string;
+  equipment_required?: string;
+  equipment_id?: string;
+  work_description?: string;
+}
+
+export interface SanctionBlockPayload {
+  action: 'SANCTION' | 'CONDITIONAL_SANCTION' | 'REJECT';
+  version: number;
+  remarks?: string;
+  caution_speed?: number;
+}
+
+export const blockService = {
+  createBlock: async (payload: CreateBlockPayload): Promise<any> => {
+    const response = await apiClient.post<{ success: boolean; data: any }>('/blocks/', payload);
+    return response.data.data;
+  },
+  getBlocks: async (params?: Record<string, string>): Promise<any[]> => {
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/blocks/', { params });
+    return response.data.data;
+  },
+  getBlockDetail: async (id: string): Promise<any> => {
+    const response = await apiClient.get<{ success: boolean; data: any }>(`/blocks/${id}/`);
+    return response.data.data;
+  },
+  getCombinedRecommendation: async (id: string): Promise<any> => {
+    const response = await apiClient.get<{ success: boolean; data: any }>(`/blocks/${id}/combined-recommendation/`);
+    return response.data.data;
+  },
+  getCorridorRecommendations: async (corridor?: string): Promise<any[]> => {
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/blocks/recommendations/', {
+      params: corridor ? { corridor } : undefined,
+    });
+    return response.data.data;
+  },
+  sanctionBlock: async (id: string, payload: SanctionBlockPayload): Promise<any> => {
+    const response = await apiClient.post<{ success: boolean; data: any; message?: string }>(
+      `/blocks/${id}/sanction/`,
+      payload
+    );
+    return response.data.data;
+  },
+};
+
+

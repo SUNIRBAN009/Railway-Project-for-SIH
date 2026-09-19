@@ -34,7 +34,8 @@ class ResourceValidator:
                 is_overlap = not (end_time <= ex_start or start_time >= ex_end)
                 if is_overlap:
                     raise CoherenceViolation(
-                        f"Resource Exclusivity Violation: Gang '{gang_id}' double-booked across overlapping block windows!"
+                        f"Resource Exclusivity Violation: Gang '{gang_id}' double-booked across overlapping block windows!",
+                        rule_number=3
                     )
 
                 # 2. 40 km/h Travel Physics Check
@@ -47,7 +48,8 @@ class ResourceValidator:
                         if speed_req > 40.0:
                             raise CoherenceViolation(
                                 f"Travel Physics Violation: Gang '{gang_id}' requires {speed_req:.1f} km/h "
-                                f"to relocate {distance_km:.1f} km in {gap_hours:.2f}h (maximum permissible transfer speed is 40.0 km/h)."
+                                f"to relocate {distance_km:.1f} km in {gap_hours:.2f}h (maximum permissible transfer speed is 40.0 km/h).",
+                                rule_number=3
                             )
 
                 # If existing block starts after block ends
@@ -59,7 +61,8 @@ class ResourceValidator:
                         if speed_req > 40.0:
                             raise CoherenceViolation(
                                 f"Travel Physics Violation: Gang '{gang_id}' requires {speed_req:.1f} km/h "
-                                f"to relocate {distance_km:.1f} km in {gap_hours:.2f}h (maximum permissible transfer speed is 40.0 km/h)."
+                                f"to relocate {distance_km:.1f} km in {gap_hours:.2f}h (maximum permissible transfer speed is 40.0 km/h).",
+                                rule_number=3
                             )
 
             # Check Heavy Machinery overlap
@@ -67,5 +70,6 @@ class ResourceValidator:
                 is_overlap = not (end_time <= ex_start or start_time >= ex_end)
                 if is_overlap:
                     raise CoherenceViolation(
-                        f"Equipment Exclusivity Violation: Machinery '{equipment_id}' double-booked across overlapping windows!"
+                        f"Equipment Exclusivity Violation: Machinery '{equipment_id}' double-booked across overlapping windows!",
+                        rule_number=3
                     )

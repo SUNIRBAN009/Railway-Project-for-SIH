@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.gis",
     "rest_framework",
     "corsheaders",
     "channels",
@@ -140,6 +141,7 @@ LOGOUT_REDIRECT_URL = "/"
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.accounts.auth_tokens.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -183,6 +185,10 @@ CELERY_BEAT_SCHEDULE = {
     "purge-stale-notifications": {
         "task": "apps.notifications.tasks.purge_old_notifications_task",
         "schedule": 86400.0 * 7,  # Runs weekly
+    },
+    "live-coa-train-feed-simulation": {
+        "task": "apps.trains.tasks.ingest_coa_feed",
+        "schedule": 30.0,  # Runs every 30 seconds (Train position simulation)
     },
 }
 

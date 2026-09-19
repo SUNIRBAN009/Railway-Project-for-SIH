@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DepartmentCode, LineType, Block } from '../../types';
 import { DEMO_CORRIDORS, DEMO_MACHINERY, DEMO_GANGS } from '../../services/demoData';
+import { blockService } from '../../services/api';
 import { useToastStore } from '../../stores/toastStore';
 import {
   Wrench,
@@ -192,82 +193,53 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
     const endIso = endDateTime.toISOString();
 
     const blockPayload = {
+      corridor: corridorCode,
       start_km: Number(startKm),
       end_km: Number(endKm),
       scheduled_start_time: `${requestDate}T${startTime}:00+05:30`,
       scheduled_end_time: endIso,
       department: departmentCode,
       gang_id: selectedGang,
-      equipment_id: selectedMachine,
+      equipment_required: selectedMachine,
       line_type: lineType,
+      work_type: workType,
+      traction_power_cutoff_required: powerCutoffRequired,
+      work_description: workDescription,
     };
 
     try {
-      // Direct CoherenceEngine Verification API call
-      const res = await fetch('http://127.0.0.1:8000/api/v1/demo/validate-block/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(blockPayload),
-      });
+      // Direct live submission to backend PostgreSQL database with JWT auth
+      const createdBlock = await blockService.createBlock(blockPayload);
+      const conflictCount = createdBlock.sweep_report?.total_conflicts ?? (createdBlock.conflicts?.length || 0);
 
-      const json = await res.json();
-
-      if (!res.ok || !json.valid) {
-        addToast({
-          type: 'error',
-          ruleNumber: json.rule_number,
-          title: `Coherence Violation (Rule ${json.rule_number || 'Failure'})`,
-          message: json.error || 'The proposed block violated immutable railway operational constraints.',
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Successful verification
       addToast({
         type: 'success',
-        title: 'Coherence Check Verified (Rule 1-7 Passed)',
-        message: 'Block proposal complies with all 7 Indian Railways Coherence rules. Successfully registered!',
+        title: `Block Proposal Registered: ${createdBlock.block_code}`,
+        message: `Saved to database in state: ${createdBlock.status_display || createdBlock.status}. ${conflictCount} sweep conflict(s) evaluated.`,
       });
 
-      const selectedCorridor = DEMO_CORRIDORS.find((c) => c.code === corridorCode) || DEMO_CORRIDORS[0];
-      const newBlock: Partial<Block> = {
-        id: `blk-${Date.now()}`,
-        block_code: `BLK-${departmentCode}-${corridorCode.substring(0, 4)}-${Math.floor(100 + Math.random() * 900)}`,
-        corridor: selectedCorridor,
-        line_type: lineType,
-        department_code: departmentCode,
-        work_type: workType,
-        status: 'SUBMITTED',
-        start_km: Number(startKm),
-        end_km: Number(endKm),
-        scheduled_start_time: `${requestDate}T${startTime}:00+05:30`,
-        scheduled_end_time: endIso,
-        gang_id: selectedGang,
-        equipment_required: selectedMachine,
-        traction_power_cutoff_required: powerCutoffRequired,
-        work_description: workDescription,
-        version: 1,
-      };
-
       if (onSuccess) {
-        onSuccess(newBlock);
+        onSuccess(createdBlock);
       }
-    } catch (err) {
-      // If network fails, simulate local acceptance
+    } catch (err: any) {
+      console.error('Block submission error:', err);
+      const backendError = err.response?.data?.error;
+      const errorDetails = backendError?.details;
+      let detailedMsg = backendError?.message || err.message || 'Failed to register block proposal.';
+
+      if (errorDetails && typeof errorDetails === 'object') {
+        const firstKey = Object.keys(errorDetails)[0];
+        const val = errorDetails[firstKey];
+        if (Array.isArray(val) && val.length > 0) {
+          detailedMsg = `${firstKey.toUpperCase()}: ${val[0]}`;
+        }
+      }
+
       addToast({
-        type: 'info',
-        title: 'Local Coherence Engine Passed',
-        message: 'Validated locally against 7 rules. Block proposal generated.',
+        type: 'error',
+        title: backendError?.code || 'Proposal Submission Error',
+        message: detailedMsg,
       });
-      if (onSuccess) {
-        onSuccess({
-          id: `blk-${Date.now()}`,
-          department_code: departmentCode,
-          start_km: Number(startKm),
-          end_km: Number(endKm),
-        } as Partial<Block>);
-      }
     } finally {
       setIsSubmitting(false);
     }

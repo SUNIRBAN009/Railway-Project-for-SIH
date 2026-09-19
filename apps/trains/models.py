@@ -82,6 +82,16 @@ class Train(models.Model):
     )
     max_speed_kmh = models.PositiveIntegerField(default=130)
     length_meters = models.DecimalField(max_digits=7, decimal_places=2, default=650.00)
+    direction = models.CharField(
+        max_length=10,
+        choices=[('UP', 'UP Line (Towards NDLS)'), ('DOWN', 'DOWN Line (Towards CNB)')],
+        default='DOWN',
+        db_index=True
+    )
+    pax_capacity = models.PositiveIntegerField(
+        default=1200,
+        help_text="Passenger capacity for delay impact scoring"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -143,7 +153,11 @@ class TrainLiveStatus(models.Model):
     train = models.ForeignKey(Train, on_delete=models.CASCADE, related_name='live_status_records')
     journey_date = models.DateField(db_index=True)
     current_station_code = models.CharField(max_length=10, db_index=True)
+    current_section = models.CharField(max_length=150, blank=True, default='')
     current_km = models.DecimalField(max_digits=8, decimal_places=3, default=0.0)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    heading = models.FloatField(default=90.0, help_text="Direction angle in degrees (0=North, 90=East, etc.)")
     delay_minutes = models.IntegerField(default=0, help_text="Negative means early, 0 means on time, >0 means delayed")
     speed_kmh = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     status = models.CharField(

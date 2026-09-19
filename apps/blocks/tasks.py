@@ -1,6 +1,6 @@
 import logging
 from celery import shared_task
-from apps.blocks.models import Block
+from apps.blocks.models import Block, Corridor
 from apps.blocks.conflict_engine import ConflictDetector
 
 logger = logging.getLogger(__name__)
@@ -26,3 +26,20 @@ def sweep_conflicts_task(block_id: str):
         f"{results['total_conflicts']} conflicts, {results['shadow_opportunities']} shadow opportunities."
     )
     return results
+
+
+@shared_task(queue='high', name='blocks.tasks.detect_combined_blocks_for_corridor')
+def detect_combined_blocks_for_corridor(corridor_id: str = None):
+    """
+    USP #98: AI Combined Block & Shadow Opportunity Celery Sweep Task.
+    Scans corridor blocks periodically or after updates to identify cross-departmental bundling.
+    """
+    logger.info(f"Running corridor combined block detection for corridor: {corridor_id or 'ALL'}")
+    opportunities = ConflictDetector.find_corridor_combined_opportunities(corridor_id=corridor_id)
+    logger.info(f"Found {len(opportunities)} AI combined block opportunities.")
+    return {
+        'corridor_id': corridor_id or 'ALL',
+        'total_recommendations': len(opportunities),
+        'recommendations': opportunities,
+    }
+

@@ -66,10 +66,31 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
         msgType === 'block.updated' ||
         msgType === 'block.sanctioned' ||
         msgType === 'block.proposed' ||
-        msgType === 'BLOCK_UPDATE'
+        msgType === 'BLOCK_UPDATE' ||
+        msgType === 'BLOCK_SANCTIONED' ||
+        msgType === 'BLOCK_RESCHEDULED'
       ) {
         queryClient.invalidateQueries({ queryKey: ['blocks'] });
         queryClient.invalidateQueries({ queryKey: ['corridor_telemetry'] });
+      }
+
+      // 3b. Live Telemetry & HUD Counters Streaming (TSK-P0.5-05-FE)
+      const evtName = data.event_type || data.type || msgType;
+      if (evtName === 'CORRIDOR_TELEMETRY') {
+        const payload = data.payload || data;
+        useSocketStore.getState().setLiveMetrics({
+          punctuality: payload.punctuality_index || 98.6,
+          activeTrains: payload.active_trains || 12,
+          activePossessions: payload.active_possessions || 8,
+          eventSequence: (useSocketStore.getState().liveMetrics.eventSequence || 0) + 1,
+        });
+      } else if (evtName === 'TRAIN_TELEMETRY_UPDATE' || evtName === 'HEARTBEAT') {
+        const currentSeq = useSocketStore.getState().liveMetrics.eventSequence || 0;
+        useSocketStore.getState().setLiveMetrics({
+          eventSequence: currentSeq + 1,
+        });
+      } else if (evtName === 'CORRIDOR_RESET') {
+        queryClient.invalidateQueries();
       }
 
       // 4. AI Conflict Detection Alert (FE-TSK-059)
@@ -135,8 +156,11 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
     closeSocket();
 
     const host = window.location.hostname || '127.0.0.1';
-    // Daphne runs on port 8001; fallback to 8000
-    const wsUrl = `ws://${host}:8001/ws/corridor/${corridorCode}/${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Daphne runs on port 8001; on port 3000 (Vite) or 80 (Nginx), route through proxy to avoid firewall port issues
+    const wsUrl = (window.location.port === '3000' || window.location.port === '80')
+      ? `${protocol}//${window.location.host}/ws/corridor/${corridorCode}/${token ? `?token=${encodeURIComponent(token)}` : ''}`
+      : `${protocol}//${host}:8001/ws/corridor/${corridorCode}/${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
     setStatus('CONNECTING');
     setActiveCorridor(corridorCode);

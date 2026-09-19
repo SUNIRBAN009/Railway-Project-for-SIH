@@ -33,6 +33,19 @@ export const RailMap: React.FC<RailMapProps> = ({ onSelectBlock }) => {
   const [is3D, setIs3D] = useState(true);
   const [selectedStation, setSelectedStation] = useState<StationData | null>(null);
   const [selectedTrain, setSelectedTrain] = useState<LiveMapTrain | null>(null);
+  const [corridorLength, setCorridorLength] = useState<number>(440.2);
+
+  // Fetch live PostGIS SRID 4326 GeoJSON from backend
+  useEffect(() => {
+    fetch('/api/v1/blocks/corridors/NDLS-CNB-MAIN/geojson/')
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData?.data?.properties?.total_length_km) {
+          setCorridorLength(resData.data.properties.total_length_km);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Animated train positions along the track
   const [trains, setTrains] = useState<LiveMapTrain[]>(LIVE_MAP_TRAINS);
@@ -126,7 +139,7 @@ export const RailMap: React.FC<RailMapProps> = ({ onSelectBlock }) => {
           style={
             is3D
               ? {
-                  transform: 'rotateX(32deg) rotateZ(-3deg) translateY(-20px)',
+                  transform: 'rotateX(45deg) rotateZ(-3deg) translateY(-20px)',
                   transformStyle: 'preserve-3d',
                 }
               : undefined
@@ -197,12 +210,12 @@ export const RailMap: React.FC<RailMapProps> = ({ onSelectBlock }) => {
         </span>
         <div className="h-3 w-px bg-slate-800" />
         <span className="text-control-muted">
-          CORRIDOR: <strong className="text-cyan-300">NDLS–GZB (KM 0.0 – 25.6)</strong>
+          CORRIDOR: <strong className="text-cyan-300">NDLS–CNB TRUNK ({corridorLength} KM)</strong>
         </span>
         <div className="h-3 w-px bg-slate-800" />
         <div className="flex items-center gap-1.5 text-emerald-400">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>LIVE TRACK VECTORS ACTIVE</span>
+          <span>LIVE POSTGIS SRID 4326 ACTIVE</span>
         </div>
       </div>
     </div>

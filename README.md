@@ -47,11 +47,35 @@ Once the command completes and the services are healthy, you can access the plat
 * **API Documentation (Swagger):** http://localhost:8000/api/docs/
 * **WebSocket Server:** ws://localhost:8001/ws/
 
-To stop the project, simply run `docker-compose down` in your terminal.
+---
+
+## 3. How to Stop the Project (Single Command / One-Click)
+When you are done and want to cleanly shut down all running services (Frontend, Backend, Database, Cache, and Celery Workers):
+
+* **Windows (PowerShell):**
+  ```powershell
+  .\scripts\stop.ps1
+  ```
+* **Windows (One-Click Batch / Desktop):**
+  Double-click **`Stop Railway Project.bat`** on your Desktop or run:
+  ```cmd
+  scripts\stop.bat
+  ```
+* **Linux / Mac (Bash):**
+  ```bash
+  chmod +x scripts/stop.sh
+  ./scripts/stop.sh
+  ```
+* **Native Docker Compose Command:**
+  ```bash
+  docker compose down
+  ```
+
+> **Note:** Stopping the services gracefully terminates all containers and networks while preserving your database volumes (`postgres_data`, `redis_data`) and seeded corridor records intact.
 
 ---
 
-## 3. Demo Data & Live Presentation Scenarios
+## 4. Demo Data & Live Presentation Scenarios
 The platform includes an automated **Continuous Demo Data Engine (`apps/demo`)** governed by 7 immutable Railway Coherence Rules for high-fidelity testing and jury demonstrations:
 
 ```powershell

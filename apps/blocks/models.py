@@ -79,6 +79,35 @@ class Corridor(models.Model):
         return float(self.end_km - self.start_km)
 
 
+class BlockSection(models.Model):
+    """
+    Physical Block Section between consecutive railway stations (e.g., NDLS-TKJ, TKJ-GZB).
+    Used for track possession isolation and headway clearance calculations.
+    Authoritative reference: docs/03-service-blueprints/02-blocks.md
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    corridor = models.ForeignKey(Corridor, on_delete=models.CASCADE, related_name='sections')
+    section_code = models.CharField(max_length=50, unique=True, db_index=True)
+    from_station = models.CharField(max_length=50)
+    to_station = models.CharField(max_length=50)
+    start_km = models.DecimalField(max_digits=8, decimal_places=3)
+    end_km = models.DecimalField(max_digits=8, decimal_places=3)
+    line_type = models.CharField(max_length=20, choices=LineType.choices, default=LineType.DOWN)
+    is_electrified = models.BooleanField(default=True)
+    max_speed_kmh = models.PositiveIntegerField(default=130)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['start_km']
+
+    def __str__(self):
+        return f"[{self.section_code}] {self.from_station} -> {self.to_station} (KM {self.start_km}-{self.end_km})"
+
+    @property
+    def length_km(self):
+        return float(self.end_km - self.start_km)
+
+
 class Block(models.Model):
     """
     Maintenance Block Possession Request & Lifecycle State Machine (SVC-BLK).

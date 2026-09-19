@@ -8,7 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from django.contrib.auth.models import User
 
-from apps.blocks.models import Corridor, LineType
+from apps.blocks.models import Corridor, LineType, Block, BlockStatus, WorkType
 from apps.trains.models import Station, Train, TrainSchedule, TrainType, TractionType
 from apps.departments.models import Department
 from apps.accounts.models import UserProfile, UserRole, DepartmentCode
@@ -198,5 +198,152 @@ class Command(BaseCommand):
                     )
                     assets_count += 1
             self.stdout.write(f'  [OK] Loaded {assets_count} TrackAssets (UnifiedAsset) with Rule 6 Triplet IDs')
+
+            # 7. Authoritative Maintenance Blocks (8 Core Scheduled Blocks)
+            from django.utils import timezone
+            from datetime import timedelta
+            now = timezone.now()
+            base_blocks = [
+                {
+                    'code': 'BLK-ENG-001',
+                    'dept': 'ENG',
+                    'work': WorkType.TRACK_TAMPING,
+                    'line': LineType.DOWN,
+                    'start_km': Decimal('14.200'),
+                    'end_km': Decimal('18.500'),
+                    'start_offset': 1,
+                    'duration': 3.0,
+                    'gang': 'GANG-ENG-01',
+                    'eq': 'CSM-09-32 Track Tamper',
+                    'status': BlockStatus.ACTIVE,
+                    'desc': 'Heavy plain track tamping and ballast compaction between Tilak Bridge and Anand Vihar.'
+                },
+                {
+                    'code': 'BLK-TRD-002',
+                    'dept': 'TRD',
+                    'work': WorkType.CATENARY_MAINTENANCE,
+                    'line': LineType.DOWN,
+                    'start_km': Decimal('15.000'),
+                    'end_km': Decimal('17.200'),
+                    'start_offset': 1.5,
+                    'duration': 2.0,
+                    'gang': 'GANG-TRD-01',
+                    'eq': 'TOWER-WAGON-01',
+                    'status': BlockStatus.SANCTIONED,
+                    'desc': 'Annual OHE contact wire height and stagger adjustment under 25kV power block.'
+                },
+                {
+                    'code': 'BLK-SNT-003',
+                    'dept': 'SNT',
+                    'work': WorkType.SIGNAL_INTERLOCKING_TEST,
+                    'line': LineType.BIDIRECTIONAL,
+                    'start_km': Decimal('27.800'),
+                    'end_km': Decimal('28.500'),
+                    'start_offset': 2,
+                    'duration': 1.5,
+                    'gang': 'GANG-SNT-01',
+                    'eq': 'SNT-TEST-KIT-01',
+                    'status': BlockStatus.SANCTIONED,
+                    'desc': 'Electronic Interlocking logic testing and point machine insulation audit at Sahibabad Jn.'
+                },
+                {
+                    'code': 'BLK-ENG-004',
+                    'dept': 'ENG',
+                    'work': WorkType.BALLAST_CLEANING,
+                    'line': LineType.UP,
+                    'start_km': Decimal('112.400'),
+                    'end_km': Decimal('115.800'),
+                    'start_offset': 8,
+                    'duration': 4.0,
+                    'gang': 'GANG-ENG-02',
+                    'eq': 'BCM-RM-80 Ballast Cleaner',
+                    'status': BlockStatus.PENDING_APPROVAL,
+                    'desc': 'Deep ballast screening and fouled ballast reclamation on high-speed Aligarh section.'
+                },
+                {
+                    'code': 'BLK-ENG-005',
+                    'dept': 'ENG',
+                    'work': WorkType.RAIL_RENEWAL,
+                    'line': LineType.UP,
+                    'start_km': Decimal('205.100'),
+                    'end_km': Decimal('208.400'),
+                    'start_offset': 12,
+                    'duration': 3.5,
+                    'gang': 'GANG-ENG-01',
+                    'eq': 'RGM-72 Rail Grinder',
+                    'status': BlockStatus.SANCTIONED,
+                    'desc': 'Profile grinding and rail renewal on 60kg UIC head.'
+                },
+                {
+                    'code': 'BLK-TRD-006',
+                    'dept': 'TRD',
+                    'work': WorkType.OHE_INSPECTION,
+                    'line': LineType.DOWN,
+                    'start_km': Decimal('295.000'),
+                    'end_km': Decimal('298.500'),
+                    'start_offset': 16,
+                    'duration': 2.5,
+                    'gang': 'GANG-TRD-02',
+                    'eq': 'TOWER-WAGON-02',
+                    'status': BlockStatus.PENDING_APPROVAL,
+                    'desc': 'Infrared thermography scan and insulator washing.'
+                },
+                {
+                    'code': 'BLK-SNT-007',
+                    'dept': 'SNT',
+                    'work': WorkType.TURNOUT_OVERHAUL,
+                    'line': LineType.UP,
+                    'start_km': Decimal('438.000'),
+                    'end_km': Decimal('440.000'),
+                    'start_offset': 20,
+                    'duration': 3.0,
+                    'gang': 'GANG-SNT-02',
+                    'eq': 'SNT-TEST-KIT-02',
+                    'status': BlockStatus.PENDING_APPROVAL,
+                    'desc': 'Kanpur Central approach turnout sensor array maintenance.'
+                },
+                {
+                    'code': 'BLK-ENG-008',
+                    'dept': 'ENG',
+                    'work': WorkType.TRACK_TAMPING,
+                    'line': LineType.DOWN,
+                    'start_km': Decimal('42.000'),
+                    'end_km': Decimal('46.200'),
+                    'start_offset': 24,
+                    'duration': 3.0,
+                    'gang': 'GANG-ENG-02',
+                    'eq': 'CSM-09-32 Track Tamper',
+                    'status': BlockStatus.DRAFT,
+                    'desc': 'Routine P-Way track geometry correction.'
+                }
+            ]
+
+            admin_user = User.objects.filter(is_staff=True).first()
+            blocks_count = 0
+            for b in base_blocks:
+                st = now + timedelta(hours=b['start_offset'])
+                et = st + timedelta(hours=b['duration'])
+                Block.objects.update_or_create(
+                    block_code=b['code'],
+                    defaults={
+                        'corridor': corridor,
+                        'line_type': b['line'],
+                        'department_code': b['dept'],
+                        'work_type': b['work'],
+                        'requested_by': admin_user,
+                        'start_km': b['start_km'],
+                        'end_km': b['end_km'],
+                        'scheduled_start_time': st,
+                        'scheduled_end_time': et,
+                        'status': b['status'],
+                        'gang_id': b['gang'],
+                        'equipment_required': b['eq'],
+                        'traction_power_cutoff_required': (b['dept'] == 'TRD'),
+                        'work_description': b['desc'],
+                        'version': 1
+                    }
+                )
+                blocks_count += 1
+            self.stdout.write(f'  [OK] Loaded {blocks_count} Authoritative Maintenance Blocks')
 
         self.stdout.write(self.style.SUCCESS('Successfully seeded and verified PostGIS Master Data universe!'))

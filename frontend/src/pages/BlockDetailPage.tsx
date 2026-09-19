@@ -49,11 +49,14 @@ export const BlockDetailPage: React.FC = () => {
   const conflict = DEMO_CONFLICTS.find((c) => c.block_id === block.id);
 
   const handleStatusChange = (newStatus: BlockStatus, remarks: string) => {
-    setBlock((prev) => ({
-      ...prev,
-      status: newStatus,
-      version: prev.version + 1,
-    }));
+    setBlock((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        status: newStatus,
+        version: (prev.version || 0) + 1,
+      };
+    });
   };
 
   const getStatusStyle = (status: BlockStatus) => {

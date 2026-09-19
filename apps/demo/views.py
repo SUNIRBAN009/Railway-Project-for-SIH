@@ -871,4 +871,66 @@ class DemoControllerStatusAPIView(APIView):
         })
 
 
+class ScenarioListAPIView(APIView):
+    """
+    List all available demonstration scenarios for SIH PS 26027.
+    (TSK-P0.5-04-BE)
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from apps.demo.scenarios import SCENARIO_REGISTRY
+        scenarios = []
+        for key, cls in SCENARIO_REGISTRY.items():
+            scenarios.append({
+                'key': key,
+                'name': cls.name,
+                'description': cls.description,
+                'duration_minutes': getattr(cls, 'duration_minutes', 3),
+                'target_corridor': getattr(cls, 'target_corridor', 'NDLS-CNB-MAIN')
+            })
+        return Response({
+            'status': 'success',
+            'count': len(scenarios),
+            'scenarios': scenarios
+        })
+
+
+class ScenarioRunAPIView(APIView):
+    """
+    Executes a specific demonstration scenario end-to-end.
+    (TSK-P0.5-04-BE)
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from apps.demo.scenarios import SCENARIO_REGISTRY, get_scenario
+        scenario_key = request.data.get('scenario') or request.data.get('key')
+        if not scenario_key or scenario_key not in SCENARIO_REGISTRY:
+            return Response({
+                'status': 'error',
+                'message': f"Scenario key '{scenario_key}' invalid. Available: {list(SCENARIO_REGISTRY.keys())}"
+            }, status=400)
+
+        live_mode = request.data.get('live_mode', False)
+        broadcast = request.data.get('broadcast', True)
+
+        try:
+            scenario = get_scenario(scenario_key, live_mode=live_mode, broadcast=broadcast)
+            setup_res = scenario.setup()
+            scenario.execute()
+            result = scenario.to_dict()
+            return Response({
+                'status': 'success',
+                'scenario': result,
+                'setup': setup_res
+            })
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': f"Execution failed: {str(e)}"
+            }, status=500)
+
+
+
 

@@ -94,6 +94,28 @@ const DEMO_PRESETS: DemoPreset[] = [
     targetRoute: '/coa',
     description: 'Full root clearance, master data & corridor rules',
   },
+  {
+    number: '7',
+    label: 'Senior Section Engineer (ENG SSE)',
+    role: 'DEPT_ENGINEER',
+    department: 'ENG',
+    departmentName: 'Civil Engineering (Aligarh Section)',
+    username: 'eng_sse',
+    badgeColor: 'border-indigo-500/50 text-indigo-400 bg-indigo-950/40 hover:bg-indigo-900/50',
+    targetRoute: '/eng',
+    description: 'Track renewal, deep screening & turnout maintenance',
+  },
+  {
+    number: '8',
+    label: 'Site Supervisor (Gang 01 Leader)',
+    role: 'SITE_SUPERVISOR',
+    department: 'ENG',
+    departmentName: 'Track Gang #01 (NDLS-GZB)',
+    username: 'site_supervisor_gang01',
+    badgeColor: 'border-teal-500/50 text-teal-400 bg-teal-950/40 hover:bg-teal-900/50',
+    targetRoute: '/eng',
+    description: 'Ground safety protocol, site token & headcount clearance',
+  },
 ];
 
 export const LoginPage: React.FC = () => {
@@ -115,21 +137,21 @@ export const LoginPage: React.FC = () => {
       // 1. Call Backend Login API
       const response = await authService.login(preset.username, 'railway@123');
       if (response && response.data) {
-        setAuth(response.data.user, response.data.access_token);
+        setAuth(response.data.user, response.data.access_token, response.data.refresh_token);
         navigate(preset.targetRoute, { replace: true });
         return;
       }
     } catch {
       // 2. Direct Fallback if network or backend delay occurs
       const mockUser: User = {
-        id: parseInt(preset.number) || 1,
+        id: String(parseInt(preset.number) || 1),
         employee_id: `IR-SIH-${preset.number.padStart(4, '0')}`,
         username: preset.username,
-        full_name: `${preset.label}`,
+        first_name: preset.label.split(' ')[0] || 'User',
+        last_name: preset.label.split(' ')[1] || 'Demo',
+        email: `${preset.username}@railway.gov.in`,
         role: preset.role,
-        role_display: preset.label,
         department_code: preset.department,
-        department_display: preset.departmentName,
         division_code: 'DLI',
       };
       setAuth(mockUser, `mock-demo-token-${preset.username}`);
@@ -150,8 +172,8 @@ export const LoginPage: React.FC = () => {
       const response = await authService.login(inputUser, password || 'railway@123');
 
       if (response && response.data) {
-        const { user, access_token } = response.data;
-        setAuth(user, access_token);
+        const { user, access_token, refresh_token } = response.data;
+        setAuth(user, access_token, refresh_token);
 
         let targetRoute = '/coa';
         if (user.role === 'DEPT_ENGINEER' || user.role === 'SITE_SUPERVISOR') {
@@ -171,14 +193,14 @@ export const LoginPage: React.FC = () => {
         DEMO_PRESETS.find((p) => p.number === inputUser || p.username === inputUser) || DEMO_PRESETS[0];
 
       const fallbackUser: User = {
-        id: parseInt(inputUser) || 1,
+        id: String(parseInt(inputUser) || 1),
         employee_id: `IR-USER-${inputUser}`,
         username: inputUser,
-        full_name: `Operator ${inputUser}`,
+        first_name: 'Operator',
+        last_name: inputUser,
+        email: `operator${inputUser}@railway.gov.in`,
         role: preset.role,
-        role_display: preset.label,
         department_code: preset.department,
-        department_display: preset.departmentName,
         division_code: 'DLI',
       };
       setAuth(fallbackUser, `mock-token-${inputUser}`);
@@ -382,6 +404,20 @@ export const LoginPage: React.FC = () => {
                 className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-rose-400 font-bold"
               >
                 6: ADMIN
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsername('7')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-indigo-400 font-bold"
+              >
+                7: SSE
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsername('8')}
+                className="px-2 py-0.5 bg-control-bg hover:bg-white/10 rounded border border-control-border text-teal-400 font-bold"
+              >
+                8: GANG
               </button>
             </div>
           </div>

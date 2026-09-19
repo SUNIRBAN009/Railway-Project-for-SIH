@@ -22,6 +22,9 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ToastContainer } from './components/common/ToastContainer';
 import { DemoControllerToolbar } from './components/common/DemoControllerToolbar';
 import { AutomatedTestRunnerModal } from './components/common/AutomatedTestRunnerModal';
+import { ScenarioPlayerModal } from './components/common/ScenarioPlayerModal';
+
+import { useAuthStore } from './stores/authStore';
 
 function RealTimeCorridorSubscriber() {
   useCorridorSocket({ corridorCode: 'NDLS-GZB' });
@@ -29,6 +32,7 @@ function RealTimeCorridorSubscriber() {
     <>
       <ToastContainer />
       <DemoControllerToolbar />
+      <ScenarioPlayerModal />
       <AutomatedTestRunnerModal />
       <EmergencyBanner />
       <EmergencyModal />
@@ -38,6 +42,26 @@ function RealTimeCorridorSubscriber() {
   );
 }
 
+const RoleBasedRedirect: React.FC = () => {
+  const { user, isAuthenticated } = useAuthStore();
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (user.role === 'CHIEF_CONTROLLER' || user.role === 'SECTION_CONTROLLER' || user.role === 'ADMIN') {
+    return <Navigate to="/coa" replace />;
+  }
+  if (user.department_code === 'ENG') {
+    return <Navigate to="/eng" replace />;
+  }
+  if (user.department_code === 'TRD') {
+    return <Navigate to="/trd" replace />;
+  }
+  if (user.department_code === 'SNT') {
+    return <Navigate to="/snt" replace />;
+  }
+  return <Navigate to="/coa" replace />;
+};
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -46,13 +70,17 @@ export default function App() {
           <RealTimeCorridorSubscriber />
           <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<Navigate to="/coa" replace />} />
+          <Route path="/" element={<RoleBasedRedirect />} />
+          <Route path="/dashboard" element={<RoleBasedRedirect />} />
 
           {/* Protected Operating Console (COA) */}
           <Route
             path="/coa"
             element={
-              <ProtectedRoute allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}>
+              <ProtectedRoute 
+                allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}
+                allowedDepartments={['OPERATIONS']}
+              >
                 <ControlRoomDashboard />
               </ProtectedRoute>
             }
@@ -62,7 +90,10 @@ export default function App() {
           <Route
             path="/bigscreen"
             element={
-              <ProtectedRoute allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}>
+              <ProtectedRoute 
+                allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}
+                allowedDepartments={['OPERATIONS']}
+              >
                 <BigScreenMode />
               </ProtectedRoute>
             }
@@ -72,7 +103,10 @@ export default function App() {
           <Route
             path="/eng"
             element={
-              <ProtectedRoute allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}>
+              <ProtectedRoute 
+                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}
+                allowedDepartments={['ENG', 'OPERATIONS']}
+              >
                 <EngDashboard />
               </ProtectedRoute>
             }
@@ -82,7 +116,10 @@ export default function App() {
           <Route
             path="/trd"
             element={
-              <ProtectedRoute allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}>
+              <ProtectedRoute 
+                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}
+                allowedDepartments={['TRD', 'OPERATIONS']}
+              >
                 <TrdDashboard />
               </ProtectedRoute>
             }
@@ -92,7 +129,10 @@ export default function App() {
           <Route
             path="/snt"
             element={
-              <ProtectedRoute allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}>
+              <ProtectedRoute 
+                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}
+                allowedDepartments={['SNT', 'OPERATIONS']}
+              >
                 <SntDashboard />
               </ProtectedRoute>
             }

@@ -79,7 +79,7 @@ export const AutomatedTestRunnerModal: React.FC = () => {
     try {
       if (stepIndex === 0) {
         // Step 1: DB loading check
-        const res = await fetch('http://127.0.0.1:8000/api/v1/demo/verify-loading/');
+        const res = await fetch('/api/v1/demo/verify-loading/');
         const json = await res.json();
         const duration = Math.round(performance.now() - startTime);
 
@@ -101,7 +101,7 @@ export const AutomatedTestRunnerModal: React.FC = () => {
         }
       } else if (stepIndex === 1) {
         // Step 2: Coherence check
-        const resValid = await fetch('http://127.0.0.1:8000/api/v1/demo/validate-block/', {
+        const resValid = await fetch('/api/v1/demo/validate-block/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -111,7 +111,7 @@ export const AutomatedTestRunnerModal: React.FC = () => {
             scheduled_end_time: '2026-09-09T05:00:00+05:30',
           }),
         });
-        const resInvalid = await fetch('http://127.0.0.1:8000/api/v1/demo/validate-block/', {
+        const resInvalid = await fetch('/api/v1/demo/validate-block/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -141,7 +141,7 @@ export const AutomatedTestRunnerModal: React.FC = () => {
         }
       } else if (stepIndex === 2) {
         // Step 3: Conflict injection USP #98
-        const res = await fetch('http://127.0.0.1:8000/api/v1/demo/inject-conflict/', {
+        const res = await fetch('/api/v1/demo/inject-conflict/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ conflict_type: 'COMBINED_BLOCK' }),
@@ -167,9 +167,9 @@ export const AutomatedTestRunnerModal: React.FC = () => {
         }
       } else if (stepIndex === 3) {
         // Step 4: Live DB blocks & train telemetry
-        const resBlocks = await fetch('http://127.0.0.1:8000/api/v1/demo/blocks/');
+        const resBlocks = await fetch('/api/v1/demo/blocks/');
         const jsonBlocks = await resBlocks.json();
-        const resTel = await fetch('http://127.0.0.1:8000/api/v1/demo/generate/telemetry/');
+        const resTel = await fetch('/api/v1/demo/generate/telemetry/');
         const jsonTel = await resTel.json();
         const duration = Math.round(performance.now() - startTime);
 

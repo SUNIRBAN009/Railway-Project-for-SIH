@@ -1,279 +1,268 @@
 # 07-workers-consumers.md
 
 > **ফাইল ক্রম:** ১১/৪৫  
-> **পূর্ববর্তী ফাইল:** `01-tech-infra/06-security.md` (RBAC permissions, JWT blacklist, rate limiting, secret injection)  
-> **পরবর্তী ফাইল:** `01-tech-infra/08-deployment.md`  
-> **সংযোগ:** এই ফাইলে সংজ্ঞায়িত Celery Worker প্রসেস (`worker-high`, `worker-notify`, `worker-ontology`, `worker-low`, `worker-default`), Celery Beat শিডিউলার, এবং Django Channels (Daphne ASGI) WebSocket কনজিউমার `08-deployment.md`-এর Dockerfile, `docker-compose.yml`, এবং ক্লাউড ডিপ্লয়মেন্ট কনফিগারেশনে সরাসরি সার্ভিস কন্টেইনার হিসেবে ব্যবহৃত হবে।
+> **ডিরেক্টরি:** `01-tech-infra/`  
+> **পূর্ববর্তী ফাইল:** `01-tech-infra/06-security.md` (RBAC, সিক্রেট ম্যানেজমেন্ট, পারমিশন)  
+> **পরবর্তী ফাইল:** `01-tech-infra/08-deployment.md` (ডকার, কন্টেইনার কম্পোজিশন, ক্লাউড আর্কিটেকচার)  
+> **কন্টেন্ট সোর্স:** `RailBlock_Feature_Master_Plan_PS26027(1).xlsx` (১২২টি ফিচার, ৪টি মূল স্তম্ভ), `ai-project-spec-generator (1).md`।  
+> **টাস্ক ও ব্রোকার ইঞ্জিন:** **Celery 5.3 + Celery Beat + Redis 7 (DB 2)**, ৪টি ডেডিকেটেড কিউ (`high`, `notify`, `symbolic_ai`, `default_low`) এবং **PostgreSQL 15/16 + PostGIS** (নো MySQL)।
 
 ---
 
 ## 1. Background Job Architecture
 
-The asynchronous processing tier offloads all time-intensive, safety-critical, and third-party I/O tasks from the web server.
+রেলওয়ে সিস্টেমের জটিল এআই অপ্টিমাইজেশন, এনটিইএস ডিলে ক্যাসকেড প্রসেসিং, ডিজিটাল টোকেন হ্যান্ডওভার এবং হেভি স্যাংশন পিডিএফ জেনারেশনকে ওয়েব সার্ভার (Gunicorn) থেকে সম্পূর্ণ বিচ্ছিন্ন করে ব্যাকগ্রাউন্ড সেলিরি ওয়ার্কারদের ওপর ন্যস্ত করা হয়েছে:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Django Web Layer (Gunicorn)                       │
-│      (Triggers background tasks on HTTP requests or database signals)        │
-└──────────────────────────────────────┬──────────────────────────────────────┘
-                                       │
-                                       ▼ Enqueue via Celery
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Redis 7 Broker (DB 2)                             │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌────────────────────┐  │
-│  │ Queue: high  │ │ Queue: notify│ │Queue:ontology│ │ Queue: default/low │  │
-│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └─────────┬──────────┘  │
-└─────────┼────────────────┼────────────────┼───────────────────┼─────────────┘
-          │                │                │                   │
-          ▼                ▼                ▼                   ▼
-┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐
-│  Worker (high)  ││ Worker (notify) ││Worker (ontology)││ Worker (default)│
-│  • Overlap      ││ • Twilio SMS    ││ • Owlready2 OWL ││ • MySQL Audit   │
-│    Conflict     ││ • Push alerts   ││ • HermiT Reason ││ • PDF Reports   │
-│  • Emergency WS ││ • WhatsApp      ││ • SPARQL Graph  ││ • Cleanup jobs  │
-└─────────────────┘└─────────────────┘└─────────────────┘└─────────────────┘
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                             Django Application Layer (Gunicorn)                         │
+│                    (Emits background tasks on HTTP requests or DB commits)              │
+└────────────────────────────────────────────┬────────────────────────────────────────────┘
+                                             │
+                                             ▼ Enqueue via Celery (Redis DB 2)
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                                Celery 5.3 Broker Topology                               │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────┐  ┌────────────────┐ │
+│  │  Queue: high   │  │  Queue: notify │  │   Queue: symbolic_ai   │  │Queue:default_low││
+│  └────────┬───────┘  └────────┬───────┘  └───────────┬────────────┘  └───────┬────────┘ │
+└───────────┼───────────────────┼──────────────────────┼───────────────────────┼──────────┘
+            │                   │                      │                       │
+            ▼                   ▼                      ▼                       ▼
+┌───────────────────┐ ┌───────────────────┐ ┌──────────────────────┐ ┌────────────────────┐
+│   Worker: high    │ │  Worker: notify   │ │  Worker: symbolic_ai │ │ Worker: default_low│
+│ • Conflict Engine │ │ • Twilio/CDAC SMS │ │ • Owlready2 Graph    │ │ • ReportLab PDF Gen│
+│ • Delay Cascade   │ │ • WebSocket Push  │ │ • HermiT Reasoner    │ │ • Defect Aging #93 │
+│ • Emergency SOS   │ │ • Telegram Bots   │ │ • SHACL Rule Verify  │ │ • PostgreSQL Audit │
+└───────────────────┘ └───────────────────┘ └──────────────────────┘ └────────────────────┘
 ```
 
 ---
 
-## 2. Celery Worker Architecture & Concurrency
+## 2. Dedicated 4-Queue Routing Matrix & Concurrency
 
-### 2.1 Queue Routing Matrix
+| Queue Name | Priority Level | Concurrency Pool | Prefetch Count | Assigned Tasks (Feature Alignment) | Target SLA |
+|:---|:---:|:---:|:---:|:---|:---:|
+| **`high`** | **1 (Critical)** | ৪ থ্রেড (CPU) | ১ | `blocks.tasks.detect_conflicts_task`<br>`trains.tasks.recalculate_delay_cascade_task` (#115)<br>`emergency.tasks.process_emergency_override_task` (#79) | **< ৫০০ ms** |
+| **`notify`** | **2 (High)** | ৮ থ্রেড (I/O) | ৪ | `notifications.tasks.send_crew_sms_task`<br>`notifications.tasks.broadcast_websocket_event`<br>`safety.tasks.deliver_digital_token_sms` (#71) | **< ২ সে.** |
+| **`symbolic_ai`**| **3 (Compute)**| ২ থ্রেড (Memory)| ১ | `ontology.tasks.run_hermit_reasoner_task`<br>`ontology.tasks.sync_digital_twin_graph`<br>`ontology.tasks.verify_shacl_safety_rules` | **< ৫ সে.** |
+| **`default_low`**| **4 (Batch)** | ২ থ্রেড (General)| ২ | `analytics.tasks.generate_sanction_pdf_task` (#107)<br>`maintenance.tasks.recalculate_defect_aging_task` (#93)<br>`analytics.tasks.rollup_shift_kpi_task` (#50) | **< ৬০ সে.** |
 
-| Queue | Priority | Concurrency | Prefetch | Tasks Executed | SLA Target |
-|-------|----------|-------------|----------|----------------|------------|
-| `high` | 1 (Critical) | 4 threads | 1 | `blocks.tasks.detect_conflict`<br>`blocks.tasks.resolve_conflict`<br>`blocks.tasks.emergency_broadcast` | < 500ms |
-| `notify` | 2 (High) | 4 threads | 2 | `notifications.tasks.send_sms`<br>`notifications.tasks.send_email`<br>`notifications.tasks.push_ws` | < 3s |
-| `ontology` | 3 (Medium) | 2 threads | 1 | `ontology.tasks.sync_to_graph`<br>`ontology.tasks.run_reasoning`<br>`ontology.tasks.execute_sparql` | < 5s |
-| `default` | 4 (Normal) | 4 threads | 4 | `analytics.tasks.create_audit_log`<br>`trains.tasks.update_schedule`<br>`blocks.tasks.cleanup_stale` | < 10s |
-| `low` | 5 (Batch) | 1 thread | 1 | `analytics.tasks.generate_pdf`<br>`analytics.tasks.export_csv` | < 60s |
+---
 
-### 2.2 Worker Startup Commands
+## 3. Production Worker Startup Configuration (`config/celery.py`)
 
+```python
+# config/celery.py
+import os
+from celery import Celery
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+app = Celery("railway_block_ai")
+app.config_from_object("django.conf:settings", namespace="CELERY")
+
+# Queue Routing Definition
+app.conf.task_routes = {
+    "apps.blocks.tasks.detect_conflicts_task": {"queue": "high"},
+    "apps.trains.tasks.recalculate_delay_cascade_task": {"queue": "high"},
+    "apps.emergency.tasks.*": {"queue": "high"},
+    
+    "apps.notifications.tasks.*": {"queue": "notify"},
+    "apps.safety.tasks.deliver_digital_token_sms": {"queue": "notify"},
+    
+    "apps.ontology.tasks.*": {"queue": "symbolic_ai"},
+    
+    "apps.analytics.tasks.generate_sanction_pdf_task": {"queue": "default_low"},
+    "apps.maintenance.tasks.*": {"queue": "default_low"},
+    "apps.core.tasks.*": {"queue": "default_low"},
+}
+
+app.conf.task_default_queue = "default_low"
+app.autodiscover_tasks()
+```
+
+### 3.1 Worker Execution Commands
 ```bash
-# High Priority Worker (Conflict & Emergency)
-celery -A railway_ai worker -Q high -c 4 --loglevel=INFO -n worker_high@%h
+# 1. High-Priority Queue Worker (Real-time Safety & Delays)
+celery -A config worker -Q high -c 4 --loglevel=INFO -n worker_high@%h
 
-# Notification Worker (Twilio SMS & Alerts)
-celery -A railway_ai worker -Q notify -c 4 --loglevel=INFO -n worker_notify@%h
+# 2. Notification Worker (SMS & WebSocket Broadcasts)
+celery -A config worker -Q notify -c 8 --loglevel=INFO -n worker_notify@%h
 
-# Semantic Ontology Worker (Digital Twin Reasoning)
-celery -A railway_ai worker -Q ontology -c 2 --loglevel=INFO -n worker_ontology@%h
+# 3. Symbolic AI Worker (Digital Twin & HermiT Reasoner)
+celery -A config worker -Q symbolic_ai -c 2 --loglevel=INFO -n worker_symbolic_ai@%h
 
-# Default & Low Priority Worker (Audit, Reports)
-celery -A railway_ai worker -Q default,low -c 4 --loglevel=INFO -n worker_default@%h
+# 4. Default & Low Priority Worker (PDF Generation & Audits)
+celery -A config worker -Q default_low -c 2 --loglevel=INFO -n worker_default_low@%h
 ```
 
 ---
 
-## 3. Django Channels WebSocket Consumers
+## 4. Scheduled Periodic Jobs (Celery Beat Orchestration)
 
-Daphne runs as the ASGI server on port `8001` handling all persistent WebSocket connections.
-
-### 3.1 Block & Map Stream Consumer
+সিস্টেমের সার্বক্ষণিক মনিটরিং ও স্বয়ংক্রিয় রক্ষণাবেক্ষণের জন্য Celery Beat শিডিউল:
 
 ```python
-# blocks/consumers.py
-import json
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
-from channels.db import database_sync_to_async
-from rest_framework_simplejwt.tokens import AccessToken
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
-
-class BlockStreamConsumer(AsyncJsonWebsocketConsumer):
-    async def connect(self):
-        # 1. Extract JWT token from query string
-        query_string = self.scope.get('query_string', b'').decode('utf-8')
-        params = dict(qc.split('=') for qc in query_string.split('&') if '=' in qc)
-        token = params.get('token', None)
-
-        if not token:
-            await self.close(code=4001)
-            return
-
-        # 2. Authenticate user from JWT
-        user = await self.get_user_from_token(token)
-        if not user or not user.is_active:
-            await self.close(code=4003)
-            return
-
-        self.user = user
-        self.scope['user'] = user
-
-        # 3. Join department and broadcast groups
-        self.dept_group = f"ws:group:dept:{user.department_code}" if user.role != 'COA' else "ws:group:COA"
-        await self.channel_layer.group_add(self.dept_group, self.channel_name)
-        await self.channel_layer.group_add("ws:group:emergency", self.channel_name)
-        await self.channel_layer.group_add(f"ws:user:{user.id}", self.channel_name)
-
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        if hasattr(self, 'dept_group'):
-            await self.channel_layer.group_discard(self.dept_group, self.channel_name)
-            await self.channel_layer.group_discard("ws:group:emergency", self.channel_name)
-            await self.channel_layer.group_discard(f"ws:user:{self.user.id}", self.channel_name)
-
-    async def receive_json(self, content):
-        # Handle client ping or section subscription
-        action = content.get('action')
-        if action == 'subscribe_section':
-            section_id = content.get('section_id')
-            await self.channel_layer.group_add(f"ws:group:section:{section_id}", self.channel_name)
-        elif action == 'unsubscribe_section':
-            section_id = content.get('section_id')
-            await self.channel_layer.group_discard(f"ws:group:section:{section_id}", self.channel_name)
-
-    # Event handlers for channel layer broadcasts
-    async def block_update(self, event):
-        await self.send_json({'type': 'block_update', 'payload': event['payload']})
-
-    async def conflict_alert(self, event):
-        await self.send_json({'type': 'conflict_alert', 'payload': event['payload']})
-
-    async def emergency_broadcast(self, event):
-        await self.send_json({'type': 'emergency_broadcast', 'payload': event['payload']})
-
-    async def section_status_change(self, event):
-        await self.send_json({'type': 'section_status_change', 'payload': event['payload']})
-
-    @database_sync_to_async
-    def get_user_from_token(self, token_str):
-        try:
-            token = AccessToken(token_str)
-            user_id = token['user_id']
-            return User.objects.select_related('department').get(id=user_id)
-        except Exception:
-            return None
-```
-
----
-
-## 4. Celery Beat Periodic Jobs Schedule
-
-Celery Beat triggers recurring automated maintenance, simulation, and data sync tasks.
-
-```python
-# settings.py
+# config/settings.py
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
-    # 1. Simulate Train GPS Movement (Every 30 Seconds)
-    'simulate_train_positions_every_30s': {
-        'task': 'trains.tasks.simulate_train_gps_stream',
-        'schedule': 30.0,
-        'options': {'queue': 'default'}
+    # Feature #116: প্রতি ৩০ সেকেন্ডে NTES ডিলে ফিড সিঙ্ক ও শিডিউল ডেভিয়েশন ডিটেকশন
+    "sync-ntes-live-delays-30s": {
+        "task": "apps.trains.tasks.sync_ntes_live_delays_task",
+        "schedule": 30.0,
+        "options": {"queue": "high"},
     },
-
-    # 2. Weather Advisory & Monsoon Alert Sync (Every 15 Minutes)
-    'sync_weather_advisories_15m': {
-        'task': 'analytics.tasks.sync_open_meteo_weather',
-        'schedule': crontab(minute='*/15'),
-        'options': {'queue': 'default'}
+    
+    # Feature #75: প্রতি ১৫ মিনিটে ওপেন-মেটিও ওয়েদার চেক (Weather Gate)
+    "poll-weather-hazards-15m": {
+        "task": "apps.blocks.tasks.poll_weather_hazards_task",
+        "schedule": crontab(minute="*/15"),
+        "options": {"queue": "notify"},
     },
-
-    # 3. System Deep Health Check & Alert Digest (Every 5 Minutes)
-    'system_health_check_every_5m': {
-        'task': 'railway_ai.tasks.run_deep_health_audit',
-        'schedule': crontab(minute='*/5'),
-        'options': {'queue': 'high'}
+    
+    # Feature #93: প্রতিদিন রাত ০০:০১ মিনিটে ডিফেক্ট এজিং ও প্রায়োরিটি স্কোর রিক্যালকুলেশন
+    "recalculate-defect-aging-daily": {
+        "task": "apps.maintenance.tasks.recalculate_defect_aging_task",
+        "schedule": crontab(hour=0, minute=1),
+        "options": {"queue": "default_low"},
     },
-
-    # 4. Cleanup Stale Pending Blocks & Expired Drafts (Every Midnight)
-    'daily_midnight_maintenance': {
-        'task': 'blocks.tasks.archive_expired_blocks',
-        'schedule': crontab(hour=0, minute=0),
-        'options': {'queue': 'low'}
+    
+    # Feature #71: প্রতি ১ ঘণ্টায় অব্যবহৃত মেয়াদোত্তীর্ণ ডিজিটাল টোকেন বাতিলকরণ
+    "cleanup-expired-digital-tokens-hourly": {
+        "task": "apps.blocks.tasks.cleanup_expired_tokens_task",
+        "schedule": crontab(minute=0),
+        "options": {"queue": "default_low"},
     },
-
-    # 5. Daily Morning 6 AM Maintenance Summary Report
-    'generate_morning_block_summary_6am': {
-        'task': 'analytics.tasks.generate_daily_division_summary',
-        'schedule': crontab(hour=6, minute=0),
-        'options': {'queue': 'low'}
-    }
+    
+    # Feature #53: প্রতি ৮ ঘণ্টায় শিফট হ্যান্ডওভার ও অ্যাসেট ইউটিলাইজেশন KPI রিপোর্ট তৈরি
+    "generate-shift-kpi-report-8h": {
+        "task": "apps.analytics.tasks.rollup_shift_kpi_task",
+        "schedule": crontab(minute=0, hour="6,14,22"),
+        "options": {"queue": "default_low"},
+    },
 }
 ```
 
 ---
 
-## 5. Dead Letter Queue & Poison Pill Mitigation
+## 5. Dead Letter Queue (DLQ) & Fault Tolerance Pattern
 
-### 5.1 Poison Pill Protection
-A "poison pill" is a malformed task payload that repeatedly crashes the worker process. To mitigate this:
-1. `max_retries = 3` is strictly enforced.
-2. `task_reject_on_worker_lost = True` ensures orphaned tasks are not endlessly recycled.
-3. Once retry limit is breached, the exception handler intercepts the task and routes the payload to the Redis Dead Letter Queue (`dlq:{queue_name}`).
+কোনো টাস্ক বাহ্যিক সংযোগ বা সাময়িক কারণে ব্যর্থ হলে স্বয়ংক্রিয় রিট্রাই নীতি:
 
-### 5.2 Resilient Task Handler Implementation
+```
+[Task Triggered]
+       │
+       ▼ (Executes)
+[Task Fails?] ──► No ──► [Success / Prometheus Metric Logged]
+       │
+       ▼ Yes (Retries 1 to 5 with Exponential Jitter Backoff: 2s ➔ 4s ➔ 8s ➔ 16s ➔ 32s)
+[Max Retries Exceeded? (5 Retries)]
+       │
+       ▼ Yes
+[Route to Dead Letter Queue: `railway:dlq:failed_tasks`]
+       │
+       ├──► Emit Alertmanager P2/P1 Warning
+       └──► Persist in PostgreSQL `core_failedtasklog` for Administrative Triage
+```
 
+### 5.1 Fault-Tolerant Task Implementation Example
 ```python
-# notifications/tasks.py
-import json
+# apps/blocks/tasks.py
 from celery import shared_task
-from django.core.cache import cache
-import logging
+import structlog
 
-logger = logging.getLogger('railway_ai.tasks')
+logger = structlog.get_logger()
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=5, retry_backoff=True)
-def send_sms_notification(self, recipient_phone, message_text, correlation_id=None):
+@shared_task(
+    bind=True,
+    queue="high",
+    max_retries=5,
+    default_retry_delay=2,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=32,
+    retry_jitter=True,
+)
+def detect_conflicts_task(self, block_request_id):
     try:
-        # Call Twilio API Client
-        from services.twilio_client import twilio_service
-        return twilio_service.send_message(recipient_phone, message_text)
+        from apps.blocks.services import ConflictDetectionEngine
+        return ConflictDetectionEngine().evaluate_request(block_request_id)
     except Exception as exc:
-        logger.warning(f"SMS delivery attempt {self.request.retries} failed for {recipient_phone}: {str(exc)}")
-        if self.request.retries >= self.max_retries:
-            # Route to Dead Letter Queue
-            logger.error(f"Task {self.name} failed permanently. Routing to DLQ.")
-            dlq_item = {
-                "task_name": self.name,
-                "args": [recipient_phone, message_text],
-                "kwargs": {"correlation_id": correlation_id},
-                "error": str(exc),
-                "failed_at": str(timezone.now()),
-                "retries": self.request.retries
-            }
-            redis_client = cache.client.get_client()
-            redis_client.rpush("dlq:notify:sms", json.dumps(dlq_item))
-            return {"status": "FAILED", "routed_to_dlq": True}
-        
+        logger.error(
+            "TASK_EXECUTION_FAILED_RETRIED",
+            task_id=self.request.id,
+            queue="high",
+            block_request_id=block_request_id,
+            attempt=self.request.retries,
+            error=str(exc)
+        )
         raise self.retry(exc=exc)
 ```
 
 ---
 
-## 6. Worker Scaling Strategy
+## 6. Django Channels WebSocket Consumers (Daphne ASGI)
 
-| Stage | Infrastructure | Worker Configuration | Scaling Trigger |
-|-------|----------------|----------------------|-----------------|
-| **MVP (Current)** | Single Docker Host | 4 specialized Celery processes sharing 2 CPUs | Manual baseline |
-| **Phase 2 (Division)** | Docker Compose / Multi-container | Scale `worker-high` to 2 containers, `worker-notify` to 2 containers | Redis Queue depth > 50 messages |
-| **Phase 3 (Zonal)** | Kubernetes (HPA) | KEDA Autoscaler based on Redis list lengths: `high` queue target 5 tasks, `notify` target 20 tasks | CPU > 70% or Queue latency > 2s |
+কন্ট্রোল রুম ও ফিল্ড অ্যাপ্লিকেশনে পুশ মেসেজ সরবরাহের জন্য Daphne পোর্ট `8001`-এ রিয়েল-টাইম ইভেন্ট কনজিউমার:
+
+```python
+# apps/notifications/consumers.py
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from apps.accounts.services import verify_jwt_token_async
+
+class ControlRoomConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        # 1. Authenticate via JWT from WebSocket Query String
+        token = self.scope.get("query_string", b"").decode("utf-8").split("token=")[-1]
+        user = await verify_jwt_token_async(token)
+        
+        if not user or not user.is_active:
+            await self.close(code=4001)
+            return
+
+        self.user = user
+        self.division = user.division
+        self.room_group_name = f"ws_division_{self.division}"
+
+        # 2. Join Division Broadcast Group
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_add("ws_emergency_all", self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, "room_group_name"):
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+            await self.channel_layer.group_discard("ws_emergency_all", self.channel_name)
+
+    # Handler for WebSocket Broadcast Event
+    async def dispatch_event(self, event):
+        await self.send_json({
+            "event": event["event_name"],
+            "data": event["payload"],
+            "timestamp": event["timestamp"]
+        })
+```
 
 ---
 
-## 7. Next File Dependency Note
+## 7. Container Resource Allocation & Scaling Strategy
 
-> পরবর্তী ফাইল: `01-tech-infra/08-deployment.md`
+ডকার কম্পোজ (`docker-compose.yml`)-এ সেলিরি ওয়ার্কারদের জন্য সংজ্ঞায়িত রিসোর্স কোটা:
 
-`07-workers-consumers.md` থেকে `08-deployment.md`-এ নেওয়া হবে:
+| Container Service | CPU Limit | Memory Limit | Graceful Shutdown Timeout (`SIGTERM`) | Scaling Trigger |
+|:---|:---:|:---:|:---:|:---|
+| `railway_celery_high` | ১.০ Core | ১ GB | ১৫ সেকেন্ড | `queue_depth > 20` |
+| `railway_celery_notify`| ০.৫ Core | ৫১২ MB | ১০ সেকেন্ড | `queue_depth > 100` |
+| `railway_celery_symbolic_ai`| ১.৫ Core | ২ GB (HermiT Reasoner) | ৩০ সেকেন্ড | `queue_depth > 10` |
+| `railway_celery_default_low`| ০.৫ Core | ১ GB | ৬০ সেকেন্ড (PDF Generation) | `queue_depth > 50` |
 
-| Worker Element | Deployment Requirement |
-|----------------|------------------------|
-| Gunicorn (WSGI) | Web process running on port `8000` handling DRF REST APIs |
-| Daphne (ASGI) | Async process running on port `8001` handling WebSockets |
-| Celery Workers | 4 independent container entrypoints (`worker_high`, `worker_notify`, `worker_ontology`, `worker_default`) |
-| Celery Beat | Single singleton container running scheduler daemon |
-| Redis Service | Redis 7 container with persistence volume and port `6379` |
-| MySQL Service | MySQL 8.0 container with InnoDB tablespace persistence on port `3306` |
+---
 
-`08-deployment.md`-এ নিচের বিষয়গুলো থাকবে:
-- Complete `docker-compose.yml` defining all backend, frontend, worker, database, and cache containers
-- Production Dockerfiles (Backend Django & Frontend Vite)
-- Nginx reverse proxy configuration (HTTP to Gunicorn, `/ws/` to Daphne, static file serving)
-- CI/CD automated pipeline (`.github/workflows/deploy.yml`)
-- Environment variable configuration strategy for Dev, Staging, and Production
+## 8. Traceability to Subsequent Infrastructure Documents
+
+| Target Document | Direct Worker / Consumer Dependency |
+|:---|:---|
+| **`01-tech-infra/08-deployment.md`** | ডকার কম্পোজে ৪টি Celery ওয়ার্কার ও Beat সার্ভিসের মাল্টি-কন্টেইনার বিল্ড কনফিগারেশন। |
+| **`01-tech-infra/09-testing-strategy.md`** | Celery টাস্ক টেস্টিং (`CELERY_TASK_ALWAYS_EAGER=True`) এবং মক ব্রোকার টেস্ট। |
+| **`09-execution-tracker/00-implementation-checklist.md`** | প্রতিটি ব্যাকগ্রাউন্ড টাস্ক তৈরি ও আউটপুট ভেরিফিকেশনের চেকলিস্ট প্রুফ। |

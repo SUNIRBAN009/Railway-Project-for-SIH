@@ -1,90 +1,103 @@
 # 01-e2e-scenarios.md
 
-> **File Sequence:** 40/45  
-> **Previous Document:** [06-testing-qa/00-test-plan.md](00-test-plan.md)  
-> **Next Document:** [06-testing-qa/02-load-test-strategy.md](02-load-test-strategy.md)  
-> **Context:** Specification of 5 mission-critical End-to-End operational user journeys executed across React UI, Django REST API, Celery Workers, and Daphne WebSockets.
+> **ফাইল ক্রম:** ৪৬/৫৯  
+> **ডিরেক্টরি:** `06-testing-qa/`  
+> **সার্ভিস স্কোপ:** Mission-Critical End-to-End Operational User Journeys (Playwright & Multi-Role Workflows)  
+> **পূর্ববর্তী ফাইল:** [06-testing-qa/00-test-plan.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/06-testing-qa/00-test-plan.md) (Master QA & Testing Strategy)  
+> **পরবর্তী ফাইল:** [06-testing-qa/02-load-test-strategy.md](file:///c:/work%20pase/Railway-Project-for-SIH/docs/06-testing-qa/02-load-test-strategy.md) (k6 Load & Stress Test Strategy)  
+> **সংযোগ ও উদ্দেশ্য:** এই ফাইলে প্ল্যাটফর্মের ৫টি অতি-গুরুত্বপূর্ণ এন্ড-টু-এন্ড (E2E) অপারেশনাল ইউজার জার্নি, বিভিন্ন ব্যবহারকারী রোল (কন্ট্রোলার, সুপারভাইজার, ট্র্যাকম্যান), লাইফ-সেফটি টোকেন হ্যান্ডশেক, এবং PostgreSQL 15.6 ট্রানজাকশনাল ভেরিফিকেশন মানদণ্ড লিপিবদ্ধ করা হয়েছে।
 
 ---
 
-# Critical Operational E2E Test Scenarios
+# Critical Operational E2E Test Scenarios (গুরুত্বপূর্ণ অপারেশনাল ই২ই টেস্ট সিনারিও)
 
 ---
 
-## Scenario 1: Routine Track Maintenance Block Lifecycle
+## Scenario 1: Routine Track Mega-Block Lifecycle & Digital Token Handshake (রুটিন মেগা-ব্লক ও ডিজিটাল টোকেন হ্যান্ডশেক)
+
+এই সিনারিওতে ইঞ্জিনিয়ারিং ও সিগন্যালিং বিভাগের একটি পরিকল্পিত ৪ ঘণ্টার ট্র্যাফিক ব্লকের সম্পূর্ণ লাইফসাইকেল এবং সেফটি স্যুইট (Features #71–#85) যাচাই করা হয়:
 
 ```
-[DEPT_ENGINEER]           [PLATFORM BACKEND]           [SECTION_CONTROLLER]         [SITE_SUPERVISOR]
-       |                          |                             |                           |
-       |-- 1. Submit Proposal --->|                             |                           |
-       |   (KM 142.5-146.2, 4hrs) |                             |                           |
-       |                          |-- 2. Sweep Conflicts ------>|                           |
-       |                          |   (0 Critical Conflicts)    |                           |
-       |                          |                             |-- 3. Review & Sanction -->|
-       |                          |                             |   (Issues Caution Order)  |
-       |                          |<-- 4. Emit Sanctioned Event-|                           |
-       |                          |                             |                           |
-       |                          |-- 5. Issue Work Order --------------------------------->|
-       |                          |                                                         |
-       |                          |<-- 6. Sign Safety Clearance ----------------------------|
-       |                          |   (Track Fit 30 km/h)                                   |
-       |                          |                                                         |
-       |<-- 7. Block Completed ---|---------------------------->|                           |
+[SITE_SUPERVISOR]             [PLATFORM BACKEND]            [SECTION_CONTROLLER]         [STATION_MASTER]
+       │                              │                              │                          │
+       │── 1. Submit Proposal ───────>│                              │                          │
+       │   (KM 142.500-146.200, 4h)   │                              │                          │
+       │                              │── 2. PostGIS Conflict Sweep ─>                          │
+       │                              │   (No High-Speed Clashes)    │                          │
+       │                              │                              │── 3. Review & Sanction ─>│
+       │                              │                              │   (Issues Caution Order) │
+       │                              │<── 4. Sanctioned via OCC ────│                          │
+       │                              │   (Version 1 -> 2)           │                          │
+       │<── 5. Push Notification ─────│                              │                          │
+       │                              │                              │                          │
+       │── 6. Safety Attestations ───>│                              │                          │
+       │   (TBT, Tools, Weather, LOTO)│                              │                          │
+       │                              │<── 7. Generate Digital Token ───────────────────────────│
+       │                              │   (HMAC-SHA256 Token)        │                          │
+       │<── 8. Token Verified ────────│                              │                          │
+       │   [SECTION POSSESSION ACTIVE]│                              │                          │
+       │                              │                              │                          │
+       │── 9. Complete & Reconcile ──>│                              │                          │
+       │   (Tool Count Check, Photo)  │                              │                          │
+       │                              │── 10. Handback & Close ────────────────────────────────>│
+       │                              │   [TRACK CLEARED & FIT]      │                          │
 ```
 
-### Verification Criteria
-1. Initial block record created in MySQL with `status = 'PENDING_APPROVAL'`.
-2. Celery `sweep_conflicts` completes within 200ms with zero unresolved critical conflicts.
-3. Controller sanctions proposal; status updates to `'SANCTIONED'`.
-4. WebSocket push-to-invalidate frame received by connected clients; corridor timeline UI updates within 100ms.
-5. Supervisor submits track safety certification; block transitions to `'COMPLETED'`.
+### যাচাইকরণ মানদণ্ড (Verification Criteria):
+1. **প্রপোজাল তৈরি:** PostgreSQL `blocks` টেবিলে ইনিশিয়াল রেকর্ড তৈরি হবে `status = 'SUBMITTED'`, `version = 1`।
+2. **স্প্যাশিয়াল সুইপ:** Celery টাস্ক PostGIS-এর `ST_DWithin` কোয়েরি চালিয়ে ২০০ মিলিসেকেন্ডের মধ্যে নিশ্চিত করবে যে কোনো অনুমোদিত রাজধানী ট্রেনের পাথের সাথে সংঘাত নেই।
+3. **কন্ট্রোলার অনুমোদন:** সেকশন কন্ট্রোলার কশন অর্ডার নম্বর সহ অনুমোদন দিলে স্ট্যাটাস `'SANCTIONED'` হবে এবং Daphne ওয়েবসকেটে লাইভ করিডোর টাইমলাইন ১০০ms-এ রিফ্রেশ হবে।
+4. **প্রাক-কাজের সুরক্ষা পরীক্ষা (Safety Attestations):** মোবাইল ইউআইতে সাইট সুপারভাইজার টুল কাউন্ট (২৪টি টুল - #81), ওয়েদার গেট ভেরিফিকেশন (বাতাস < ৬০ কিমি/ঘণ্টা - #75), জিও-ট্যাগ ফটো (#82) এবং ওএইচই এলওটিও (#74) সাবমিট না করা পর্যন্ত ব্লক `'ACTIVE'` হবে না (`BLK-008`)।
+5. **ডিজিটাল টোকেন হ্যান্ডশেক (#71):** স্টেশন মাস্টার ডিজিটাল টোকেন ইস্যু করবেন (`TOK-BL-...`), যা সুপারভাইজার কনফার্ম করলে সেকশন লাল চিহ্নিত হয়ে ট্র্যাফিক বন্ধ হবে।
+6. **সেকশন ক্লিয়ারেন্স (#80):** কাজ শেষে টুল কাউন্ট পুনর্মিলন (২৪/২৪ উপস্থিত) এবং স্টেশন মাস্টারের হ্যান্ডব্যাক সাইন-অফের পর ব্লক `'COMPLETED'`-এ ট্রানজিশন করবে।
 
 ---
 
-## Scenario 2: Multi-Department Co-Possession Coordination
+## Scenario 2: Multi-Department Co-Possession & Shadow Slot Optimization (মাল্টি-ডিপার্টমেন্ট কো-পজেশন)
 
-- **Actors:** P-Way Assistant Engineer (ENG), Traction Distribution Engineer (TRD), Chief Controller (COA).
-- **Trigger:** ENG submits 4-hour tamping request on DOWN line KM 142.500 to 146.200. TRD independently submits OHE catenary replacement request for overlapping KM and overlapping time window.
-- **Workflow:**
-  1. Backend conflict engine detects parallel requests on identical line and tags them as `CO_POSSESSION_OPPORTUNITY`.
-  2. The UI renders a unified Co-Possession recommendation card showing **"Potential 3.5 Hours Track Time Saved"**.
-  3. Chief Controller merges both requests into a single coordinated block.
-  4. Backend generates paired work orders (`WO-ENG-01` and `WO-TRD-01`) linked to the single block record.
-  5. Block cannot be cleared until **both** ENG and TRD supervisors submit digital safety clearance sign-offs.
-
----
-
-## Scenario 3: Emergency USFD Rail Flaw Defect & Automated Caution Order
-
-- **Actors:** USFD Testing Crew, Section Controller.
-- **Trigger:** Automated ultrasonic testing trolley detects a 18mm internal rail fracture at KM 144.200.
-- **Workflow:**
-  1. USFD crew submits defect via `POST /api/v1/assets/defects/` with `severity: CRITICAL_IMMEDIATE_STOP`.
-  2. Platform automatically generates an **Emergency Block Proposal** (`BLK-EMERGENCY-...`).
-  3. `SVC-TRN` delay simulation engine calculates delay impact on upcoming Train 12424 (Rajdhani) and suggests immediate diversion to Loop Line 2.
-  4. P1 emergency alarm broadcasts over WebSockets to Chief Controller and dispatches SMS alert to Station Master.
-  5. Section Controller approves emergency sanction with a single click.
+- **অ্যাক্টরস:** পি-ওয়ে অ্যাসিস্ট্যান্ট ইঞ্জিনিয়ার (ENGG), ট্র্যাকশন ডিস্ট্রিবিউশন ইঞ্জিনিয়ার (TRD), চিফ কন্ট্রোলার (Sr. DOM)।
+- **ট্রিগার:** ডাউন লাইনে KM 142.500 থেকে 146.200 পর্যন্ত ইঞ্জিনিয়ারিং শাখা ৪ ঘণ্টার ট্যাম্পিং রিকোয়েস্ট পাঠায়। একই সময়ে টিআরডি শাখা ওভারল্যাপিং চেইনেজে ওএইচই তার পরিবর্তনের আবেদন করে।
+- **কার্যপ্রবাহ ও টেস্ট ধাপ:**
+  1. ব্যাকএন্ড কনফ্লিক্ট ইঞ্জিন একই লাইনে সমসাময়িক দুটি আবেদন শনাক্ত করে স্বয়ংক্রিয়ভাবে `CO_POSSESSION_OPPORTUNITY` ট্যাগ দেয় (#23)।
+  2. কন্ট্রোলার ড্যাশবোর্ডে রিকমেন্ডেশন কার্ড ভেসে ওঠে: **"সম্ভাব্য ৩.৫ ঘণ্টা ট্র্যাক ডাউনটাইম সাশ্রয় (Asset Availability Gain: +0.4%)"**।
+  3. চিফ কন্ট্রোলার এক ক্লিকে আবেদন দুটিকে জয়েন্ট কো-পজেশনে মার্জ করেন (#100)।
+  4. ব্যাকএন্ড মেটেরিয়াল রেক স্লট কোঅর্ডিনেশন ম্যাট্রিক্স (#101) সমন্বয় করে দুটি ওয়ার্ক অর্ডার তৈরি করে।
+  5. উভয় বিভাগের সাইট সুপারভাইজার পৃথকভাবে ডিজিটাল সাইন-অফ না দেওয়া পর্যন্ত ব্লক হ্যান্ডব্যাক অবরুদ্ধ থাকবে (`DEPT-004`)।
 
 ---
 
-## Scenario 4: Semantic Hazard Detection & Rejection (Stranded Electric Train)
+## Scenario 3: Emergency USFD Rail Flaw, 1-Tap GPS SOS Siren & Delay Cascade (জরুরি রেলওয়ে ফ্র্যাকচার ও এসওএস সাইরেন)
 
-- **Actors:** Departmental Engineer, HermiT Reasoner, Chief Controller.
-- **Trigger:** TRD Engineer proposes de-energizing OHE Sub-Sector 14 without noticing an incoming electric freight rake scheduled on an adjacent crossover line.
-- **Workflow:**
-  1. Celery `worker-ontology` instantiates block individuals in the OWL graph and runs HermiT.
-  2. Reasoner classifies the state under `onto.StrandedElectricTrainHazard`.
-  3. System flags the block with `ONTO-001` (Critical Safety Hazard) and prevents Controller sanction button from activating.
-  4. The UI displays an explainable narrative proof: *"De-energizing OHE sector 14 isolates crossover points where Train 24102 requires electric traction."*
+- **অ্যাক্টরস:** ইউএসএফডি টেস্টিং ক্রু, সেকশন কন্ট্রোলার, লোকো পাইলট (১২৪২৪ রাজধানী)।
+- **ট্রিগার:** স্বয়ংক্রিয় ইউএসএফডি ট্রলি KM 144.200-এ ১৮ মিমি গভীর বিপজ্জনক রেল ফ্র্যাকচার শনাক্ত করে (Risk Score = 20, #92)।
+- **কার্যপ্রবাহ ও টেস্ট ধাপ:**
+  1. মোবাইল অ্যাপ থেকে ইউএসএফডি ক্রু ১-ট্যাপ জিপিএস এসওএস সাইরেন ট্রিগার করে (`POST /api/v1/notifications/sos/trigger/` - #79)।
+  2. কন্ট্রোল রুমে ড্যাফনি ওয়েবসকেট সেকেন্ডের ভগ্নাংশে (ল্যাটেন্সি < ১০০ms) হাই-পিচ ভিজ্যুয়াল ও অডিও সাইরেন বাজায়।
+  3. প্ল্যাটফর্ম তাৎক্ষণিকভাবে স্বয়ংক্রিয় ইমার্জেন্সি ব্লক (`BLK-EMERGENCY-...`) তৈরি করে এবং আসন্ন ট্রেনের সংকেত হোল্ড করে।
+  4. `SVC-TRN` ডিলে ক্যাসকেড ইঞ্জিন (#115) আসন্ন ১২৪২৪ রাজধানী ট্রেনের ওপর বিলম্ব হিসাব করে এবং অবিলম্বে ডাউনস্ট্রিম লুপ লাইনে ডাইভারশনের পরামর্শ দেয় (#119)।
+  5. কন্ট্রোলার সিঙ্গেল ক্লিকে জরুরি কশন অর্ডার জারি করেন এবং সাইরেন অ্যাকনলেজ করেন।
 
 ---
 
-## Scenario 5: Concurrent Modification Race Condition (Optimistic Lock)
+## Scenario 4: Semantic Digital Twin Hazard Detection & Rejection (ইলেকট্রিক ট্রেন স্ট্র্যান্ডেড প্রিভেনশন)
 
-- **Actors:** Controller A and Controller B.
-- **Trigger:** Both controllers view Block `BLK-100` at version 1 and simultaneously click "Sanction" and "Amend Timings".
-- **Workflow:**
-  1. Controller A's request reaches MySQL first; executes `UPDATE ... WHERE version = 1`; increments version to 2.
-  2. Controller B's request executes `UPDATE ... WHERE version = 1`; 0 rows affected.
-  3. Backend returns HTTP 409 Conflict with error code `BLK-006`.
-  4. Controller B's browser UI displays toast: *"Record was modified by Controller A. Refreshing current state..."* and updates automatically without data loss.
+- **অ্যাক্টরস:** টিআরডি ইঞ্জিনিয়ার, HermiT রিজনার, সেকশন কন্ট্রোলার।
+- **ট্রিগার:** ওএইচই ইঞ্জিনিয়ার সাব-সেক্টর ১৪ বিদ্যুৎ বিচ্ছিন্ন করার প্রস্তাব দেন, কিন্তু পার্শ্ববর্তী ট্র্যাকে একটি ইলেকট্রিক লোকোমোটিভ (WAP-7) সম্বলিত মালবাহী ট্রেন নির্ধারিত রয়েছে।
+- **কার্যপ্রবাহ ও টেস্ট ধাপ:**
+  1. প্রপোজাল সাবমিশনের পর Celery `worker-ontology` ব্যাকগ্রাউন্ডে ক্ষণস্থায়ী সাব-গ্রাফ তৈরি করে HermiT রিজনার চালায়।
+  2. রিজনার ডেসক্রিপশন লজিক ব্যবহার করে স্টেটকে `StrandedElectricTrainHazard` হিসেবে শ্রেণীবদ্ধ করে।
+  3. প্ল্যাটফর্ম ব্লকটিতে `ONTO-001` সেফটি ভায়োলেশন ফ্ল্যাগ আরোপ করে এবং অনুমোদন বাটন নিষ্ক্রিয় করে দেয়।
+  4. ফ্রন্টএন্ড ইউআইতে কারণ স্পষ্ট ব্যাখ্যা করা হয়: *"সাব-সেক্টর ১৪ বিদ্যুৎ বিচ্ছিন্ন করলে ক্রসওভার ট্র্যাক ৩বি বিদ্যুৎহীন হবে, যেখানে ট্রেন ২৪১০২ লোকোমোটিভ অবস্থান করবে। ডিজেল ব্যাংকার প্রয়োজন।"*
+
+---
+
+## Scenario 5: Concurrent Modification Race Condition (PostgreSQL 15.6 OCC)
+
+- **অ্যাক্টরস:** সেকশন কন্ট্রোলার এ এবং কন্ট্রোলার বি।
+- **ট্রিগার:** দুজন কন্ট্রোলার তাদের স্ক্রিনে ব্লক `BLK-20260920-001` (সংস্করণ ১) খোলা রেখে একই সাথে "অনুমোদন" (Sanction) এবং "সময়সূচি পরিবর্তন" (Amend) বাটনে ক্লিক করেন।
+- **কার্যপ্রবাহ ও টেস্ট ধাপ:**
+  1. কন্ট্রোলার এ-এর রিকোয়েস্ট PostgreSQL ডেটাবেসে আগে পৌঁছায়; `UPDATE blocks SET status = 'APPROVED', version = 2 WHERE id = '...' AND version = 1` সফল হয় (১ রো অ্যাফেক্টেড)।
+  2. কন্ট্রোলার বি-এর রিকোয়েস্ট কয়েক মিলিমিটার পরে এক্সিকিউট হয়; যেখানে `version = 1` না মেলায় ০ রো অ্যাফেক্টেড হয়।
+  3. ব্যাকএন্ড তাত্ক্ষণিকভাবে HTTP 409 Conflict এবং এরর কোড `BLK-006` ফেরত দেয়।
+  4. কন্ট্রোলার বি-এর ব্রাউজারে অপ্টিমিস্টিক মিউটেশন সাথে সাথে রোলব্যাক হয় এবং টোস্ট মেসেজ ভেসে ওঠে: *"রেকর্ডটি কন্ট্রোলার এ কর্তৃক ইতিমধ্যে সংশোধিত হয়েছে। সর্বশেষ ডেটা রিফ্রেশ করা হচ্ছে..."*
+  5. কোনো ডেটা করাপশন বা ট্রানজাকশন ইনকনসিস্টেন্সি ঘটে না।

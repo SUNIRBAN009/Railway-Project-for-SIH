@@ -34,14 +34,23 @@ class ConflictDetector:
         # Step 2: Detect Train Timetable Path Collisions
         self._sweep_train_schedules()
 
-        # Step 3: Classify Block Health & Update State Machine
+        # Step 3: Invoke Expert System Resolution Engine
+        from apps.blocks.resolution_engine import ResolutionEngine
+        resolution_engine = ResolutionEngine(self.block)
+        resolution_summary = resolution_engine.resolve_conflicts()
+        
+        # Refresh detected conflicts list after engine has updated statuses
+        self.detected_conflicts = list(BlockConflict.objects.filter(block=self.block))
+
+        # Step 4: Classify Block Health & Update State Machine
         total_conflicts = len(self.detected_conflicts)
         critical_count = sum(1 for c in self.detected_conflicts if c.severity == ConflictSeverity.CRITICAL)
         shadow_candidates = sum(1 for c in self.detected_conflicts if c.resolution_status == 'SHADOW_MERGED')
+        unresolved_count = resolution_summary['remaining_unresolved']
 
         if total_conflicts > 0:
-            if shadow_candidates > 0 and (total_conflicts == shadow_candidates):
-                # All overlaps are mutually beneficial shadow blocks
+            if unresolved_count == 0:
+                # All overlaps are mutually beneficial shadow blocks or auto resolved
                 if self.block.status in [BlockStatus.DRAFT, BlockStatus.PENDING_APPROVAL]:
                     self.block.status = BlockStatus.COORDINATED
                     self.block.save(update_fields=['status'])
@@ -60,6 +69,7 @@ class ConflictDetector:
             'total_conflicts': total_conflicts,
             'critical_conflicts': critical_count,
             'shadow_opportunities': shadow_candidates,
+            'unresolved_conflicts': unresolved_count,
             'status': self.block.status,
             'conflicts': [
                 {

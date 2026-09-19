@@ -12,17 +12,24 @@ import { BlockDetailPage } from './pages/BlockDetailPage';
 import { BigScreenMode } from './pages/BigScreenMode';
 
 import { NetworkMapPage } from './pages/NetworkMap';
+import { MasterDataPage } from './pages/MasterDataPage';
 import { useCorridorSocket } from './hooks/useCorridorSocket';
 import { EmergencyBanner } from './components/common/EmergencyBanner';
 import { EmergencyModal } from './components/common/EmergencyModal';
 import { AudioChime } from './components/common/AudioChime';
 import { KeyboardShortcutsModal } from './components/common/KeyboardShortcutsModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ToastContainer } from './components/common/ToastContainer';
+import { DemoControllerToolbar } from './components/common/DemoControllerToolbar';
+import { AutomatedTestRunnerModal } from './components/common/AutomatedTestRunnerModal';
 
 function RealTimeCorridorSubscriber() {
   useCorridorSocket({ corridorCode: 'NDLS-GZB' });
   return (
     <>
+      <ToastContainer />
+      <DemoControllerToolbar />
+      <AutomatedTestRunnerModal />
       <EmergencyBanner />
       <EmergencyModal />
       <AudioChime />
@@ -109,6 +116,24 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <NetworkMapPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Master Ground-Truth Data & GeoJSON Inspector */}
+          <Route
+            path="/master-data"
+            element={
+              <ProtectedRoute>
+                <MasterDataPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/master-data"
+            element={
+              <ProtectedRoute>
+                <MasterDataPage />
               </ProtectedRoute>
             }
           />

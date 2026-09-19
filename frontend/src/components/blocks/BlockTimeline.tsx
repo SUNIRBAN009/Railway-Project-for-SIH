@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { Block, Train } from '../../types';
-import { DEMO_BLOCKS, DEMO_TRAINS } from '../../services/demoData';
+import { DEMO_TRAINS } from '../../services/demoData';
+import { useLiveBlocks } from '../../hooks/useLiveBlocks';
 import { Clock, Train as TrainIcon, ShieldAlert, Sparkles, AlertTriangle, Layers } from 'lucide-react';
 
 interface BlockTimelineProps {
   corridorCode?: string;
+  blocks?: Block[];
 }
 
-export const BlockTimeline: React.FC<BlockTimelineProps> = ({ corridorCode = 'NDLS-GZB-UP' }) => {
+export const BlockTimeline: React.FC<BlockTimelineProps> = ({ corridorCode = 'NDLS-GZB-UP', blocks: propBlocks }) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'NIGHT' | 'FULL'>('NIGHT');
+  const { blocks: fetchedBlocks } = useLiveBlocks();
+  const liveBlocks = propBlocks && propBlocks.length > 0 ? propBlocks : fetchedBlocks;
 
   // Timeline hours
   // NIGHT: 00:00 to 06:00 (Prime Indian Railways maintenance window)
@@ -163,23 +167,30 @@ export const BlockTimeline: React.FC<BlockTimelineProps> = ({ corridorCode = 'ND
               />
             ))}
 
-            {/* Block 1 (CSM Tamping: 01:30 to 04:30) */}
-            <div
-              style={{
-                left: `${getPositionPercent('01:30')}%`,
-                width: `${getPositionPercent('04:30') - getPositionPercent('01:30')}%`,
-              }}
-              className="absolute top-1.5 bottom-1.5 rounded-lg bg-blue-600/90 border border-blue-400 text-white p-1.5 text-xs font-mono shadow-md flex items-center justify-between overflow-hidden cursor-pointer hover:brightness-110 transition"
-              title="BLK-ENG-NDLS-01 (CSM-092) | 01:30 - 04:30 IST | KM 12.4 - 16.8"
-            >
-              <div className="truncate">
-                <span className="font-bold">BLK-ENG-NDLS-01</span>
-                <span className="text-[10px] opacity-80 block truncate">CSM-092 Tamper (KM 12.4–16.8)</span>
-              </div>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-950/80 border border-blue-300 shrink-0 hidden sm:inline">
-                ACTIVE
-              </span>
-            </div>
+            {liveBlocks.filter((b) => b.department_code === 'ENG').map((b) => {
+              const startPos = getPositionPercent(b.scheduled_start_time);
+              const endPos = getPositionPercent(b.scheduled_end_time);
+              const width = Math.max(endPos - startPos, 6);
+              return (
+                <div
+                  key={b.id}
+                  style={{
+                    left: `${startPos}%`,
+                    width: `${width}%`,
+                  }}
+                  className="absolute top-1.5 bottom-1.5 rounded-lg bg-blue-600/90 border border-blue-400 text-white p-1.5 text-xs font-mono shadow-md flex items-center justify-between overflow-hidden cursor-pointer hover:brightness-110 transition"
+                  title={`${b.block_code} (${b.equipment_required || 'GANG'}) | KM ${b.start_km}-${b.end_km}`}
+                >
+                  <div className="truncate">
+                    <span className="font-bold">{b.block_code}</span>
+                    <span className="text-[10px] opacity-80 block truncate">{b.work_type} (KM {b.start_km.toFixed(1)}–{b.end_km.toFixed(1)})</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-950/80 border border-blue-300 shrink-0 hidden sm:inline">
+                    {b.status}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -199,23 +210,30 @@ export const BlockTimeline: React.FC<BlockTimelineProps> = ({ corridorCode = 'ND
               />
             ))}
 
-            {/* Block 2 (TRD OHE: 02:00 to 04:00) */}
-            <div
-              style={{
-                left: `${getPositionPercent('02:00')}%`,
-                width: `${getPositionPercent('04:00') - getPositionPercent('02:00')}%`,
-              }}
-              className="absolute top-1.5 bottom-1.5 rounded-lg bg-amber-600/90 border border-amber-400 text-white p-1.5 text-xs font-mono shadow-md flex items-center justify-between overflow-hidden cursor-pointer hover:brightness-110 transition"
-              title="BLK-TRD-OHE-02 (TW-104) | 02:00 - 04:00 IST | 25kV Cutoff"
-            >
-              <div className="truncate">
-                <span className="font-bold">BLK-TRD-OHE-02</span>
-                <span className="text-[10px] opacity-80 block truncate">TW-104 Tower Wagon (25kV Power Off)</span>
-              </div>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-300 shrink-0 hidden sm:inline">
-                SANCTIONED
-              </span>
-            </div>
+            {liveBlocks.filter((b) => b.department_code === 'TRD').map((b) => {
+              const startPos = getPositionPercent(b.scheduled_start_time);
+              const endPos = getPositionPercent(b.scheduled_end_time);
+              const width = Math.max(endPos - startPos, 6);
+              return (
+                <div
+                  key={b.id}
+                  style={{
+                    left: `${startPos}%`,
+                    width: `${width}%`,
+                  }}
+                  className="absolute top-1.5 bottom-1.5 rounded-lg bg-amber-600/90 border border-amber-400 text-white p-1.5 text-xs font-mono shadow-md flex items-center justify-between overflow-hidden cursor-pointer hover:brightness-110 transition"
+                  title={`${b.block_code} (${b.equipment_required || 'TOWER WAGON'}) | 25kV Cutoff`}
+                >
+                  <div className="truncate">
+                    <span className="font-bold">{b.block_code}</span>
+                    <span className="text-[10px] opacity-80 block truncate">{b.work_type} (25kV Off)</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-300 shrink-0 hidden sm:inline">
+                    {b.status}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -223,7 +241,7 @@ export const BlockTimeline: React.FC<BlockTimelineProps> = ({ corridorCode = 'ND
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs font-mono text-emerald-400 font-bold">
             <span>LANE 3: Signal & Telecom (Interlocking & Track Circuits)</span>
-            <span className="text-[10px] text-emerald-300 font-normal">SHADOW BUNDLED WITH LANE 1</span>
+            <span className="text-[10px] text-emerald-300 font-normal">SHADOW BUNDLED WITH TRACK POSSESSIONS</span>
           </div>
 
           <div className="relative h-12 rounded-xl bg-control-bg border border-control-border overflow-hidden">
@@ -235,23 +253,30 @@ export const BlockTimeline: React.FC<BlockTimelineProps> = ({ corridorCode = 'ND
               />
             ))}
 
-            {/* Block 3 (S&T Point Machine: 02:15 to 03:45) */}
-            <div
-              style={{
-                left: `${getPositionPercent('02:15')}%`,
-                width: `${getPositionPercent('03:45') - getPositionPercent('02:15')}%`,
-              }}
-              className="absolute top-1.5 bottom-1.5 rounded-lg bg-emerald-600/90 border border-emerald-400 text-white p-1.5 text-xs font-mono shadow-md flex items-center justify-between overflow-hidden cursor-pointer hover:brightness-110 transition"
-              title="BLK-SNT-SIG-03 | 02:15 - 03:45 IST | Point 104 Overhaul"
-            >
-              <div className="truncate">
-                <span className="font-bold">BLK-SNT-SIG-03</span>
-                <span className="text-[10px] opacity-80 block truncate">Point 104 Interlocking (Shadow)</span>
-              </div>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-300 shrink-0 hidden sm:inline">
-                COORDINATED
-              </span>
-            </div>
+            {liveBlocks.filter((b) => b.department_code === 'SNT').map((b) => {
+              const startPos = getPositionPercent(b.scheduled_start_time);
+              const endPos = getPositionPercent(b.scheduled_end_time);
+              const width = Math.max(endPos - startPos, 6);
+              return (
+                <div
+                  key={b.id}
+                  style={{
+                    left: `${startPos}%`,
+                    width: `${width}%`,
+                  }}
+                  className="absolute top-1.5 bottom-1.5 rounded-lg bg-emerald-600/90 border border-emerald-400 text-white p-1.5 text-xs font-mono shadow-md flex items-center justify-between overflow-hidden cursor-pointer hover:brightness-110 transition"
+                  title={`${b.block_code} | Interlocking Overhaul`}
+                >
+                  <div className="truncate">
+                    <span className="font-bold">{b.block_code}</span>
+                    <span className="text-[10px] opacity-80 block truncate">{b.work_type} (Shadow)</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-300 shrink-0 hidden sm:inline">
+                    {b.status}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

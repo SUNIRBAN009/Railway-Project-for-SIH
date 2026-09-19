@@ -51,6 +51,25 @@ To stop the project, simply run `docker-compose down` in your terminal.
 
 ---
 
+## 3. Demo Data & Live Presentation Scenarios
+The platform includes an automated **Continuous Demo Data Engine (`apps/demo`)** governed by 7 immutable Railway Coherence Rules for high-fidelity testing and jury demonstrations:
+
+```powershell
+# 1. Deterministic Seeding (Fixed Seed 26027, NDLS–CNB 440km Corridor, 12 Trains)
+docker compose exec backend python manage.py seed_railway_demo --seed 26027
+
+# 2. Run Interactive Presentation Scenario (e.g. USP #98 Combined Block Demo)
+docker compose exec backend python manage.py run_scenario eng_vs_trd_conflict --live --broadcast
+
+# 3. Continuous Event Streaming (Simulates live train movement & real-time telemetry)
+docker compose exec backend python manage.py stream_demo_data --rate 4.0 --duration 1800 --broadcast
+
+# 4. List All Available Presentation Stories
+docker compose exec backend python manage.py list_scenarios
+```
+
+---
+
 ## Project Architecture & Tech Stack
 This is a unified platform integrating Engineering (TMS), Traction Distribution (TDMS), and Signal & Telecom (SMMS) departments for intelligent block scheduling.
 

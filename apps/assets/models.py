@@ -92,6 +92,9 @@ class TrackAsset(models.Model):
         return float(self.current_health_score) < 40.0 or float(self.tqi_index) > 45.0
 
 
+UnifiedAsset = TrackAsset
+
+
 class AssetDefectLog(models.Model):
     """
     Identified rail, OHE or signaling defect triggering routine or emergency blocks.

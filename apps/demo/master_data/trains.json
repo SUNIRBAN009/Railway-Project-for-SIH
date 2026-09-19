@@ -1,0 +1,252 @@
+[
+    {
+        "train_number": "12301",
+        "name": "Howrah - New Delhi Rajdhani Express",
+        "train_name": "Howrah - New Delhi Rajdhani Express",
+        "type": "PRESTIGE",
+        "train_type": "PRESTIGE_SUPERFAST",
+        "priority_rank": 1,
+        "max_speed_kmph": 130,
+        "source": "CNB",
+        "destination": "NDLS",
+        "direction": "UP",
+        "pax_capacity": 1250,
+        "schedule": [
+            {"station": "CNB", "station_sequence": 1, "arrival": "06:00:00", "departure": "06:05:00", "day": 2, "km": 440.2, "platform": "1"},
+            {"station": "ETW", "station_sequence": 2, "arrival": "07:15:00", "departure": "07:16:00", "day": 2, "km": 296.8, "platform": "1"},
+            {"station": "TDL", "station_sequence": 3, "arrival": "08:12:00", "departure": "08:14:00", "day": 2, "km": 204.3, "platform": "4"},
+            {"station": "ALJN", "station_sequence": 4, "arrival": "08:58:00", "departure": "09:00:00", "day": 2, "km": 126.1, "platform": "3"},
+            {"station": "GZB", "station_sequence": 5, "arrival": "09:42:00", "departure": "09:44:00", "day": 2, "km": 24.5, "platform": "2"},
+            {"station": "NDLS", "station_sequence": 6, "arrival": "10:05:00", "departure": "10:05:00", "day": 2, "km": 0.0, "platform": "14"}
+        ]
+    },
+    {
+        "train_number": "12424",
+        "name": "New Delhi - Dibrugarh Rajdhani Express",
+        "train_name": "New Delhi - Dibrugarh Rajdhani Express",
+        "type": "PRESTIGE",
+        "train_type": "PRESTIGE_SUPERFAST",
+        "priority_rank": 1,
+        "max_speed_kmph": 130,
+        "source": "NDLS",
+        "destination": "CNB",
+        "direction": "DOWN",
+        "pax_capacity": 1250,
+        "schedule": [
+            {"station": "NDLS", "station_sequence": 1, "arrival": "16:20:00", "departure": "16:20:00", "day": 1, "km": 0.0, "platform": "16"},
+            {"station": "GZB", "station_sequence": 2, "arrival": "16:50:00", "departure": "16:52:00", "day": 1, "km": 24.5, "platform": "2"},
+            {"station": "ALJN", "station_sequence": 3, "arrival": "17:45:00", "departure": "17:47:00", "day": 1, "km": 126.1, "platform": "3"},
+            {"station": "TDL", "station_sequence": 4, "arrival": "18:35:00", "departure": "18:37:00", "day": 1, "km": 204.3, "platform": "3"},
+            {"station": "ETW", "station_sequence": 5, "arrival": "19:30:00", "departure": "19:32:00", "day": 1, "km": 296.8, "platform": "2"},
+            {"station": "CNB", "station_sequence": 6, "arrival": "21:02:00", "departure": "21:07:00", "day": 1, "km": 440.2, "platform": "1"}
+        ]
+    },
+    {
+        "train_number": "12004",
+        "name": "New Delhi - Lucknow Swarna Shatabdi",
+        "train_name": "New Delhi - Lucknow Swarna Shatabdi",
+        "type": "PRESTIGE",
+        "train_type": "PRESTIGE_SUPERFAST",
+        "priority_rank": 2,
+        "max_speed_kmph": 130,
+        "source": "NDLS",
+        "destination": "CNB",
+        "direction": "DOWN",
+        "pax_capacity": 980,
+        "schedule": [
+            {"station": "NDLS", "station_sequence": 1, "arrival": "06:10:00", "departure": "06:10:00", "day": 1, "km": 0.0, "platform": "12"},
+            {"station": "GZB", "station_sequence": 2, "arrival": "06:50:00", "departure": "06:52:00", "day": 1, "km": 24.5, "platform": "2"},
+            {"station": "ALJN", "station_sequence": 3, "arrival": "07:50:00", "departure": "07:52:00", "day": 1, "km": 126.1, "platform": "3"},
+            {"station": "TDL", "station_sequence": 4, "arrival": "08:45:00", "departure": "08:47:00", "day": 1, "km": 204.3, "platform": "3"},
+            {"station": "ETW", "station_sequence": 5, "arrival": "09:40:00", "departure": "09:42:00", "day": 1, "km": 296.8, "platform": "2"},
+            {"station": "CNB", "station_sequence": 6, "arrival": "11:20:00", "departure": "11:25:00", "day": 1, "km": 440.2, "platform": "1"}
+        ]
+    },
+    {
+        "train_number": "22436",
+        "name": "New Delhi - Varanasi Vande Bharat Express",
+        "train_name": "New Delhi - Varanasi Vande Bharat Express",
+        "type": "PRESTIGE",
+        "train_type": "PRESTIGE_SUPERFAST",
+        "priority_rank": 1,
+        "max_speed_kmph": 160,
+        "source": "NDLS",
+        "destination": "CNB",
+        "direction": "DOWN",
+        "pax_capacity": 1128,
+        "schedule": [
+            {"station": "NDLS", "station_sequence": 1, "arrival": "06:00:00", "departure": "06:00:00", "day": 1, "km": 0.0, "platform": "16"},
+            {"station": "GZB", "station_sequence": 2, "arrival": "06:28:00", "departure": "06:30:00", "day": 1, "km": 24.5, "platform": "2"},
+            {"station": "ALJN", "station_sequence": 3, "arrival": "07:18:00", "departure": "07:20:00", "day": 1, "km": 126.1, "platform": "3"},
+            {"station": "TDL", "station_sequence": 4, "arrival": "08:00:00", "departure": "08:02:00", "day": 1, "km": 204.3, "platform": "3"},
+            {"station": "ETW", "station_sequence": 5, "arrival": "08:45:00", "departure": "08:47:00", "day": 1, "km": 296.8, "platform": "2"},
+            {"station": "CNB", "station_sequence": 6, "arrival": "10:08:00", "departure": "10:10:00", "day": 1, "km": 440.2, "platform": "1"}
+        ]
+    },
+    {
+        "train_number": "12417",
+        "name": "Prayagraj Express",
+        "train_name": "Prayagraj Express",
+        "type": "EXPRESS",
+        "train_type": "PASSENGER_EXPRESS",
+        "priority_rank": 10,
+        "max_speed_kmph": 110,
+        "source": "CNB",
+        "destination": "NDLS",
+        "direction": "UP",
+        "pax_capacity": 1500,
+        "schedule": [
+            {"station": "CNB", "station_sequence": 1, "arrival": "00:25:00", "departure": "00:30:00", "day": 2, "km": 440.2, "platform": "2"},
+            {"station": "ETW", "station_sequence": 2, "arrival": "01:50:00", "departure": "01:52:00", "day": 2, "km": 296.8, "platform": "1"},
+            {"station": "TDL", "station_sequence": 3, "arrival": "03:05:00", "departure": "03:07:00", "day": 2, "km": 204.3, "platform": "4"},
+            {"station": "ALJN", "station_sequence": 4, "arrival": "04:15:00", "departure": "04:17:00", "day": 2, "km": 126.1, "platform": "3"},
+            {"station": "GZB", "station_sequence": 5, "arrival": "06:13:00", "departure": "06:15:00", "day": 2, "km": 24.5, "platform": "3"},
+            {"station": "NDLS", "station_sequence": 6, "arrival": "07:00:00", "departure": "07:00:00", "day": 2, "km": 0.0, "platform": "8"}
+        ]
+    },
+    {
+        "train_number": "20801",
+        "name": "Magadh Express",
+        "train_name": "Magadh Express",
+        "type": "EXPRESS",
+        "train_type": "PASSENGER_EXPRESS",
+        "priority_rank": 12,
+        "max_speed_kmph": 110,
+        "source": "NDLS",
+        "destination": "CNB",
+        "direction": "DOWN",
+        "pax_capacity": 1600,
+        "schedule": [
+            {"station": "NDLS", "station_sequence": 1, "arrival": "20:00:00", "departure": "20:00:00", "day": 1, "km": 0.0, "platform": "14"},
+            {"station": "ALJN", "station_sequence": 2, "arrival": "21:50:00", "departure": "21:52:00", "day": 1, "km": 126.1, "platform": "3"},
+            {"station": "TDL", "station_sequence": 3, "arrival": "22:50:00", "departure": "22:52:00", "day": 1, "km": 204.3, "platform": "3"},
+            {"station": "ETW", "station_sequence": 4, "arrival": "23:55:00", "departure": "23:57:00", "day": 1, "km": 296.8, "platform": "2"},
+            {"station": "CNB", "station_sequence": 5, "arrival": "01:40:00", "departure": "01:45:00", "day": 2, "km": 440.2, "platform": "1"}
+        ]
+    },
+    {
+        "train_number": "12419",
+        "name": "Gomti Express",
+        "train_name": "Gomti Express",
+        "type": "EXPRESS",
+        "train_type": "PASSENGER_EXPRESS",
+        "priority_rank": 14,
+        "max_speed_kmph": 110,
+        "source": "CNB",
+        "destination": "NDLS",
+        "direction": "UP",
+        "pax_capacity": 1400,
+        "schedule": [
+            {"station": "CNB", "station_sequence": 1, "arrival": "07:45:00", "departure": "07:45:00", "day": 1, "km": 440.2, "platform": "3"},
+            {"station": "ETW", "station_sequence": 2, "arrival": "09:05:00", "departure": "09:07:00", "day": 1, "km": 296.8, "platform": "1"},
+            {"station": "TDL", "station_sequence": 3, "arrival": "10:15:00", "departure": "10:17:00", "day": 1, "km": 204.3, "platform": "4"},
+            {"station": "ALJN", "station_sequence": 4, "arrival": "11:15:00", "departure": "11:17:00", "day": 1, "km": 126.1, "platform": "3"},
+            {"station": "GZB", "station_sequence": 5, "arrival": "13:58:00", "departure": "14:00:00", "day": 1, "km": 24.5, "platform": "2"},
+            {"station": "NDLS", "station_sequence": 6, "arrival": "15:00:00", "departure": "15:00:00", "day": 1, "km": 0.0, "platform": "9"}
+        ]
+    },
+    {
+        "train_number": "12397",
+        "name": "Mahabodhi Express",
+        "train_name": "Mahabodhi Express",
+        "type": "EXPRESS",
+        "train_type": "PASSENGER_EXPRESS",
+        "priority_rank": 15,
+        "max_speed_kmph": 110,
+        "source": "NDLS",
+        "destination": "CNB",
+        "direction": "DOWN",
+        "pax_capacity": 1550,
+        "schedule": [
+            {"station": "NDLS", "station_sequence": 1, "arrival": "12:40:00", "departure": "12:40:00", "day": 1, "km": 0.0, "platform": "10"},
+            {"station": "ALJN", "station_sequence": 2, "arrival": "14:30:00", "departure": "14:32:00", "day": 1, "km": 126.1, "platform": "3"},
+            {"station": "TDL", "station_sequence": 3, "arrival": "15:40:00", "departure": "15:42:00", "day": 1, "km": 204.3, "platform": "3"},
+            {"station": "ETW", "station_sequence": 4, "arrival": "16:45:00", "departure": "16:47:00", "day": 1, "km": 296.8, "platform": "2"},
+            {"station": "CNB", "station_sequence": 5, "arrival": "18:05:00", "departure": "18:10:00", "day": 1, "km": 440.2, "platform": "2"}
+        ]
+    },
+    {
+        "train_number": "BOXN-998",
+        "name": "Coal Rake BCN Heavy Haul",
+        "train_name": "Coal Rake BCN Heavy Haul",
+        "type": "FREIGHT",
+        "train_type": "BULK_FREIGHT",
+        "priority_rank": 80,
+        "max_speed_kmph": 75,
+        "source": "CNB",
+        "destination": "NDLS",
+        "direction": "UP",
+        "pax_capacity": 0,
+        "schedule": [
+            {"station": "CNB", "station_sequence": 1, "arrival": "02:00:00", "departure": "02:00:00", "day": 1, "km": 440.2, "platform": "YARD"},
+            {"station": "ETW", "station_sequence": 2, "arrival": "04:15:00", "departure": "04:15:00", "day": 1, "km": 296.8, "platform": "LOOP"},
+            {"station": "TDL", "station_sequence": 3, "arrival": "06:30:00", "departure": "06:30:00", "day": 1, "km": 204.3, "platform": "YARD"},
+            {"station": "ALJN", "station_sequence": 4, "arrival": "08:30:00", "departure": "08:30:00", "day": 1, "km": 126.1, "platform": "LOOP"},
+            {"station": "GZB", "station_sequence": 5, "arrival": "10:45:00", "departure": "10:45:00", "day": 1, "km": 24.5, "platform": "LOOP"},
+            {"station": "NDLS", "station_sequence": 6, "arrival": "12:00:00", "departure": "12:00:00", "day": 1, "km": 0.0, "platform": "YARD"}
+        ]
+    },
+    {
+        "train_number": "CONT-402",
+        "name": "CONCOR Container Export Express",
+        "train_name": "CONCOR Container Export Express",
+        "type": "FREIGHT",
+        "train_type": "CONTAINER_FREIGHT",
+        "priority_rank": 75,
+        "max_speed_kmph": 90,
+        "source": "NDLS",
+        "destination": "CNB",
+        "direction": "DOWN",
+        "pax_capacity": 0,
+        "schedule": [
+            {"station": "NDLS", "station_sequence": 1, "arrival": "01:15:00", "departure": "01:15:00", "day": 1, "km": 0.0, "platform": "YARD"},
+            {"station": "GZB", "station_sequence": 2, "arrival": "02:00:00", "departure": "02:00:00", "day": 1, "km": 24.5, "platform": "LOOP"},
+            {"station": "ALJN", "station_sequence": 3, "arrival": "04:00:00", "departure": "04:00:00", "day": 1, "km": 126.1, "platform": "LOOP"},
+            {"station": "TDL", "station_sequence": 4, "arrival": "05:45:00", "departure": "05:45:00", "day": 1, "km": 204.3, "platform": "YARD"},
+            {"station": "ETW", "station_sequence": 5, "arrival": "07:30:00", "departure": "07:30:00", "day": 1, "km": 296.8, "platform": "LOOP"},
+            {"station": "CNB", "station_sequence": 6, "arrival": "09:45:00", "departure": "09:45:00", "day": 1, "km": 440.2, "platform": "YARD"}
+        ]
+    },
+    {
+        "train_number": "POL-551",
+        "name": "IOCL Petroleum Tanker Special",
+        "train_name": "IOCL Petroleum Tanker Special",
+        "type": "FREIGHT",
+        "train_type": "BULK_FREIGHT",
+        "priority_rank": 85,
+        "max_speed_kmph": 70,
+        "source": "CNB",
+        "destination": "NDLS",
+        "direction": "UP",
+        "pax_capacity": 0,
+        "schedule": [
+            {"station": "CNB", "station_sequence": 1, "arrival": "13:00:00", "departure": "13:00:00", "day": 1, "km": 440.2, "platform": "YARD"},
+            {"station": "ETW", "station_sequence": 2, "arrival": "15:30:00", "departure": "15:30:00", "day": 1, "km": 296.8, "platform": "LOOP"},
+            {"station": "TDL", "station_sequence": 3, "arrival": "18:00:00", "departure": "18:00:00", "day": 1, "km": 204.3, "platform": "YARD"},
+            {"station": "ALJN", "station_sequence": 4, "arrival": "20:15:00", "departure": "20:15:00", "day": 1, "km": 126.1, "platform": "LOOP"},
+            {"station": "GZB", "station_sequence": 5, "arrival": "22:45:00", "departure": "22:45:00", "day": 1, "km": 24.5, "platform": "LOOP"},
+            {"station": "NDLS", "station_sequence": 6, "arrival": "00:30:00", "departure": "00:30:00", "day": 2, "km": 0.0, "platform": "YARD"}
+        ]
+    },
+    {
+        "train_number": "BCN-774",
+        "name": "Foodgrain & Cement Covered Rake",
+        "train_name": "Foodgrain & Cement Covered Rake",
+        "type": "FREIGHT",
+        "train_type": "BULK_FREIGHT",
+        "priority_rank": 82,
+        "max_speed_kmph": 75,
+        "source": "NDLS",
+        "destination": "CNB",
+        "direction": "DOWN",
+        "pax_capacity": 0,
+        "schedule": [
+            {"station": "NDLS", "station_sequence": 1, "arrival": "14:00:00", "departure": "14:00:00", "day": 1, "km": 0.0, "platform": "YARD"},
+            {"station": "GZB", "station_sequence": 2, "arrival": "14:55:00", "departure": "14:55:00", "day": 1, "km": 24.5, "platform": "LOOP"},
+            {"station": "ALJN", "station_sequence": 3, "arrival": "17:10:00", "departure": "17:10:00", "day": 1, "km": 126.1, "platform": "LOOP"},
+            {"station": "TDL", "station_sequence": 4, "arrival": "19:20:00", "departure": "19:20:00", "day": 1, "km": 204.3, "platform": "YARD"},
+            {"station": "ETW", "station_sequence": 5, "arrival": "21:30:00", "departure": "21:30:00", "day": 1, "km": 296.8, "platform": "LOOP"},
+            {"station": "CNB", "station_sequence": 6, "arrival": "00:05:00", "departure": "00:05:00", "day": 2, "km": 440.2, "platform": "YARD"}
+        ]
+    }
+]

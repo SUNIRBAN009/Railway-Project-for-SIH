@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "apps.analytics",
     "apps.notifications",
     "apps.api",
+    "apps.demo",
 ]
 
 # Conditionally load GIS app if PostGIS & GDAL are active

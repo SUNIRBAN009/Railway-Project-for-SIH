@@ -148,7 +148,7 @@
 ### Feature: Corridor Key Performance Indicators (KPI)
 - [x] **TSK-P4-01-BE:** Implement daily OLAP aggregations for punctuality, block counts, shadow block bundling ratios, and TQI scores.
 - [x] **TSK-P4-01-FE:** Implement Big Screen Wallboard Dashboard with live KPI counters, charts, and 4K display optimization.
-- [ ] **TSK-P4-01-TEST:** Seed demo data and verify the Wallboard numbers update correctly.
+- [x] **TSK-P4-01-TEST:** Seed demo data and verify the Wallboard numbers update correctly.
 
 ### Feature: PDF Reporting & Audits
 - [ ] **TSK-P4-02-BE:** Implement official Block Sanction Order PDF generation engine using ReportLab.

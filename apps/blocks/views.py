@@ -95,7 +95,7 @@ class BlockProposalCreateAPIView(APIView):
             dept = 'ENG'
             data['department_code'] = dept
 
-        # Enforce Coherence Rules Engine (7 Rules validation)
+        # Enforce Coherence Rules Engine (7 Rules validation including Rule 3 Resource Exclusivity)
         try:
             from apps.demo.coherence import CoherenceEngine, CoherenceViolation
             engine = CoherenceEngine()
@@ -109,7 +109,28 @@ class BlockProposalCreateAPIView(APIView):
                 'equipment_id': data.get('equipment_required', ''),
                 'line_type': data.get('line_type', LineType.DOWN),
             }
-            engine.validate_block(block_dict)
+
+            # Query existing active/pending/sanctioned blocks in DB to enforce Rule 3 (Resource Exclusivity)
+            db_existing_blocks = list(Block.objects.exclude(
+                status__in=[BlockStatus.COMPLETED, BlockStatus.CANCELLED, BlockStatus.REJECTED]
+            ).values(
+                'block_code', 'start_km', 'end_km', 'scheduled_start_time', 'scheduled_end_time',
+                'department_code', 'gang_id', 'equipment_required'
+            ))
+            normalized_existing = [
+                {
+                    'start_km': float(b['start_km']),
+                    'end_km': float(b['end_km']),
+                    'scheduled_start_time': b['scheduled_start_time'],
+                    'scheduled_end_time': b['scheduled_end_time'],
+                    'department': b['department_code'],
+                    'gang_id': b['gang_id'],
+                    'equipment_id': b['equipment_required'],
+                }
+                for b in db_existing_blocks
+            ]
+
+            engine.validate_block(block_dict, existing_blocks=normalized_existing)
         except CoherenceViolation as cv:
             return ApiResponse.error(
                 code=f'COHERENCE-RULE-{cv.rule_number or 0}',

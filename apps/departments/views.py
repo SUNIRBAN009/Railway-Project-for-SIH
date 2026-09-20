@@ -45,6 +45,8 @@ class GangListCreateAPIView(APIView):
         dept_filter = request.GET.get('department', '').strip().upper()
         station_filter = request.GET.get('station', '').strip().upper()
         available_only = request.GET.get('available', '').strip().lower() in ('true', '1')
+        start_time_str = request.GET.get('start_time', '').strip()
+        end_time_str = request.GET.get('end_time', '').strip()
         search_query = request.GET.get('search', '').strip()
 
         gangs = Gang.objects.select_related('department', 'supervisor').all()
@@ -61,6 +63,29 @@ class GangListCreateAPIView(APIView):
                 status__in=[WorkOrderStatus.MOBILIZING, WorkOrderStatus.ON_SITE]
             ).values_list('gang_id', flat=True)
             gangs = gangs.filter(is_active=True).exclude(id__in=active_gang_ids)
+
+        # Check temporal window reservation against active/scheduled blocks
+        if start_time_str and end_time_str:
+            from django.utils.dateparse import parse_datetime
+            if '+' not in start_time_str and ' ' in start_time_str:
+                start_time_str = start_time_str.replace(' ', '+')
+            if '+' not in end_time_str and ' ' in end_time_str:
+                end_time_str = end_time_str.replace(' ', '+')
+            st = parse_datetime(start_time_str)
+            et = parse_datetime(end_time_str)
+            if st and et:
+                busy_gang_numbers = Block.objects.filter(
+                    status__in=[
+                        BlockStatus.PENDING_APPROVAL,
+                        BlockStatus.COORDINATED,
+                        BlockStatus.CONFLICT_DETECTED,
+                        BlockStatus.SANCTIONED,
+                        BlockStatus.ACTIVE,
+                    ],
+                    scheduled_start_time__lt=et,
+                    scheduled_end_time__gt=st,
+                ).exclude(gang_id='').values_list('gang_id', flat=True)
+                gangs = gangs.exclude(gang_number__in=busy_gang_numbers)
 
         if search_query:
             gangs = gangs.filter(
@@ -108,6 +133,8 @@ class EquipmentListAPIView(APIView):
         op_status = request.GET.get('status', '').strip().upper()
         dept_code = request.GET.get('department', '').strip().upper()
         fit_only = request.GET.get('fit_only', '').strip().lower() in ('true', '1')
+        start_time_str = request.GET.get('start_time', '').strip()
+        end_time_str = request.GET.get('end_time', '').strip()
         search_query = request.GET.get('search', '').strip()
 
         equipment = MaintenanceEquipment.objects.select_related('department').all()
@@ -127,6 +154,29 @@ class EquipmentListAPIView(APIView):
                 operational_status=EquipmentStatus.AVAILABLE,
                 fitness_expiry_date__gte=today
             )
+
+        # Check temporal window reservation against active/scheduled blocks
+        if start_time_str and end_time_str:
+            from django.utils.dateparse import parse_datetime
+            if '+' not in start_time_str and ' ' in start_time_str:
+                start_time_str = start_time_str.replace(' ', '+')
+            if '+' not in end_time_str and ' ' in end_time_str:
+                end_time_str = end_time_str.replace(' ', '+')
+            st = parse_datetime(start_time_str)
+            et = parse_datetime(end_time_str)
+            if st and et:
+                busy_eq_codes = Block.objects.filter(
+                    status__in=[
+                        BlockStatus.PENDING_APPROVAL,
+                        BlockStatus.COORDINATED,
+                        BlockStatus.CONFLICT_DETECTED,
+                        BlockStatus.SANCTIONED,
+                        BlockStatus.ACTIVE,
+                    ],
+                    scheduled_start_time__lt=et,
+                    scheduled_end_time__gt=st,
+                ).exclude(equipment_required='').values_list('equipment_required', flat=True)
+                equipment = equipment.exclude(equipment_code__in=busy_eq_codes)
 
         if search_query:
             equipment = equipment.filter(

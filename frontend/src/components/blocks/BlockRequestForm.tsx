@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DepartmentCode, LineType, Block } from '../../types';
 import { DEMO_CORRIDORS, DEMO_MACHINERY, DEMO_GANGS } from '../../services/demoData';
-import { blockService } from '../../services/api';
+import { blockService, departmentService, GangRecord, EquipmentRecord } from '../../services/api';
 import { useToastStore } from '../../stores/toastStore';
 import {
   Wrench,
@@ -37,6 +37,11 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Dynamic Logistics State (TSK-P2-06)
+  const [gangsList, setGangsList] = useState<GangRecord[]>([]);
+  const [equipmentList, setEquipmentList] = useState<EquipmentRecord[]>([]);
+  const [isLoadingLogistics, setIsLoadingLogistics] = useState(false);
+
   // Form State
   const [corridorCode, setCorridorCode] = useState(DEMO_CORRIDORS[0].code);
   const [lineType, setLineType] = useState<LineType>('UP');
@@ -46,6 +51,30 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
 
   const [selectedMachine, setSelectedMachine] = useState(DEMO_MACHINERY[0].machine_code);
   const [selectedGang, setSelectedGang] = useState(DEMO_GANGS[0].id);
+
+  // Load live gangs and machinery from PostgreSQL
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingLogistics(true);
+    Promise.all([
+      departmentService.getGangs({ department: departmentCode }).catch(() => []),
+      departmentService.getEquipment({ department: departmentCode }).catch(() => []),
+    ]).then(([gangsData, eqData]) => {
+      if (!isMounted) return;
+      if (gangsData && gangsData.length > 0) {
+        setGangsList(gangsData);
+        setSelectedGang(gangsData[0].gang_number);
+      }
+      if (eqData && eqData.length > 0) {
+        setEquipmentList(eqData);
+        setSelectedMachine(eqData[0].equipment_code);
+      }
+      setIsLoadingLogistics(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [departmentCode]);
 
   const [requestDate, setRequestDate] = useState('2026-09-09');
   const [startTime, setStartTime] = useState('02:00');
@@ -499,32 +528,54 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-mono text-slate-300 block mb-1">Required Track Machinery</label>
+                <label className="text-xs font-mono text-slate-300 block mb-1 flex items-center justify-between">
+                  <span>Required Track Machinery</span>
+                  {equipmentList.length > 0 && (
+                    <span className="text-[10px] text-emerald-400 font-bold">● {equipmentList.length} Units Ready</span>
+                  )}
+                </label>
                 <select
                   value={selectedMachine}
                   onChange={(e) => setSelectedMachine(e.target.value)}
                   className="w-full px-3 py-2.5 text-xs font-mono bg-control-bg border border-control-border rounded-xl text-white focus:border-cyan-400 focus:outline-none"
                 >
-                  {DEMO_MACHINERY.map((m) => (
-                    <option key={m.machine_code} value={m.machine_code}>
-                      {m.machine_code} — {m.name} ({m.fitness_status})
-                    </option>
-                  ))}
+                  {equipmentList.length > 0
+                    ? equipmentList.map((m) => (
+                        <option key={m.equipment_code} value={m.equipment_code}>
+                          {m.equipment_code} — {m.equipment_name} ({m.operational_status})
+                        </option>
+                      ))
+                    : DEMO_MACHINERY.map((m) => (
+                        <option key={m.machine_code} value={m.machine_code}>
+                          {m.machine_code} — {m.name} ({m.fitness_status})
+                        </option>
+                      ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-xs font-mono text-slate-300 block mb-1">Assigned Maintenance Gang</label>
+                <label className="text-xs font-mono text-slate-300 block mb-1 flex items-center justify-between">
+                  <span>Assigned Maintenance Gang</span>
+                  {gangsList.length > 0 && (
+                    <span className="text-[10px] text-cyan-400 font-bold">● {gangsList.length} Gangs Seeded</span>
+                  )}
+                </label>
                 <select
                   value={selectedGang}
                   onChange={(e) => setSelectedGang(e.target.value)}
                   className="w-full px-3 py-2.5 text-xs font-mono bg-control-bg border border-control-border rounded-xl text-white focus:border-cyan-400 focus:outline-none"
                 >
-                  {DEMO_GANGS.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name} ({g.supervisor_name}) — {g.status}
-                    </option>
-                  ))}
+                  {gangsList.length > 0
+                    ? gangsList.map((g) => (
+                        <option key={g.gang_number} value={g.gang_number}>
+                          {g.gang_number} ({g.supervisor_name}) — {g.headquarters_station} (Crew: {g.crew_strength})
+                        </option>
+                      ))
+                    : DEMO_GANGS.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} ({g.supervisor_name}) — {g.status}
+                        </option>
+                      ))}
                 </select>
               </div>
             </div>
@@ -532,15 +583,27 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
             <div className="p-4 rounded-xl border border-control-border bg-control-bg/60 space-y-2 text-xs font-mono">
               <div className="flex items-center justify-between">
                 <span className="text-control-muted">Machine Fitness Expiry:</span>
-                <span className="text-emerald-400 font-bold">2026-12-31 (VALID FIT)</span>
+                <span className="text-emerald-400 font-bold">
+                  {equipmentList.find((e) => e.equipment_code === selectedMachine)?.fitness_expiry_date
+                    ? `${equipmentList.find((e) => e.equipment_code === selectedMachine)?.fitness_expiry_date} (VALID FIT)`
+                    : '2026-12-31 (VALID FIT)'}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-control-muted">Gang Safety Compliance:</span>
-                <span className="text-cyan-400 font-bold">IR Level 3 Track Machine Operator</span>
+                <span className="text-control-muted">Gang Depot / Section:</span>
+                <span className="text-cyan-400 font-bold">
+                  {gangsList.find((g) => g.gang_number === selectedGang)
+                    ? `${gangsList.find((g) => g.gang_number === selectedGang)?.headquarters_station} (KM ${gangsList.find((g) => g.gang_number === selectedGang)?.assigned_section_start_km} - ${gangsList.find((g) => g.gang_number === selectedGang)?.assigned_section_end_km})`
+                    : 'SBB (KM 0.0 - 28.5)'}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-control-muted">Supervisor Hotline:</span>
-                <span className="text-slate-300">+91 98712-44321</span>
+                <span className="text-control-muted">Supervisor Hotline & Crew:</span>
+                <span className="text-slate-300">
+                  {gangsList.find((g) => g.gang_number === selectedGang)
+                    ? `${gangsList.find((g) => g.gang_number === selectedGang)?.supervisor_name} • ${gangsList.find((g) => g.gang_number === selectedGang)?.crew_strength} Personnel`
+                    : 'Amit Sharma • 14 Personnel'}
+                </span>
               </div>
             </div>
           </div>

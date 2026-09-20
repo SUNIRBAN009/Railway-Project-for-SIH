@@ -203,7 +203,9 @@ def run_seeder():
     # ------------------------------------------------------------------------
     # 4. Seed Gangs & Heavy Equipment
     # ------------------------------------------------------------------------
-    print("\n[4/7] Seeding maintenance gangs and heavy track machines...")
+    # 4. Seed Gangs & Heavy Equipment (TSK-P2-06)
+    # ------------------------------------------------------------------------
+    print("\n[4/7] Seeding maintenance gangs (6 gangs) and heavy track machines (5 machines)...")
     gang_configs = [
         {
             'gang_number': 'GANG-ENG-PWAY-04',
@@ -215,6 +217,15 @@ def run_seeder():
             'assigned_section_end_km': Decimal('28.5'),
         },
         {
+            'gang_number': 'GANG-ENG-PWAY-07',
+            'department': dept_map[DepartmentCode.ENG],
+            'supervisor': staff_map['eng_track_pway'],
+            'headquarters_station': 'ALJN',
+            'crew_strength': 16,
+            'assigned_section_start_km': Decimal('100.0'),
+            'assigned_section_end_km': Decimal('150.0'),
+        },
+        {
             'gang_number': 'GANG-TRD-OHE-02',
             'department': dept_map[DepartmentCode.TRD],
             'supervisor': staff_map['trd_ohe_power'],
@@ -224,6 +235,15 @@ def run_seeder():
             'assigned_section_end_km': Decimal('45.0'),
         },
         {
+            'gang_number': 'GANG-TRD-OHE-05',
+            'department': dept_map[DepartmentCode.TRD],
+            'supervisor': staff_map['trd_ohe_power'],
+            'headquarters_station': 'TDL',
+            'crew_strength': 12,
+            'assigned_section_start_km': Decimal('180.0'),
+            'assigned_section_end_km': Decimal('240.0'),
+        },
+        {
             'gang_number': 'GANG-SNT-SIG-01',
             'department': dept_map[DepartmentCode.SNT],
             'supervisor': staff_map['snt_signal_telecom'],
@@ -231,6 +251,15 @@ def run_seeder():
             'crew_strength': 8,
             'assigned_section_start_km': Decimal('0.0'),
             'assigned_section_end_km': Decimal('15.0'),
+        },
+        {
+            'gang_number': 'GANG-SNT-SIG-03',
+            'department': dept_map[DepartmentCode.SNT],
+            'supervisor': staff_map['snt_signal_telecom'],
+            'headquarters_station': 'CNB',
+            'crew_strength': 10,
+            'assigned_section_start_km': Decimal('400.0'),
+            'assigned_section_end_km': Decimal('440.2'),
         },
     ]
 
@@ -246,6 +275,16 @@ def run_seeder():
     today = timezone.now().date()
     equipment_configs = [
         {
+            'equipment_code': 'CSM-NR-092',
+            'equipment_name': 'Plasser 09-32 CSM Continuous Track Tamper',
+            'equipment_type': EquipmentType.TRACK_TAMPER_CSM,
+            'department': dept_map[DepartmentCode.ENG],
+            'home_depot': 'NDLS',
+            'current_location_km': Decimal('5.0'),
+            'operational_status': EquipmentStatus.AVAILABLE,
+            'fitness_expiry_date': today + datetime.timedelta(days=120),
+        },
+        {
             'equipment_code': 'BCM-NR-104',
             'equipment_name': 'Plasser RM-80 Ballast Cleaning Machine',
             'equipment_type': EquipmentType.BALLAST_CLEANER_BCM,
@@ -256,14 +295,14 @@ def run_seeder():
             'fitness_expiry_date': today + datetime.timedelta(days=180),
         },
         {
-            'equipment_code': 'CSM-NR-092',
-            'equipment_name': 'Plasser 09-32 CSM Continuous Track Tamper',
-            'equipment_type': EquipmentType.TRACK_TAMPER_CSM,
+            'equipment_code': 'DTS-NR-62N',
+            'equipment_name': 'Plasser Dynamic Track Stabilizer (DGS 62N)',
+            'equipment_type': EquipmentType.DYNAMIC_TRACK_STABILIZER,
             'department': dept_map[DepartmentCode.ENG],
-            'home_depot': 'NDLS',
-            'current_location_km': Decimal('5.0'),
+            'home_depot': 'ALJN',
+            'current_location_km': Decimal('126.0'),
             'operational_status': EquipmentStatus.AVAILABLE,
-            'fitness_expiry_date': today + datetime.timedelta(days=120),
+            'fitness_expiry_date': today + datetime.timedelta(days=150),
         },
         {
             'equipment_code': 'TW-NR-8812',

@@ -112,9 +112,9 @@
 - [x] **TSK-P2-05-TEST:** Verify train markers move smoothly on the UI based on backend telemetry coordinates.
 
 ### Feature: Departmental Equipment & Gang Rosters (#100, #101)
-- [] **TSK-P2-06-BE:** Implement `Gang`, `MaintenanceEquipment` models and availability query APIs seeded with the 6 gangs and 5 heavy machines.
-- [] **TSK-P2-06-FE:** Implement gang/equipment reservation pickers in the block request UI.
-- [] **TSK-P2-06-TEST:** Verify gangs cannot be double-booked in the same time window across the frontend and backend.
+- [x] **TSK-P2-06-BE:** Implement `Gang`, `MaintenanceEquipment` models and availability query APIs seeded with the 6 gangs and 5 heavy machines.
+- [x] **TSK-P2-06-FE:** Implement gang/equipment reservation pickers in the block request UI.
+- [x] **TSK-P2-06-TEST:** Verify gangs cannot be double-booked in the same time window across the frontend and backend.
 
 ---
 

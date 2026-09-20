@@ -268,4 +268,68 @@ export const trainService = {
   },
 };
 
+// Department Logistics & Rosters API Wrappers (SVC-DEPT, TSK-P2-06)
+export interface GangRecord {
+  id: string;
+  gang_number: string;
+  department_id: string;
+  department_code: string;
+  department_name: string;
+  supervisor_id?: string | null;
+  supervisor_name: string;
+  headquarters_station: string;
+  crew_strength: number;
+  assigned_section_start_km: number;
+  assigned_section_end_km: number;
+  is_active: boolean;
+}
+
+export interface EquipmentRecord {
+  id: string;
+  equipment_code: string;
+  equipment_name: string;
+  equipment_type: string;
+  equipment_type_display: string;
+  department_code: string;
+  home_depot: string;
+  current_location_km: number;
+  operational_status: string;
+  fitness_expiry_date: string;
+  is_fit: boolean;
+  is_fitness_expired: boolean;
+}
+
+export const departmentService = {
+  getGangs: async (params?: {
+    department?: string;
+    station?: string;
+    available?: boolean;
+    start_time?: string;
+    end_time?: string;
+    search?: string;
+  }): Promise<GangRecord[]> => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: { count: number; gangs: GangRecord[] };
+    }>('/departments/gangs/', { params });
+    return response.data.data?.gangs || [];
+  },
+
+  getEquipment: async (params?: {
+    type?: string;
+    status?: string;
+    department?: string;
+    fit_only?: boolean;
+    start_time?: string;
+    end_time?: string;
+    search?: string;
+  }): Promise<EquipmentRecord[]> => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: { count: number; equipment: EquipmentRecord[] };
+    }>('/departments/equipment/', { params });
+    return response.data.data?.equipment || [];
+  },
+};
+
 

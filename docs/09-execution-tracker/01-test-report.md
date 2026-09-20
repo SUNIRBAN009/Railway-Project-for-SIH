@@ -35,6 +35,12 @@
 | **Phase 1** | `TSK-P1-02-TEST` | Multi-Department Routing Verification (`COA`, `ENG`, `TRD`, `SNT`) | **PASS** | 2026-09-19 14:22 IST |
 | **Phase 2** | `TSK-P2-01-BE` | PostGIS GeoJSON Corridor & BlockSection APIs (`NDLS-CNB-MAIN`) | **PASS** | 2026-09-19 14:38 IST |
 | **Phase 2** | `TSK-P2-01-FE` | 3D Perspective Mapbox Canvas (45° Tilt) with PostGIS Track Layer | **PASS** | 2026-09-19 14:46 IST |
+| **Phase 2** | `TSK-P2-05-BE` | Master Timetable & Live Telemetry Worker (`COA` Ingestion) | **PASS** | 2026-09-20 10:30 IST |
+| **Phase 2** | `TSK-P2-05-FE` | 60 FPS requestAnimationFrame Train Tracking Markers on Mapbox | **PASS** | 2026-09-20 10:32 IST |
+| **Phase 2** | `TSK-P2-05-TEST` | Spline Interpolation & 12 Master Train Movement Verification | **PASS** | 2026-09-20 10:34 IST |
+| **Phase 2** | `TSK-P2-06-BE` | Departmental Gang Rosters, Heavy Equipment Readiness & Rule 3 Exclusivity | **PASS** | 2026-09-20 12:09 IST |
+| **Phase 2** | `TSK-P2-06-FE` | Dynamic Gang & Machinery Pickers in Block Request Form | **PASS** | 2026-09-20 12:10 IST |
+| **Phase 2** | `TSK-P2-06-TEST` | Multi-Department Rosters, Machinery Certification & Rule 3 Relocation Physics | **PASS** | 2026-09-20 12:10 IST |
 
 
 
@@ -1277,4 +1283,103 @@ ALL TSK-P2-05-BE TESTS COMPLETED SUCCESSFULLY! (100% PASS)
   | **4** | UI Component Contracts | `TrainMarker.tsx`, `RailMap.tsx`, `useLiveTrains.ts` | 60 FPS rotating chevrons, speed luminescence, HUD | **PASS** |
   | **5** | Frontend Production Bundle | `tsc --noEmit` & `vite build` clean asset generation | `dist/assets/index-BzEoqCM4.js` (643.35 KB) verified | **PASS** |
 - **Suite Result:** **100% PASS**
+
+---
+
+## 13. Phase 2: Feature 6 Verification (`TSK-P2-06`)
+### Departmental Equipment & Gang Rosters (#100, #101)
+
+- **Task Identifiers:** `TSK-P2-06-BE`, `TSK-P2-06-FE`, `TSK-P2-06-TEST`
+- **Target Components:** `Gang`, `MaintenanceEquipment`, `BlockProposalCreateAPIView`, `GangListCreateAPIView`, `EquipmentListAPIView`, `BlockRequestForm.tsx`, `api.ts`
+- **Verification Date:** September 20, 2026, 12:10 IST
+- **Audit Tooling:** `scripts/test_p2_06_be.py`, `scripts/test_p2_06_test.py`, `docker exec railway_frontend npm run build`
+
+### 13.1 Backend Gang & Machinery API Verification (`TSK-P2-06-BE`)
+- **Seeded Master Entities:**
+  1. `6 Master Maintenance Gangs` seeded across corridor nodes:
+     - `GANG-ENG-PWAY-04` (SBB • Sahibabad Jn, Crew: 14, KM 0.0 - 28.5)
+     - `GANG-ENG-PWAY-07` (ALJN • Aligarh Jn, Crew: 16, KM 100.0 - 150.0)
+     - `GANG-TRD-OHE-02` (GZB • Ghaziabad Jn, Crew: 10, KM 10.0 - 45.0)
+     - `GANG-TRD-OHE-05` (TDL • Tundla Jn, Crew: 12, KM 180.0 - 240.0)
+     - `GANG-SNT-SIG-01` (NDLS • New Delhi, Crew: 8, KM 0.0 - 15.0)
+     - `GANG-SNT-SIG-03` (CNB • Kanpur Central, Crew: 10, KM 400.0 - 440.2)
+  2. `5 Heavy Track Machines` certified with active mechanical fitness:
+     - `CSM-NR-092`: Continuous Action Tamper (09-32 CSM, Depot: NDLS, Status: AVAILABLE)
+     - `BCM-NR-104`: Ballast Cleaning Machine (RM-80 BCM, Depot: GZB, Status: AVAILABLE)
+     - `DTS-NR-62N`: Dynamic Track Stabilizer (DGS 62N, Depot: ALJN, Status: AVAILABLE)
+     - `TW-NR-8812`: 8-Wheeler High-Speed OHE Tower Wagon (Depot: GZB, Status: AVAILABLE)
+     - `USFD-NR-03`: Ultrasonic Flaw Detector Digital Trolley (Depot: NDLS, Status: AVAILABLE)
+- **Temporal Availability Filtering:**
+  - `GET /api/v1/departments/gangs/?start_time=...&end_time=...` verified excluding gangs already reserved in active/sanctioned blocks.
+- **Rule 3 Resource Exclusivity Enforcement:**
+  - Attempting concurrent reservation of `GANG-ENG-PWAY-04` across overlapping block windows rejected with `HTTP 400 Bad Request` and `COHERENCE-RULE-3`:
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "COHERENCE-RULE-3",
+      "message": "Resource Exclusivity Violation: Gang 'GANG-ENG-PWAY-04' double-booked across overlapping block windows!"
+    }
+  }
+  ```
+
+### 13.2 Frontend Dynamic Logistics Pickers (`TSK-P2-06-FE`)
+- **Component Tested:** `BlockRequestForm.tsx` (Step 2: Machinery Assignment & Crew Roster)
+- **Production Asset Build Verification:**
+  - Command: `docker exec railway_frontend npm run build`
+  - Output: `✓ 1954 modules transformed. dist/assets/index-BOlQIcxB.js (660.32 kB). Built in 8.43s.`
+  - Exit code: `0` (Zero compiler or type errors).
+- **Interactive UI Capabilities:**
+  - Dynamic API loading of departmental gangs and machinery upon opening the wizard.
+  - Display of real-time machine fitness expiry dates (`VALID FIT` badge), gang headquarters station, assigned track section span, and supervisor details.
+  - Instant UI toast alert and field highlighting upon Coherence Rule 3 rejection.
+
+### 13.3 End-to-End System & Relocation Physics Audit (`TSK-P2-06-TEST`)
+- **Execution Output Log:**
+  ```text
+  ================================================================================
+  RUNNING E2E TEST SUITE: TSK-P2-06-TEST
+  VERIFYING GANG & EQUIPMENT ROSTERS, FRONTEND CONTRACTS & RULE 3 SAFETY
+  ================================================================================
+
+  STEP: 1. Checking Frontend Development Server Health
+    [PASS] Frontend Vite/React application active at http://localhost:3000
+
+  STEP: 2. Authenticating Multi-Department Personas (ENG, TRD, SNT)
+    [PASS] eng_track_pway (ENG) authenticated successfully -> Civil Engineering Track Gangs
+    [PASS] trd_ohe_power (TRD) authenticated successfully -> Traction Distribution Tower Wagons
+    [PASS] snt_signal_telecom (SNT) authenticated successfully -> Signal & Interlocking Crews
+
+  STEP: 3. Verifying Departmental Gang Segregation & Roster Metadata
+    [INFO] Department [ENG] returned 2 gangs: GANG-ENG-PWAY-04 @ SBB, GANG-ENG-PWAY-07 @ ALJN
+    [INFO] Department [TRD] returned 2 gangs: GANG-TRD-OHE-02 @ GZB, GANG-TRD-OHE-05 @ TDL
+    [INFO] Department [SNT] returned 2 gangs: GANG-SNT-SIG-01 @ NDLS, GANG-SNT-SIG-03 @ CNB
+    [PASS] All departmental gang rosters verified with valid foreign keys.
+
+  STEP: 4. Verifying Heavy Machinery Fitness & Certification Data
+    [INFO] 5/5 Machines verified: BCM-NR-104, DTS-NR-62N, CSM-NR-092, USFD-NR-03, TW-NR-8812
+    [PASS] All 5 heavy equipment types verified with active fitness status.
+
+  STEP: 5. Verifying Rule 3 40km/h Relocation Physics Rejection
+    [PASS] Block 1 created at KM 0-2 (02:00 - 04:00 UTC) for GANG-ENG-PWAY-07
+    [PASS] Travel Physics Violation enforced correctly!
+           Rejection Message: Travel Physics Violation: Gang 'GANG-ENG-PWAY-07' requires 138.0 km/h to relocate 23.0 km in 0.17h (maximum permissible transfer speed is 40.0 km/h).
+
+  ================================================================================
+  [SUCCESS] ALL TSK-P2-06-TEST E2E VERIFICATION CHECKS PASSED (100% VERIFIED)
+  ================================================================================
+  ```
+
+- **Verification Matrix (`TSK-P2-06-TEST`):**
+  | Test Step | Component Tested | Expected Result | Actual Result | Status |
+  |---|---|---|---|:---:|
+  | **1** | Frontend Server Health | HTTP 200 at `http://localhost:3000` | 200 OK Vite dev server | **PASS** |
+  | **2** | Multi-Department Personas | JWT authentication for ENG, TRD, SNT | Valid bearer tokens issued | **PASS** |
+  | **3** | Department Gang Segregation | 2 gangs per department across corridor | 6 gangs with valid foreign keys | **PASS** |
+  | **4** | Heavy Machinery Roster | 5 machine types with active fitness | 100% mechanical fitness valid | **PASS** |
+  | **5** | Rule 3 Double-Booking | Rejection of concurrent gang assignment | HTTP 400 `COHERENCE-RULE-3` | **PASS** |
+  | **6** | Rule 3 Relocation Physics | Rejection if required speed > 40 km/h | HTTP 400 Travel Physics Violation | **PASS** |
+  | **7** | Production Build Audit | Zero compilation or TypeScript errors | `dist/index.html` built cleanly | **PASS** |
+- **Suite Result:** **100% PASS**
+
 

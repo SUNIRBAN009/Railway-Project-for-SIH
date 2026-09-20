@@ -8,6 +8,9 @@ import { MaterialInventory } from '../components/departments/MaterialInventory';
 import { CalendarView } from '../components/blocks/CalendarView';
 import { Block } from '../types';
 import { useLiveBlocks } from '../hooks/useLiveBlocks';
+import { useRiskMatrix } from '../hooks/useRiskMatrix';
+import { WhyNumberOneCard } from '../components/common/WhyNumberOneCard';
+import { RiskMatrixModal } from '../components/common/RiskMatrixModal';
 import {
   Wrench,
   Plus,
@@ -19,18 +22,20 @@ import {
   Activity,
   CheckCircle2,
   TrendingUp,
+  Grid,
 } from 'lucide-react';
 
 export const EngDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BLOCKS' | 'PROPOSE' | 'TIMELINE' | 'CREW' | 'INVENTORY' | 'CALENDAR'>('BLOCKS');
+  const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
   const { blocks, setBlocks, refetch } = useLiveBlocks('ENG');
+  const { riskMatrix, whyNumberOne } = useRiskMatrix('NDLS-CNB-MAIN');
 
   const handleBlockCreated = (newBlock: Partial<Block>) => {
     setBlocks((prev) => [newBlock as Block, ...prev]);
     setActiveTab('BLOCKS');
     refetch();
   };
-
 
   return (
     <DepartmentLayout
@@ -39,34 +44,23 @@ export const EngDashboard: React.FC = () => {
       departmentSubtitle="Delhi Division (NR) • Mechanized Track Maintenance, Tamping & Ballast Operations"
     >
       <div className="p-6 space-y-6">
-        {/* Urgent USFD Rail Flaw Warning Banner */}
-        <div className="p-4 rounded-xl border border-rose-500/60 bg-rose-950/40 shadow-lg shadow-black/40 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-rose-900/60 border border-rose-500 text-rose-300 animate-pulse">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-extrabold uppercase px-2 py-0.5 rounded bg-rose-900/80 border border-rose-500 text-white">
-                  EMERGENCY DEFECT LOG
-                </span>
-                <span className="text-xs font-mono font-bold text-white">
-                  KM 14.800 (NDLS–GZB UP LINE)
-                </span>
-              </div>
-              <p className="text-xs text-rose-200 mt-1 font-sans">
-                Transverse rail fatigue defect detected by USFD Trolley #03. Jogglled fishplate clamping required immediately under speed restriction 30 km/h.
-              </p>
-            </div>
-          </div>
+        {/* Dynamic Explainable AI Priority #1 Card (Feature #94) */}
+        <WhyNumberOneCard
+          data={whyNumberOne}
+          onOpenRiskMatrix={() => setIsRiskModalOpen(true)}
+          onDeclareEmergencyBlock={() => setActiveTab('PROPOSE')}
+        />
 
-          <button
-            onClick={() => setActiveTab('PROPOSE')}
-            className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-mono text-xs font-bold transition shrink-0 shadow-md shadow-rose-950"
-          >
-            Declare Emergency Block
-          </button>
-        </div>
+        {/* 5x5 Risk Matrix Heatmap Modal (Feature #92) */}
+        <RiskMatrixModal
+          isOpen={isRiskModalOpen}
+          onClose={() => setIsRiskModalOpen(false)}
+          data={riskMatrix}
+          onSelectDefect={(defect) => {
+            setIsRiskModalOpen(false);
+            setActiveTab('PROPOSE');
+          }}
+        />
 
         {/* Top Operational Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

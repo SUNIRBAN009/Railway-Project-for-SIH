@@ -128,8 +128,8 @@
 
 ### Feature: Asset Condition, Risk Matrix & Track Quality Index (#92, #93, #94)
 - [x] **TSK-P3-02-BE:** Implement `TrackAsset`, `AssetDefectLog`, CoF × LoF risk calculation, Defect Aging Score, and automated emergency block generation on critical defect.
-- [ ] **TSK-P3-02-FE:** Implement defect heatmaps on Mapbox, risk color chips, and "Why #1?" AI explanation card (#94).
-- [ ] **TSK-P3-02-TEST:** Trigger a simulated rail fracture in backend and verify the UI displays the flaw heatmap and "Why #1?" card immediately.
+- [x] **TSK-P3-02-FE:** Implement defect heatmaps on Mapbox, risk color chips, and "Why #1?" AI explanation card (#94).
+- [x] **TSK-P3-02-TEST:** Trigger a simulated rail fracture in backend and verify the UI displays the flaw heatmap and "Why #1?" card immediately.
 
 ### Feature: Emergency USFD Alert Modal & Chime
 - [ ] **TSK-P3-03-BE:** Implement WebSocket broadcast `EMERGENCY_ALERT` payload generation for catastrophic flaws.

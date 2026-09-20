@@ -332,4 +332,103 @@ export const departmentService = {
   },
 };
 
+// Asset Reliability, CoF x LoF Risk Matrix & Defect Catalog (SVC-AST, TSK-P3-02)
+export interface DefectItem {
+  id: string;
+  defect_code: string;
+  asset_tag: string;
+  corridor_code: string;
+  location_km: number;
+  defect_type: string;
+  defect_type_display: string;
+  severity: string;
+  severity_display: string;
+  cof_score: number;
+  lof_score: number;
+  overdue_days: number;
+  final_risk_score: number;
+  category: 'EXTREME_RISK' | 'HIGH_RISK' | 'MEDIUM_RISK' | 'LOW_RISK';
+  recommended_action: string;
+  aging_score: number;
+  flaw_depth_mm?: number | null;
+  emergency_block_id?: string | null;
+  why_explanation: string;
+}
+
+export interface RiskMatrixCell {
+  cof: number;
+  lof: number;
+  base_risk: number;
+  final_risk_score: number;
+  category: 'EXTREME_RISK' | 'HIGH_RISK' | 'MEDIUM_RISK' | 'LOW_RISK';
+  recommended_action: string;
+  defect_count: number;
+  defects: Array<{
+    defect_code: string;
+    asset_tag: string;
+    location_km: number;
+    severity: string;
+  }>;
+}
+
+export interface WhyNumberOne {
+  rank: number;
+  defect_code: string;
+  asset_tag: string;
+  location_km: number;
+  corridor_code: string;
+  final_risk_score: number;
+  category: 'EXTREME_RISK' | 'HIGH_RISK' | 'MEDIUM_RISK' | 'LOW_RISK';
+  aging_score: number;
+  overdue_days: number;
+  recommended_action: string;
+  rationale: string;
+}
+
+export interface RiskMatrixResponse {
+  summary: {
+    total_active_defects: number;
+    extreme_risk_count: number;
+    high_risk_count: number;
+    medium_risk_count: number;
+    low_risk_count: number;
+  };
+  grid_cells: RiskMatrixCell[];
+  why_number_one: WhyNumberOne | null;
+  ranked_defects: DefectItem[];
+}
+
+export const assetService = {
+  getRiskMatrix: async (corridor?: string): Promise<RiskMatrixResponse> => {
+    const response = await apiClient.get<{ success: boolean; data: RiskMatrixResponse }>('/assets/risk-matrix/', {
+      params: corridor ? { corridor } : undefined,
+    });
+    return response.data.data;
+  },
+
+  getDefects: async (corridor?: string): Promise<DefectItem[]> => {
+    const response = await apiClient.get<{ success: boolean; data: DefectItem[] }>('/assets/defects-catalog/', {
+      params: corridor ? { corridor } : undefined,
+    });
+    return response.data.data;
+  },
+
+  registerDefect: async (payload: {
+    asset_id: string;
+    defect_type: string;
+    severity?: string;
+    detected_by_source?: string;
+    flaw_depth_mm?: number;
+    recommended_speed_restriction_kmh?: number;
+    block_recommended?: boolean;
+    cof_score?: number;
+    lof_score?: number;
+    overdue_days?: number;
+    description?: string;
+  }): Promise<any> => {
+    const response = await apiClient.post<{ success: boolean; data: any }>('/assets/defects/', payload);
+    return response.data.data;
+  },
+};
+
 

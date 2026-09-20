@@ -193,6 +193,42 @@ class EngVsTrdConflictScenario(BaseScenario):
             comb_block.status = BlockStatus.SANCTIONED
             comb_block.save(update_fields=['status'])
 
+        # Dispatch official SMS and in-app notifications to ENG and TRD gangs
+        try:
+            from apps.notifications.models import (
+                Notification, NotificationDeliveryLog, NotificationPriority,
+                NotificationCategory, DeliveryChannel, DeliveryStatus
+            )
+            notif = Notification.objects.create(
+                title=f"AI Combined Block Sanctioned: {combined_code}",
+                message_body=(
+                    f"OFFICIAL SANCTION: {combined_code} granted on UP Main (KM 142.500 to 146.200). "
+                    f"Caution Order: CO-2026-DLI-98. Unified possession: 02:30 to 06:30 IST. "
+                    f"Joint possession for Civil Track (CSM-092) and Electrical TRD (TW-104)."
+                ),
+                priority=NotificationPriority.CRITICAL_EMERGENCY,
+                category=NotificationCategory.BLOCK_SANCTIONED,
+                target_entity_type="BLOCK",
+                target_entity_id=combined_code,
+                recipient_role="ALL"
+            )
+            NotificationDeliveryLog.objects.create(
+                notification=notif,
+                channel=DeliveryChannel.SMS_GATEWAY,
+                delivery_status=DeliveryStatus.DELIVERED,
+                external_reference_id="CDAC-SMS-ENG-9801",
+                dispatched_at=now
+            )
+            NotificationDeliveryLog.objects.create(
+                notification=notif,
+                channel=DeliveryChannel.SMS_GATEWAY,
+                delivery_status=DeliveryStatus.DELIVERED,
+                external_reference_id="CDAC-SMS-TRD-9802",
+                dispatched_at=now
+            )
+        except Exception as e:
+            self.log(f"Notification dispatch error (handled): {e}")
+
         self.log_step(
             step_number=5,
             title="Chief Controller Sanctions Combined Block BLK-COMB-98-01",

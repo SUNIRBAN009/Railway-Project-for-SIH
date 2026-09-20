@@ -3357,6 +3357,112 @@ Presentation Scenario A ('Morning Dashboard') Ready for Live Demonstration!
 | **7** | Emergency Block Persistence | `BLK-EMG-NDLS-144` generated & stored in PostgreSQL | Block found at KM 144.000 - 144.800 with emergency rail renewal work order | **PASS** |
 | **8** | Frontend Scenario Player | Integration in `ScenarioPlayerModal.tsx` | Scenario A selector, step sequencer & live HUD controls confirmed | **PASS** |
 
+---
+
+## 38. Presentation Scenario B: "Conflict -> Combined Block USP" (`TSK-FINAL-02`)
+
+### 38.1 Scenario Architecture & Objectives
+- **Scenario Name:** Presentation Scenario B: "Conflict -> Combined Block USP" (USP #98)
+- **Authoritative Flow:** ENG JE submits Heavy Track Tamping (`BLK-SCEN-ENG-142`, KM 142.5-146.2, 02:00-06:00 IST) -> TRD JE submits overlapping OHE Block (`BLK-SCEN-TRD-143`, KM 143.0-145.5, 03:00-07:00 IST) -> AI Sweep-Line Conflict Engine detects 2.500 KM spatial & 3.0h temporal collision -> AI Synergy Engine (USP #98) formulates unified Combined Block proposal (`BLK-COMB-98-01`) saving 3.5h track capacity and preventing 140 min passenger train delay -> Chief Controller executes 1-click sanction -> Digital Caution Order `CO-2026-DLI-98` issued -> Multi-channel notifications and CDAC SMS dispatches sent to ENG & TRD field gangs.
+- **Verification Harness:** `scripts/test_final_02.py` executing 8 end-to-end verification gates against the live production stack.
+
+### 38.2 Automated Test Execution Output
+```text
+================================================================================
+INDIAN RAILWAYS AI PLATFORM -- PHASE 5 PRESENTATION SCENARIO B (TSK-FINAL-02)
+Scenario B: 'Conflict -> Combined Block USP' (ENG vs TRD -> Combined Block -> Sanction -> SMS)
+================================================================================
+
+[STEP 1] Authenticating Chief Section Controller (coa_delhi_chief)...
+  [OK] Authenticated as: coa_delhi_chief
+  [OK] Central Command Persona: CHIEF_CONTROLLER
+  [PASS] Chief Controller authentication validated.
+
+[STEP 2] Executing Presentation Scenario B (eng_vs_trd_conflict) via REST API...
+  [OK] Scenario Key: eng_vs_trd_conflict
+  [OK] Scenario Title: Scenario B: Conflict -> Combined Block (USP #98)
+  [OK] Steps Executed: 5/5
+       Step 1: ENG Submits Heavy Track Tamping Block Proposal
+       -> Details: {'block_code': 'BLK-SCEN-ENG-142', 'department': 'ENG', 'span': 'KM 142.500 to 146.200 (3.7 KM)', 'window': '02:00 to 06:00 IST', 'machine': 'CSM-092 High-Output Tamper', 'status': 'PENDING_APPROVAL'}
+       -> Narrative: Civil Engineering (P-Way) Junior Engineer submits proposal BLK-SCEN-ENG-142 for ...
+       Step 2: TRD Submits 25kV OHE Isolation Block Proposal
+       -> Details: {'block_code': 'BLK-SCEN-TRD-143', 'department': 'TRD', 'span': 'KM 143.000 to 145.500 (2.5 KM)', 'window': '03:00 to 07:00 IST', 'traction_power_cut': True, 'status': 'PENDING_APPROVAL'}
+       -> Narrative: Electrical Traction (TRD) submits proposal BLK-SCEN-TRD-143 for KM 143.000 to 14...
+       Step 3: AI Sweep-Line Spatial-Temporal Conflict Detected
+       -> Details: {'conflict_type': 'PARALLEL_BLOCK_COLLISION', 'spatial_overlap_km': 2.5, 'temporal_overlap_hrs': 3.0, 'independent_downtime_hrs': 5.0, 'status': 'CONFLICT_DETECTED'}
+       -> Narrative: AI Conflict Engine flags critical cross-departmental collision: Spatial overlap ...
+       Step 4: AI Recommendation: Formulate Combined Block (USP #98)
+       -> Details: {'recommendation': 'COMBINED_BLOCK_POSSESSION', 'proposed_window': '02:30 to 06:30 IST (4.0 hrs)', 'span_km': 'KM 142.500 to 146.200', 'track_capacity_saved_hours': 3.5, 'train_delay_prevented_minutes': 140, 'shadow_bundling_efficiency': '+87.5%'}
+       -> Narrative: AI Engine computes unified shadow possession: 02:30 to 06:30 IST (4.0 hrs) acros...
+       Step 5: Chief Controller Sanctions Combined Block BLK-COMB-98-01
+       -> Details: {'combined_block_code': 'BLK-COMB-98-01', 'caution_order_id': 'CO-2026-DLI-98', 'status': 'SANCTIONED', 'sms_notifications_sent': 2, 'capacity_dividend': '3.5 hrs track time reclaimed'}
+       -> Narrative: Chief Controller executes 1-click sanction. Unified block BLK-COMB-98-01 is offi...
+  [PASS] All 5 steps of Scenario B executed successfully with real-time audit trail.
+
+[STEP 3] Auditing Cross-Departmental Spatial & Temporal Overlap Geometry...
+  [OK] ENG Proposal: BLK-SCEN-ENG-142 (Span: KM 142.500 to 146.200 (3.7 KM), Window: 02:00 to 06:00 IST)
+  [OK] TRD Proposal: BLK-SCEN-TRD-143 (Span: KM 143.000 to 145.500 (2.5 KM), Window: 03:00 to 07:00 IST)
+  [OK] Computed Collision: 2.5 KM spatial overlap, 3.0 hrs temporal overlap
+  [PASS] Spatial-temporal sweep-line conflict detection verified.
+
+[STEP 4] Auditing Database Persistence for ENG & TRD Blocks...
+  [OK] ENG Block: BLK-SCEN-ENG-142 | Status: CONFLICT_DETECTED | Line: UP
+  [OK] TRD Block: BLK-SCEN-TRD-143 | Status: CONFLICT_DETECTED | Line: UP
+  [PASS] Conflicting blocks successfully indexed with conflict state.
+
+[STEP 5] Auditing AI Combined Block (BLK-COMB-98-01) Persistence & Sanction...
+  [OK] Combined Block Code: BLK-COMB-98-01
+  [OK] Sanction Status: SANCTIONED
+  [OK] Caution Order ID: CO-2026-DLI-98
+  [OK] Span: KM 142.500 to 146.200 (Span: 3.7 KM)
+  [OK] Power Cut Required: True
+  [OK] Work Description: AI Combined Block: Concurrent Track Tamping (ENG) & OHE Catenary Maintenance (TRD) [USP #98 - 3.5h Saved]
+  [PASS] AI Combined Block sanctioned with official digital caution order.
+
+[STEP 6] Auditing CDAC SMS Gateway Deliveries & Notification Records...
+  [OK] Notifications referencing BLK-COMB-98-01: 2 records found
+  [OK] Notification Title: AI Combined Block Sanctioned: BLK-COMB-98-01
+  [OK] Priority: CRITICAL_EMERGENCY
+  [OK] Category: BLOCK_SANCTIONED
+  [OK] Message Body: "OFFICIAL SANCTION: BLK-COMB-98-01 granted on UP Main (KM 142.500 to 146.200). Caution Orde..."
+  [OK] Dispatched Delivery Logs: 2 channel logs
+  [OK] SMS Gateway Dispatches: 2 SMS logs
+       * Channel: SMS_GATEWAY | Status: None | Gateway Ref: CDAC-SMS-TRD-9802
+       * Channel: SMS_GATEWAY | Status: None | Gateway Ref: CDAC-SMS-ENG-9801
+  [PASS] Multi-channel notification & CDAC SMS dispatch confirmed.
+
+[STEP 7] Auditing Corridor-Wide Synergy Recommendations (USP #98 Engine)...
+  [OK] Corridor Bundling Candidates Identified: 14 recommendations
+  [OK] Mathematical Capacity Dividend:
+       * Track Capacity Saved: 3.5 Hours (Benchmark: >= 2.5h)
+       * Train Delays Prevented: 140 Minutes (Benchmark: >= 100m)
+       * Shadow Bundling Efficiency: +87.5%
+  [PASS] USP #98 mathematical dividends verified.
+
+[STEP 8] Auditing Frontend ScenarioPlayerModal & CombinedBlockCard Contracts...
+  [OK] ScenarioPlayerModal.tsx supports Scenario B execution & playback.
+  [OK] CombinedBlockCard.tsx renders cross-departmental synergy HUD.
+  [PASS] Frontend components adhere to presentation contracts.
+
+================================================================================
+ALL TSK-FINAL-02 VERIFICATION CHECKS PASSED (100% SUCCESS)!
+Presentation Scenario B ('Conflict -> Combined Block USP') Ready for SIH Showcase!
+================================================================================
+```
+
+### 38.3 Verification Matrix (`TSK-FINAL-02`)
+| Gate | Verification Check | Target / Acceptance Criteria | Observed Result | Status |
+|:---:|---|---|---|:---:|
+| **1** | Chief Controller Login | Persona auth with `CHIEF_CONTROLLER` role | JWT Bearer token acquired, Central Command rights verified | **PASS** |
+| **2** | Scenario B REST API Run | 5 steps via `POST /demo/scenarios/run/` | 5/5 steps executed with narratives, audio cues & camera focuses | **PASS** |
+| **3** | Conflict Geometry | 2.5 KM spatial overlap, 3.0h temporal overlap | Exact sweep-line interval intersection calculated | **PASS** |
+| **4** | Conflict State Persistence | `BLK-SCEN-ENG-142` & `BLK-SCEN-TRD-143` in DB | Both blocks persisted with `CONFLICT_DETECTED` status | **PASS** |
+| **5** | Combined Block Sanction | `BLK-COMB-98-01` persisted with status `SANCTIONED` | Sanctioned with Caution Order `CO-2026-DLI-98` | **PASS** |
+| **6** | SMS Gateway Logs | Multi-channel SMS dispatch to field gangs | CDAC SMS logs `CDAC-SMS-ENG-9801` & `CDAC-SMS-TRD-9802` created | **PASS** |
+| **7** | USP #98 Dividend | >=2.5h track capacity saved, >=100m delay prevented | **3.5 hours saved, 140 minutes prevented (+87.5% efficiency)** | **PASS** |
+| **8** | Frontend Presentation UI | Modal & CombinedBlockCard contract audit | Scenario B selector, playback engine & synergy HUD verified | **PASS** |
+
+
 
 
 

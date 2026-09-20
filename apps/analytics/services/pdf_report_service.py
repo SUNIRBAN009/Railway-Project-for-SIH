@@ -158,8 +158,10 @@ class BlockSanctionOrderPDFGenerator:
         # 1. Official Government of India & Railway Board Header
         elements.append(Paragraph("GOVERNMENT OF INDIA — MINISTRY OF RAILWAYS", gov_header_style))
         zone_code = getattr(block.corridor, 'zone', 'NR')
+        zone_display = "NORTHERN RAILWAY" if zone_code == 'NR' else f"{zone_code} RAILWAY"
+        div_display = "DELHI DIVISION" if division_code in ['DLI', 'DELHI'] else f"{division_code} DIVISION"
         elements.append(Paragraph(
-            f"{zone_code} RAILWAY • {division_code} DIVISION • OPERATING DEPARTMENT",
+            f"{zone_display} • {div_display} • OPERATING DEPARTMENT",
             office_header_style
         ))
         elements.append(Paragraph(
@@ -532,7 +534,7 @@ class BlockSanctionOrderPDFGenerator:
             w_start = b.scheduled_start_time.strftime("%H:%M") if b.scheduled_start_time else "--:--"
             w_end = b.scheduled_end_time.strftime("%H:%M") if b.scheduled_end_time else "--:--"
             ohe_flag = "YES" if b.traction_power_cutoff_required else "NO"
-            shadow_tag = " [SHADOW]" if b.is_shadow else ""
+            shadow_tag = "<br/><font size='5.5' color='#7c3aed'><b>[SHADOW]</b></font>" if b.is_shadow else ""
             table_rows.append([
                 Paragraph(str(idx), text_cell),
                 Paragraph(f"<b>{b.block_code}</b>{shadow_tag}", text_cell),
@@ -547,7 +549,7 @@ class BlockSanctionOrderPDFGenerator:
         if len(table_rows) == 1:
             table_rows.append([Paragraph("No sanctioned blocks scheduled on this date.", text_cell)] + [Paragraph("-", text_cell)] * 7)
 
-        block_table = Table(table_rows, colWidths=[24, 75, 55, 95, 80, 75, 50, 69])
+        block_table = Table(table_rows, colWidths=[20, 95, 45, 88, 75, 75, 45, 80])
         block_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#002b49')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),

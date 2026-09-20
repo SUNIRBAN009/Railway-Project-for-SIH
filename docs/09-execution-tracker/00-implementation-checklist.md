@@ -153,7 +153,7 @@
 ### Feature: PDF Reporting & Audits
 - [x] **TSK-P4-02-BE:** Implement official Block Sanction Order PDF generation engine using ReportLab.
 - [x] **TSK-P4-02-FE:** Implement one-click "Download Corridor Report" button.
-- [ ] **TSK-P4-02-TEST:** Click download, verify the PDF is generated perfectly with current tabular data.
+- [x] **TSK-P4-02-TEST:** Click download, verify the PDF is generated perfectly with current tabular data.
 
 ### Feature: Load & Security Verification
 - [ ] **TSK-P4-03-BE:** Perform k6 load testing (1,000 VUs) and Bandit AST security scans (0 high/medium issues).

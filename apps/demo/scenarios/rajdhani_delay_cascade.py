@@ -16,6 +16,27 @@ class RajdhaniDelayCascadeScenario(BaseScenario):
         # Ensure there is a sanctioned block in the downstream section to reschedule
         corridor = Corridor.objects.filter(code="NDLS-CNB-MAIN").first() or Corridor.objects.first()
         self.corridor = corridor
+
+        if corridor:
+            blk = Block.objects.filter(block_code="BLK-ENG-CNB-05").first()
+            if not blk:
+                from decimal import Decimal
+                from apps.accounts.models import DepartmentCode
+                from apps.blocks.models import LineType, WorkType
+                Block.objects.create(
+                    block_code="BLK-ENG-CNB-05",
+                    corridor=corridor,
+                    line_type=LineType.DOWN,
+                    department_code=DepartmentCode.ENG,
+                    work_type=WorkType.TRACK_TAMPING,
+                    start_km=Decimal('314.0'),
+                    end_km=Decimal('316.5'),
+                    scheduled_start_time=timezone.now() + timezone.timedelta(hours=2),
+                    scheduled_end_time=timezone.now() + timezone.timedelta(hours=5),
+                    work_description="Track tamping with CSM-092 tamper at KM 315.0",
+                    status=BlockStatus.SANCTIONED,
+                )
+
         return {"status": "setup_complete", "corridor": corridor.code if corridor else None}
 
     def execute(self) -> List[Dict[str, Any]]:

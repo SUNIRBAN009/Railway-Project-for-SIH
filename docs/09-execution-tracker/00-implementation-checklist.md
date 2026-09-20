@@ -139,7 +139,7 @@
 ### Feature: Delay Cascade Recalculator (#115) & Semantic Digital Twin (`SVC-ONTO`)
 - [x] **TSK-P3-04-BE:** Implement delay cascade propagation algorithm for downstream trains and HermiT DL rule reasoner via Celery for 25kV OHE isolation hazards.
 - [x] **TSK-P3-04-FE:** Implement delay cascade impact matrix and hazard proof narrative display in the Block Review UI.
-- [ ] **TSK-P3-04-TEST:** Execute Scenario C (`rajdhani_delay_cascade`); verify delay propagation calculations and check that OHE power cutoff hazards prevent unauthorized sanctioning.
+- [x] **TSK-P3-04-TEST:** Execute Scenario C (`rajdhani_delay_cascade`); verify delay propagation calculations and check that OHE power cutoff hazards prevent unauthorized sanctioning.
 
 ---
 

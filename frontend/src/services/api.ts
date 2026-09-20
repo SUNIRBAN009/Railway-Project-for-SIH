@@ -460,4 +460,90 @@ export const assetService = {
   },
 };
 
+// Operations Analytics & Executive KPI Intelligence Service (SVC-ANA, TSK-P4-01)
+export interface DashboardSummaryResponse {
+  division_code: string;
+  corridor_code: string;
+  days_range: number;
+  period_start: string;
+  period_end: string;
+  executive_cards: {
+    possession_utilization_rate_pct: number;
+    average_corridor_punctuality_pct: number;
+    conflict_mitigation_rate_pct: number;
+    total_possession_hours: number;
+    total_blocks_requested: number;
+    total_blocks_sanctioned: number;
+    total_blocks_executed: number;
+    cancelled_blocks_count: number;
+    co_possession_blocks_count: number;
+    co_possession_hours_saved: number;
+    shadow_blocks_count: number;
+    shadow_bundling_ratio_pct: number;
+    average_tqi_score: number;
+    tqi_status: string;
+    train_delay_minutes_incurred: number;
+    train_delay_hours_prevented: number;
+  };
+  trend: Array<{
+    date: string;
+    corridor_code: string;
+    punctuality_pct: number;
+    possession_hours: number;
+    blocks_requested?: number;
+    blocks_sanctioned: number;
+    blocks_executed?: number;
+    co_possessions: number;
+    shadow_blocks?: number;
+    shadow_bundling_ratio_pct?: number;
+    average_tqi_score?: number;
+    tqi_status?: string;
+  }>;
+}
+
+export interface CorridorComparisonItem {
+  corridor_code: string;
+  average_punctuality_pct: number;
+  total_possession_hours: number;
+  total_blocks_sanctioned: number;
+  co_possession_blocks: number;
+  shadow_blocks_count: number;
+  shadow_bundling_ratio_pct: number;
+  average_tqi_score: number;
+  tqi_status: string;
+  conflict_mitigation_rate_pct: number;
+}
+
+export const analyticsService = {
+  getDashboardSummary: async (params?: {
+    division?: string;
+    corridor?: string;
+    range?: string;
+  }): Promise<DashboardSummaryResponse> => {
+    const response = await apiClient.get<{ success: boolean; data: DashboardSummaryResponse }>(
+      '/analytics/dashboard/summary/',
+      { params }
+    );
+    return response.data.data;
+  },
+
+  getCorridorComparison: async (): Promise<CorridorComparisonItem[]> => {
+    const response = await apiClient.get<{ success: boolean; data: CorridorComparisonItem[] }>(
+      '/analytics/corridors/comparison/'
+    );
+    return response.data.data;
+  },
+
+  recalculateKPI: async (payload?: {
+    corridor?: string;
+    date?: string;
+  }): Promise<any> => {
+    const response = await apiClient.post<{ success: boolean; data: any }>(
+      '/analytics/kpi/recalculate/',
+      payload || {}
+    );
+    return response.data.data;
+  },
+};
+
 

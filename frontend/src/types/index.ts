@@ -109,6 +109,8 @@ export interface Block {
   caution_order_id?: string;
   conflicts?: BlockConflict[];
   combined_recommendation?: CombinedRecommendation;
+  is_shadow?: boolean;
+  parent_block?: string | Block | null;
 }
 
 

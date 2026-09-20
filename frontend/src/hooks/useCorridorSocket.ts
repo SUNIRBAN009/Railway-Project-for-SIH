@@ -96,7 +96,15 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
 
       // 3b. Live Telemetry & HUD Counters Streaming (TSK-P0.5-05-FE)
       const evtName = data.event_type || data.type || msgType;
-      if (evtName === 'CORRIDOR_TELEMETRY') {
+      if (evtName === 'CASCADE_CALCULATED') {
+        queryClient.invalidateQueries({ queryKey: ['cascade_matrix'] });
+        queryClient.invalidateQueries({ queryKey: ['trains'] });
+        window.dispatchEvent(new CustomEvent('cascade_calculated', { detail: data }));
+      } else if (evtName === 'ONTOLOGY_REASONING_COMPLETED') {
+        queryClient.invalidateQueries({ queryKey: ['semantic_violations'] });
+        queryClient.invalidateQueries({ queryKey: ['blocks'] });
+        window.dispatchEvent(new CustomEvent('ontology_reasoning_completed', { detail: data }));
+      } else if (evtName === 'CORRIDOR_TELEMETRY') {
         const payload = data.payload || data;
         useSocketStore.getState().setLiveMetrics({
           punctuality: payload.punctuality_index || 98.6,

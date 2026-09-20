@@ -169,6 +169,7 @@ export interface SanctionBlockPayload {
   version: number;
   remarks?: string;
   caution_speed?: number;
+  override_semantic_hazards?: boolean;
 }
 
 export const blockService = {
@@ -193,6 +194,12 @@ export const blockService = {
       params: corridor ? { corridor } : undefined,
     });
     return response.data.data;
+  },
+  getSemanticViolations: async (blockId: string): Promise<any[]> => {
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/ontology/violations/', {
+      params: { block_id: blockId },
+    });
+    return response.data.data || [];
   },
   sanctionBlock: async (id: string, payload: SanctionBlockPayload): Promise<any> => {
     const response = await apiClient.post<{ success: boolean; data: any; message?: string }>(
@@ -256,6 +263,28 @@ export const trainService = {
   getSchedule: async (trainNumber: string): Promise<any> => {
     const response = await apiClient.get<{ success: boolean; data: any }>(
       `/trains/${trainNumber}/schedule/`
+    );
+    return response.data.data;
+  },
+
+  recalculateDelayCascade: async (payload: {
+    train_number?: string;
+    delay_minutes?: number;
+    corridor_code?: string;
+    block_id?: string;
+    imposed_speed_restriction_kmh?: number;
+  }): Promise<any> => {
+    const response = await apiClient.post<{ success: boolean; data: any }>(
+      '/trains/delay-cascade-recalculate/',
+      payload
+    );
+    return response.data.data;
+  },
+
+  getCascadeMatrix: async (corridorCode: string = 'NDLS-CNB-MAIN'): Promise<any> => {
+    const response = await apiClient.get<{ success: boolean; data: any }>(
+      '/trains/cascade-matrix/',
+      { params: { corridor_code: corridorCode } }
     );
     return response.data.data;
   },

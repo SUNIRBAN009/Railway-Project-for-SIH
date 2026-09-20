@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import uuid
 from datetime import timedelta
 from decimal import Decimal
@@ -71,6 +72,77 @@ class AssetHealthService:
             'tamping_needed': tamping_needed,
             'action_recommended': action_recommended,
         }
+
+    @staticmethod
+    def calculate_risk_matrix_score(cof: int, lof: int, corridor_is_critical: bool = True) -> Dict[str, Any]:
+        """
+        International Asset Management Standard: Risk = Consequence of Failure (1-5) * Likelihood (1-5).
+        Scores range from 1 to 25. Critical corridors receive a 1.25 multiplier with a 25 cap.
+        Reference: docs/03-service-blueprints/06-assets.md (Section 6.2)
+        """
+        cof = max(1, min(5, int(cof)))
+        lof = max(1, min(5, int(lof)))
+        base_risk = cof * lof
+        multiplier = 1.25 if corridor_is_critical else 1.00
+        final_score = round(min(25.0, float(base_risk) * multiplier), 2)
+
+        if final_score >= 16.0:
+            category = "EXTREME_RISK"
+            action = "IMMEDIATE_BLOCK_MANDATORY"
+        elif final_score >= 10.0:
+            category = "HIGH_RISK"
+            action = "SCHEDULE_IN_WEEKLY_PLAN"
+        elif final_score >= 5.0:
+            category = "MEDIUM_RISK"
+            action = "SCHEDULE_IN_MONTHLY_PLAN"
+        else:
+            category = "LOW_RISK"
+            action = "ROUTINE_MONITORING"
+
+        return {
+            "cof": cof,
+            "lof": lof,
+            "base_risk": base_risk,
+            "corridor_multiplier": multiplier,
+            "final_risk_score": final_score,
+            "category": category,
+            "recommended_action": action,
+        }
+
+    @staticmethod
+    def calculate_defect_aging_score(base_severity_score: float, overdue_days: int) -> float:
+        """
+        Overdue sleeping defects gain exponential priority to prevent critical neglect (Feature #93).
+        Formula: FinalScore = BaseSeverity * exp(k * min(overdue_days, max_cap_days))
+        Damping constant k = 0.035 ensures ~3x escalation at 30 days overdue.
+        Reference: docs/03-service-blueprints/06-assets.md (Section 6.3)
+        """
+        if overdue_days <= 0:
+            return round(float(base_severity_score), 2)
+        k = 0.035
+        capped_days = min(int(overdue_days), 60)
+        aging_factor = math.exp(k * capped_days)
+        escalated_score = float(base_severity_score) * aging_factor
+        return round(min(100.0, escalated_score), 2)
+
+    @classmethod
+    def generate_why_explanation(cls, defect: AssetDefectLog, risk_data: Dict[str, Any], aging_score: float) -> str:
+        """
+        Synthesizes Explainable AI rationale for priority rank #1 card (Feature #94).
+        Combines flaw physics, overdue aging days, traffic density and CoF x LoF matrix.
+        Reference: docs/06-testing-qa/03-data-seeding.md
+        """
+        asset = defect.asset
+        corridor = asset.corridor
+        flaw_desc = defect.get_defect_type_display()
+        overdue_str = f"{defect.overdue_days} days latent risk accumulation" if defect.overdue_days > 0 else "immediate safety hazard"
+
+        return (
+            f"{flaw_desc} on {asset.asset_tag} at KM {float(asset.location_km):.1f} ({corridor.name}) — "
+            f"{overdue_str} (Aging Score {aging_score:.1f}) on high-density corridor + "
+            f"CoF({risk_data['cof']}) × LoF({risk_data['lof']}) = {risk_data['final_risk_score']} "
+            f"({risk_data['category']}). Action: {risk_data['recommended_action']}."
+        )
 
     @classmethod
     def calculate_health_score(
@@ -221,8 +293,8 @@ class AssetHealthService:
     @classmethod
     def register_defect(cls, asset: TrackAsset, defect_data: Dict[str, Any]) -> Tuple[AssetDefectLog, Optional[Block]]:
         """
-        Registers a defect log, recalibrates asset health score, and generates
-        an emergency block if severity is CRITICAL_IMMEDIATE_STOP or flaw > 12mm.
+        Registers a defect log, recalibrates asset health score, evaluates CoF x LoF risk matrix & aging score,
+        and generates an emergency block if severity is CRITICAL_IMMEDIATE_STOP, flaw > 12mm, or final_risk_score >= 16.0.
         """
         defect_code = defect_data.get('defect_code') or f"DEF-{str(uuid.uuid4())[:8].upper()}"
         flaw_depth = defect_data.get('flaw_depth_mm')
@@ -232,6 +304,24 @@ class AssetHealthService:
         if flaw_depth and float(flaw_depth) > 12.0:
             severity = DefectSeverity.CRITICAL_IMMEDIATE_STOP
 
+        # CoF and LoF default evaluation
+        cof_input = defect_data.get('cof_score') or defect_data.get('cof')
+        lof_input = defect_data.get('lof_score') or defect_data.get('lof')
+        overdue_days = int(defect_data.get('overdue_days', 0))
+
+        if cof_input is not None:
+            cof = int(cof_input)
+        else:
+            cof = 5 if severity == DefectSeverity.CRITICAL_IMMEDIATE_STOP else (4 if severity == DefectSeverity.IMPAIRMENT_SPEED_RESTRICTION else 3)
+
+        if lof_input is not None:
+            lof = int(lof_input)
+        else:
+            lof = 5 if severity == DefectSeverity.CRITICAL_IMMEDIATE_STOP else (3 if severity == DefectSeverity.IMPAIRMENT_SPEED_RESTRICTION else 2)
+
+        is_critical_corridor = getattr(asset.corridor, 'is_critical', True)
+        risk_info = cls.calculate_risk_matrix_score(cof, lof, is_critical_corridor)
+
         defect = AssetDefectLog.objects.create(
             defect_code=defect_code,
             asset=asset,
@@ -240,7 +330,10 @@ class AssetHealthService:
             detected_by_source=defect_data.get('detected_by_source', 'USFD_ULTRASONIC'),
             flaw_depth_mm=flaw_depth,
             recommended_speed_restriction_kmh=defect_data.get('recommended_speed_restriction_kmh'),
-            block_recommended=defect_data.get('block_recommended', False),
+            block_recommended=defect_data.get('block_recommended', False) or (risk_info['final_risk_score'] >= 16.0),
+            cof_score=cof,
+            lof_score=lof,
+            overdue_days=overdue_days,
             description=defect_data.get('description', ''),
         )
 
@@ -251,7 +344,11 @@ class AssetHealthService:
         asset.save(update_fields=['current_health_score', 'last_inspected_at'])
 
         emergency_block = None
-        is_critical = (severity == DefectSeverity.CRITICAL_IMMEDIATE_STOP) or (flaw_depth and float(flaw_depth) > 12.0)
+        is_critical = (
+            (severity == DefectSeverity.CRITICAL_IMMEDIATE_STOP) or 
+            (flaw_depth and float(flaw_depth) > 12.0) or
+            (risk_info['final_risk_score'] >= 16.0)
+        )
         if is_critical or defect.block_recommended:
             emergency_block = cls.generate_emergency_block(defect)
 

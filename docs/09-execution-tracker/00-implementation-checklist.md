@@ -127,7 +127,7 @@
 - [x] **TSK-P3-01-TEST:** Open two browser windows, approve a block in one, and verify the other updates instantly without refreshing.
 
 ### Feature: Asset Condition, Risk Matrix & Track Quality Index (#92, #93, #94)
-- [ ] **TSK-P3-02-BE:** Implement `TrackAsset`, `AssetDefectLog`, CoF × LoF risk calculation, Defect Aging Score, and automated emergency block generation on critical defect.
+- [x] **TSK-P3-02-BE:** Implement `TrackAsset`, `AssetDefectLog`, CoF × LoF risk calculation, Defect Aging Score, and automated emergency block generation on critical defect.
 - [ ] **TSK-P3-02-FE:** Implement defect heatmaps on Mapbox, risk color chips, and "Why #1?" AI explanation card (#94).
 - [ ] **TSK-P3-02-TEST:** Trigger a simulated rail fracture in backend and verify the UI displays the flaw heatmap and "Why #1?" card immediately.
 

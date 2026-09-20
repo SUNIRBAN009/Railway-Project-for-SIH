@@ -199,3 +199,137 @@ class AssetDefectLogViewSet(ReadOnlyModelViewSet):
     queryset = AssetDefectLog.objects.select_related('asset', 'asset__corridor').all()
     serializer_class = AssetDefectLogSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class RiskMatrixScoringView(APIView):
+    """
+    FUNC-AST-008: CoF × LoF Risk Matrix Priority Scoring (Feature #92, #93, #94).
+    Calculates 5x5 heatmap grid, ranked defect prioritizations, and 'Why #1?' AI rationale.
+    Query parameters:
+      - corridor: Corridor UUID or corridor code (e.g. NDLS-CNB-MAIN)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        corridor_param = request.query_params.get('corridor')
+        queryset = AssetDefectLog.objects.filter(is_rectified=False).select_related('asset', 'asset__corridor')
+
+        if corridor_param:
+            if len(corridor_param) == 36 and '-' in corridor_param:
+                queryset = queryset.filter(asset__corridor__id=corridor_param)
+            else:
+                queryset = queryset.filter(asset__corridor__code=corridor_param)
+
+        defects = list(queryset)
+
+        # 1. Build 5x5 Matrix Grid (CoF 1-5 x LoF 1-5)
+        grid = {}
+        for cof in range(1, 6):
+            for lof in range(1, 6):
+                risk_info = AssetHealthService.calculate_risk_matrix_score(cof, lof, corridor_is_critical=True)
+                cell_key = f"{cof}x{lof}"
+                grid[cell_key] = {
+                    "cof": cof,
+                    "lof": lof,
+                    "base_risk": risk_info["base_risk"],
+                    "final_risk_score": risk_info["final_risk_score"],
+                    "category": risk_info["category"],
+                    "recommended_action": risk_info["recommended_action"],
+                    "defect_count": 0,
+                    "defects": [],
+                }
+
+        # 2. Populate defects into grid and prepare ranked defect data
+        ranked_defects = []
+        summary = {
+            "total_active_defects": len(defects),
+            "extreme_risk_count": 0,
+            "high_risk_count": 0,
+            "medium_risk_count": 0,
+            "low_risk_count": 0,
+        }
+
+        for d in defects:
+            cof = d.cof_score
+            lof = d.lof_score
+            is_critical = getattr(d.asset.corridor, 'is_critical', True)
+            risk_info = AssetHealthService.calculate_risk_matrix_score(cof, lof, is_critical)
+            aging = d.aging_score
+            why_exp = AssetHealthService.generate_why_explanation(d, risk_info, aging)
+
+            defect_entry = {
+                "id": str(d.id),
+                "defect_code": d.defect_code,
+                "asset_tag": d.asset.asset_tag,
+                "corridor_code": d.asset.corridor.code,
+                "location_km": float(d.asset.location_km),
+                "defect_type": d.defect_type,
+                "defect_type_display": d.get_defect_type_display(),
+                "severity": d.severity,
+                "severity_display": d.get_severity_display(),
+                "cof_score": cof,
+                "lof_score": lof,
+                "overdue_days": d.overdue_days,
+                "final_risk_score": risk_info["final_risk_score"],
+                "category": risk_info["category"],
+                "recommended_action": risk_info["recommended_action"],
+                "aging_score": aging,
+                "flaw_depth_mm": float(d.flaw_depth_mm) if d.flaw_depth_mm else None,
+                "emergency_block_id": d.emergency_block_id,
+                "why_explanation": why_exp,
+            }
+
+            cell_key = f"{cof}x{lof}"
+            if cell_key in grid:
+                grid[cell_key]["defect_count"] += 1
+                grid[cell_key]["defects"].append({
+                    "defect_code": d.defect_code,
+                    "asset_tag": d.asset.asset_tag,
+                    "location_km": float(d.asset.location_km),
+                    "severity": d.severity,
+                })
+
+            cat = risk_info["category"]
+            if cat == "EXTREME_RISK":
+                summary["extreme_risk_count"] += 1
+            elif cat == "HIGH_RISK":
+                summary["high_risk_count"] += 1
+            elif cat == "MEDIUM_RISK":
+                summary["medium_risk_count"] += 1
+            else:
+                summary["low_risk_count"] += 1
+
+            ranked_defects.append(defect_entry)
+
+        # 3. Sort ranked defects by (final_risk_score DESC, aging_score DESC, overdue_days DESC)
+        ranked_defects.sort(
+            key=lambda x: (x["final_risk_score"], x["aging_score"], x["overdue_days"]),
+            reverse=True
+        )
+
+        # 4. Generate Top Priority #1 Explanation Card
+        why_number_one = None
+        if ranked_defects:
+            top = ranked_defects[0]
+            why_number_one = {
+                "rank": 1,
+                "defect_code": top["defect_code"],
+                "asset_tag": top["asset_tag"],
+                "location_km": top["location_km"],
+                "corridor_code": top["corridor_code"],
+                "final_risk_score": top["final_risk_score"],
+                "category": top["category"],
+                "aging_score": top["aging_score"],
+                "overdue_days": top["overdue_days"],
+                "recommended_action": top["recommended_action"],
+                "rationale": top["why_explanation"],
+            }
+
+        response_payload = {
+            "summary": summary,
+            "grid_cells": list(grid.values()),
+            "why_number_one": why_number_one,
+            "ranked_defects": ranked_defects,
+        }
+
+        return ApiResponse.success(data=response_payload)

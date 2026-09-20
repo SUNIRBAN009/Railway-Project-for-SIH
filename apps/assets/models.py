@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.blocks.models import Corridor, LineType
 
 
@@ -140,6 +141,20 @@ class AssetDefectLog(models.Model):
         db_index=True,
         help_text="True if defect warrants immediate or scheduled maintenance block"
     )
+    cof_score = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Consequence of Failure (1-5, Feature #92)"
+    )
+    lof_score = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Likelihood of Failure (1-5, Feature #92)"
+    )
+    overdue_days = models.PositiveIntegerField(
+        default=0,
+        help_text="Days defect has been active/overdue since initial detection (Feature #93)"
+    )
     is_rectified = models.BooleanField(default=False, db_index=True)
     description = models.TextField(blank=True)
     emergency_block_id = models.CharField(
@@ -150,6 +165,34 @@ class AssetDefectLog(models.Model):
     )
     detected_at = models.DateTimeField(auto_now_add=True)
     rectified_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def final_risk_score(self) -> float:
+        corridor_is_critical = getattr(self.asset.corridor, 'is_critical', True)
+        base_risk = self.cof_score * self.lof_score
+        multiplier = 1.25 if corridor_is_critical else 1.00
+        return round(min(25.0, base_risk * multiplier), 2)
+
+    @property
+    def risk_category(self) -> str:
+        score = self.final_risk_score
+        if score >= 16.0:
+            return "EXTREME_RISK"
+        elif score >= 10.0:
+            return "HIGH_RISK"
+        elif score >= 5.0:
+            return "MEDIUM_RISK"
+        return "LOW_RISK"
+
+    @property
+    def aging_score(self) -> float:
+        import math
+        base = 20.0 if self.severity == DefectSeverity.CRITICAL_IMMEDIATE_STOP else (10.0 if self.severity == DefectSeverity.IMPAIRMENT_SPEED_RESTRICTION else 5.0)
+        if self.overdue_days <= 0:
+            return round(base, 2)
+        k = 0.035
+        capped_days = min(self.overdue_days, 60)
+        return round(min(100.0, base * math.exp(k * capped_days)), 2)
 
     class Meta:
         db_table = 'asset_defect_logs'

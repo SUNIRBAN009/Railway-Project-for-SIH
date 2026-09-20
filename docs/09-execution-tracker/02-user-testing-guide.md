@@ -1206,3 +1206,67 @@ python scripts/test_p3_01_test.py
 - **প্রস্তাব সাবমিশন:** Window 2 থেকে নতুন ব্লক প্রস্তাব সাবমিট করামাত্র Window 1-এ মাত্র **২৯২.৫৪ মিলি-সেকেন্ডে** পেজ রিফ্রেশ ছাড়াই `INVALIDATE_CACHE` ফ্রেম পৌঁছে যায়।
 - **অনুমোদন (Sanction):** Window 1 থেকে চিফ কন্ট্রোলার ব্লক অনুমোদন করামাত্র Window 2-তে মাত্র **৮৩.০৬ মিলি-সেকেন্ডে** `SANCTIONED` স্ট্যাটাস ফ্রেম পৌঁছে যায়।
 - **ডাটাবেজ অডিট:** কোনো ম্যানুয়াল রিলোড ছাড়াই ব্যাকগ্রাউন্ডে PostgreSQL PostGIS ডাটাবেজের সাথে ফ্রন্টএন্ড স্টেট ১০০% সিঙ্ক হওয়া।
+
+---
+
+## ৩০. Phase 3: অ্যাসেট কন্ডিশন, CoF × LoF ৫×৫ রিস্ক ম্যাট্রিক্স, এজিং স্কোর ও ইমার্জেন্সি ব্লক ভেরিফিকেশন (`TSK-P3-02-BE`)
+
+### ৩০.১ ফিচার ওভারভিউ ও আর্কিটেকচার
+রেলওয়ের সেফটি নিশ্চিত করতে এই ফিচারে আন্তর্জাতিক অ্যাসেট ম্যানেজমেন্ট স্ট্যান্ডার্ড অনুযায়ী ৩টি মূল ইঞ্জিন বাস্তবায়ন করা হয়েছে:
+1. **CoF × LoF ৫×৫ রিস্ক ম্যাট্রিক্স (Feature #92):** Consequence of Failure ($1-5$) এবং Likelihood of Failure ($1-5$)-এর গুণফল। গোল্ডেন করিডোরের ক্ষেত্রে ১.২৫ গুণিতক কার্যকর হয় (সর্বোচ্চ ২৫.০ ক্যাপ)।
+   - **EXTREME_RISK ($\ge 16.0$):** তাৎক্ষণিক জরুরি ব্লক বাধ্যতামূলক (`IMMEDIATE_BLOCK_MANDATORY`)।
+   - **HIGH_RISK ($\ge 10.0$):** সাপ্তাহিক রক্ষণাবেক্ষণ পরিকল্পনায় শিডিউল (`SCHEDULE_IN_WEEKLY_PLAN`)।
+   - **MEDIUM_RISK ($\ge 5.0$):** মাসিক পরিকল্পনায় অন্তর্ভুক্ত (`SCHEDULE_IN_MONTHLY_PLAN`)।
+   - **LOW_RISK ($< 5.0$):** রুটিন পর্যবেক্ষণ (`ROUTINE_MONITORING`)।
+2. **ডিফেক্ট এজিং স্কোর (Feature #93):** জমে থাকা সুপ্ত ঝুঁকি গণনা: $\text{FinalScore} = \text{Base} \times \exp(0.035 \times \min(\text{overdue\_days}, 60))$। ৩০ দিন অতিক্রান্ত হলে অগ্রাধিকার প্রায় ৩ গুণ বৃদ্ধি পায়।
+3. **"Why #1?" Explainable AI Card (Feature #94):** শীর্ষ ডিফেক্টের পেছনে কেন এটি এক নম্বর ঝুঁকি তার স্বচ্ছ গাণিতিক ব্যাখ্যা।
+4. **স্বয়ংক্রিয় ইমার্জেন্সি ব্লক:** অতি-সংকটপূর্ণ রেল ফ্র্যাকচার বা আল্ট্রাসনিক ত্রুটি (Flaw depth $> 12\text{ mm}$ বা Risk $\ge 16.0$) রিপোর্ট হওয়ামাত্র এআই স্বয়ংক্রিয়ভাবে $\pm ৫০০\text{ m}$ বাফার সহ ইমার্জেন্সি ব্লক প্রস্তাব এবং কশন অর্ডার (`CO-EMG-...`) জারি করে।
+
+---
+
+### ৩০.২ স্বয়ংক্রিয় টেস্ট স্ক্রিপ্ট চালান (Automated Verification)
+
+PowerShell বা টার্মিনালে নিচের কমান্ডটি চালিয়ে ৭-স্টেপ সম্পূর্ণ স্বয়ংক্রিয় অডিট দেখে নিতে পারেন:
+
+```powershell
+python scripts/test_p3_02_be.py
+```
+
+**এই স্ক্রিপ্টটি যা যা যাচাই করে:**
+1. **Persona Authentication:** পি-ওয়ে ট্র্যাক ইঞ্জিনিয়ার (`eng_track_pway`) হিসেবে সফল লগইন ও JWT সংগ্রহ।
+2. **Mathematical Formula Audit:** CoF × LoF এবং এজিং স্কোরের গাণিতিক নির্ভুলতা যাচাই।
+3. **5×5 Heatmap API:** `GET /api/v1/assets/risk-matrix/` কল করে ২৫টি সেলের পূর্ণাঙ্গ গ্রিড ও সামারি সংগ্রহ (লেটেন্সি: মাত্র ২৩.৫৭ মিলি-সেকেন্ড)।
+4. **Target Asset Selection:** `NDLS-CNB-MAIN` করিডোর থেকে ট্র্যাক অ্যাসেট নির্বাচন।
+5. **Critical Defect Registration & Emergency Block:** ১৪.২ মিমি গভীরতার রেল ফ্র্যাকচার রিপোর্ট করামাত্র মাত্র ১৩৮.৫৩ মিলি-সেকেন্ডে `BLK-EMG-...` কোডে ৫০০ মিটার সেফটি বাফার সহ ইমার্জেন্সি ব্লক তৈরি হওয়া।
+6. **"Why #1?" AI Rationale Audit:** ১ নম্বর ঝুঁকির জন্য এক্সপ্ল্যানেটরি এআই কার্ড যাচাই।
+7. **PostgreSQL Persistence Audit:** ডাটাবেজে ইমার্জেন্সি ব্লক সঠিকভাবে স্টোর হওয়া নিশ্চিতকরণ।
+
+---
+
+### ৩০.৩ ম্যানুয়াল API ও কার্ল টেস্ট (cURL / REST Verification)
+
+#### ১. ৫×৫ রিস্ক ম্যাট্রিক্স ও "Why #1?" কার্ড দেখা:
+```powershell
+$token = (Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/login/" -Method Post -Body '{"username":"eng_track_pway","password":"railway@123"}' -ContentType "application/json").data.access_token
+
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/assets/risk-matrix/?corridor=NDLS-CNB-MAIN" -Method Get -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Depth 4
+```
+
+#### ২. অতি-জরুরি রেল ফ্র্যাকচার ডিফেক্ট তৈরি করে অটো-ব্লক টেস্ট:
+```powershell
+$payload = @{
+    asset_id = "AST-NDLS-CNB-001"
+    defect_type = "INTERNAL_RAIL_FRACTURE"
+    severity = "CRITICAL_IMMEDIATE_STOP"
+    flaw_depth_mm = 14.5
+    recommended_speed_restriction_kmh = 20
+    cof_score = 5
+    lof_score = 5
+    overdue_days = 25
+    description = "Critical transverse rail fissure detected by USFD inspection"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/assets/defects/" -Method Post -Body $payload -ContentType "application/json" -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Depth 4
+```
+*(রেসপন্সে `emergency_block_created: true` এবং `BLK-EMG-...` কোড রিটার্ন হবে।)*
+

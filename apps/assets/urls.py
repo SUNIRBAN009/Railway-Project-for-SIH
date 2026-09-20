@@ -8,9 +8,10 @@ router.register(r'defects-catalog', views.AssetDefectLogViewSet, basename='defec
 app_name = 'assets'
 
 urlpatterns = [
-    # Core Function Catalog Endpoints (FUNC-AST-001 through FUNC-AST-003)
+    # Core Function Catalog Endpoints (FUNC-AST-001 through FUNC-AST-008)
     path('', views.TrackAssetListView.as_view(), name='asset_list'),
     path('defects/', views.AssetDefectCreateView.as_view(), name='defect_create'),
+    path('risk-matrix/', views.RiskMatrixScoringView.as_view(), name='risk_matrix'),
     path('maintenance-recommendations/', views.MaintenanceRecommendationsView.as_view(), name='maintenance_recommendations'),
     path('tqi/calculate/', views.TQICalculateView.as_view(), name='tqi_calculate'),
     path('<str:asset_tag_or_id>/', views.TrackAssetDetailView.as_view(), name='asset_detail'),

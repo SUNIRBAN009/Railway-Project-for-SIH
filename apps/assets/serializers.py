@@ -4,8 +4,14 @@ from apps.assets.models import TrackAsset, AssetDefectLog, DefectSeverity, Defec
 
 class AssetDefectLogSerializer(serializers.ModelSerializer):
     asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
+    corridor_code = serializers.CharField(source='asset.corridor.code', read_only=True)
+    location_km = serializers.FloatField(source='asset.location_km', read_only=True)
     defect_type_display = serializers.CharField(source='get_defect_type_display', read_only=True)
     severity_display = serializers.CharField(source='get_severity_display', read_only=True)
+    final_risk_score = serializers.FloatField(read_only=True)
+    risk_category = serializers.CharField(read_only=True)
+    aging_score = serializers.FloatField(read_only=True)
+    why_explanation = serializers.SerializerMethodField()
 
     class Meta:
         model = AssetDefectLog
@@ -14,6 +20,8 @@ class AssetDefectLogSerializer(serializers.ModelSerializer):
             'defect_code',
             'asset',
             'asset_tag',
+            'corridor_code',
+            'location_km',
             'defect_type',
             'defect_type_display',
             'severity',
@@ -22,6 +30,13 @@ class AssetDefectLogSerializer(serializers.ModelSerializer):
             'flaw_depth_mm',
             'recommended_speed_restriction_kmh',
             'block_recommended',
+            'cof_score',
+            'lof_score',
+            'overdue_days',
+            'final_risk_score',
+            'risk_category',
+            'aging_score',
+            'why_explanation',
             'is_rectified',
             'description',
             'emergency_block_id',
@@ -29,6 +44,15 @@ class AssetDefectLogSerializer(serializers.ModelSerializer):
             'rectified_at',
         ]
         read_only_fields = ['id', 'emergency_block_id', 'detected_at']
+
+    def get_why_explanation(self, obj):
+        from apps.assets.services.asset_health_service import AssetHealthService
+        risk_info = AssetHealthService.calculate_risk_matrix_score(
+            obj.cof_score,
+            obj.lof_score,
+            getattr(obj.asset.corridor, 'is_critical', True)
+        )
+        return AssetHealthService.generate_why_explanation(obj, risk_info, obj.aging_score)
 
 
 class TrackAssetListSerializer(serializers.ModelSerializer):
@@ -101,6 +125,9 @@ class DefectRegistrationSerializer(serializers.Serializer):
     flaw_depth_mm = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
     recommended_speed_restriction_kmh = serializers.IntegerField(required=False, allow_null=True)
     block_recommended = serializers.BooleanField(default=False)
+    cof_score = serializers.IntegerField(required=False, min_value=1, max_value=5, default=3, help_text="Consequence of Failure (1-5)")
+    lof_score = serializers.IntegerField(required=False, min_value=1, max_value=5, default=3, help_text="Likelihood of Failure (1-5)")
+    overdue_days = serializers.IntegerField(required=False, min_value=0, default=0, help_text="Overdue days accumulated")
     description = serializers.CharField(required=False, allow_blank=True, default='')
 
 

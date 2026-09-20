@@ -301,6 +301,7 @@ class BlockSanctionSerializer(serializers.Serializer):
     remarks = serializers.CharField(required=False, allow_blank=True, default='')
     caution_speed = serializers.IntegerField(required=False, min_value=15, max_value=130)
     version = serializers.IntegerField(required=True, help_text="Current entity version for optimistic locking")
+    override_semantic_hazards = serializers.BooleanField(required=False, default=False, help_text="Explicit COA override of semantic safety hazards")
 
 
 

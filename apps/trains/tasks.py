@@ -527,3 +527,75 @@ def simulate_train_movement(delta_seconds: int = 30):
         updated += 1
 
     return {'simulated_trains': updated, 'delta_seconds': delta_seconds}
+
+
+@shared_task(name='apps.trains.tasks.recalculate_delay_cascade_task', queue='high')
+def recalculate_delay_cascade_task(
+    train_number: str = "12424",
+    delay_minutes: float = 45.0,
+    corridor_code: str = "NDLS-CNB-MAIN",
+    block_id: str = None,
+    imposed_speed_restriction_kmh: float = None
+):
+    """
+    Dedicated Celery task executing Delay Cascade Recalculator (#115) and dynamic breathing window calculation.
+    Emits real-time WebSocket event 'CASCADE_CALCULATED' to Daphne channel layer groups.
+    """
+    from django.core.cache import cache
+    from apps.trains.delay_engine import DelayCascadeEngine
+
+    # 1. Update train live status if record exists
+    today = timezone.now().date()
+    train_obj = Train.objects.filter(train_number=train_number).first()
+    if train_obj:
+        live_rec = TrainLiveStatus.objects.filter(train=train_obj, journey_date=today).first()
+        if not live_rec:
+            live_rec = TrainLiveStatus.objects.filter(train=train_obj).first()
+        if live_rec:
+            live_rec.delay_minutes = int(delay_minutes)
+            live_rec.save(update_fields=['delay_minutes', 'last_reported_at'])
+
+    # 2. Run DelayCascadeEngine simulation
+    speed = imposed_speed_restriction_kmh if imposed_speed_restriction_kmh else 130.0
+    engine = DelayCascadeEngine(
+        corridor_length_km=3.7,
+        imposed_speed_restriction_kmh=speed,
+        initial_delay_minutes=delay_minutes,
+        lead_train_number=train_number,
+        block_id=block_id,
+    )
+    result = engine.simulate()
+
+    # 3. Cache the calculated result
+    cache_key = f"trains:cascade:{corridor_code}"
+    cache.set(cache_key, result, timeout=3600)
+
+    # 4. Broadcast CASCADE_CALCULATED event to Daphne channels
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        event_payload = {
+            'type': 'corridor_event',
+            'data': {
+                'event_type': 'CASCADE_CALCULATED',
+                'corridor_code': corridor_code,
+                'train_number': train_number,
+                'lead_delay_min': result['lead_train_delay_minutes'],
+                'downstream_impacted_trains': result['downstream_impacted_trains'],
+                'cumulative_corridor_delay_min': result['cumulative_corridor_delay_min'],
+                'cumulative_delay_saved': result['cumulative_delay_saved'],
+                'optimal_action': result['optimal_action'],
+                'strategy': result['strategy'],
+                'breathing_shift_minutes': result['breathing_shift_minutes'],
+                'punctuality_safeguard_index': result['punctuality_safeguard_index'],
+                'timestamp': timezone.now().isoformat(),
+            }
+        }
+        groups_to_notify = ['corridor_all', f'corridor_{corridor_code.lower()}', 'corridor_ndls-cnb-main']
+        for grp in set(groups_to_notify):
+            try:
+                async_to_sync(channel_layer.group_send)(grp, event_payload)
+            except Exception as ch_err:
+                logger.debug(f"Channel send to {grp} non-fatal: {ch_err}")
+
+    logger.info(f"Delay cascade recalculated for train {train_number}: {result['cumulative_corridor_delay_min']} min cumulative delay")
+    return result

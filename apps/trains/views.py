@@ -200,6 +200,62 @@ class DelayCascadeSimulationAPIView(APIView):
         )
 
 
+class DelayCascadeRecalculateAPIView(APIView):
+    """
+    POST /api/v1/trains/delay-cascade-recalculate/
+    GET /api/v1/trains/cascade-matrix/
+    Triggers dynamic recalculation of downstream delay ripple, breathing window shifts,
+    and punctuality impacts for a delayed lead train or speed restriction.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        corridor_code = request.query_params.get('corridor_code', 'NDLS-CNB-MAIN')
+        from django.core.cache import cache
+        cached = cache.get(f"trains:cascade:{corridor_code}")
+        if not cached:
+            from apps.trains.tasks import recalculate_delay_cascade_task
+            cached = recalculate_delay_cascade_task(corridor_code=corridor_code)
+        return ApiResponse.success(data=cached, message="Current corridor delay cascade matrix retrieved")
+
+    def post(self, request):
+        train_number = request.data.get('train_number', '12424')
+        delay_minutes = float(request.data.get('delay_minutes', 45.0))
+        corridor_code = request.data.get('corridor_code', 'NDLS-CNB-MAIN')
+        block_id = request.data.get('block_id')
+        speed = request.data.get('imposed_speed_restriction_kmh')
+        if speed is not None:
+            speed = float(speed)
+
+        from apps.trains.tasks import recalculate_delay_cascade_task
+        run_async = request.data.get('async', False)
+        if run_async:
+            task = recalculate_delay_cascade_task.delay(
+                train_number=train_number,
+                delay_minutes=delay_minutes,
+                corridor_code=corridor_code,
+                block_id=block_id,
+                imposed_speed_restriction_kmh=speed
+            )
+            return ApiResponse.success(
+                data={'task_id': task.id, 'status': 'QUEUED'},
+                message="Delay cascade recalculation queued to Celery",
+                status_code=status.HTTP_202_ACCEPTED
+            )
+        else:
+            result = recalculate_delay_cascade_task(
+                train_number=train_number,
+                delay_minutes=delay_minutes,
+                corridor_code=corridor_code,
+                block_id=block_id,
+                imposed_speed_restriction_kmh=speed
+            )
+            return ApiResponse.success(
+                data=result,
+                message="Delay cascade recalculation completed successfully"
+            )
+
+
 class IngestCOAFeedAPIView(APIView):
     """
     FUNC-TRN-003: Ingest COA Timetable Feed

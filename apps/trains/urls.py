@@ -9,6 +9,8 @@ urlpatterns = [
     path('catalog/', views.TrainMasterListAPIView.as_view(), name='catalog'),
     path('live/', views.TrainLiveStatusListAPIView.as_view(), name='live_positions'),
     path('simulate-delay/', views.DelayCascadeSimulationAPIView.as_view(), name='simulate_delay'),
+    path('delay-cascade-recalculate/', views.DelayCascadeRecalculateAPIView.as_view(), name='delay_cascade_recalculate'),
+    path('cascade-matrix/', views.DelayCascadeRecalculateAPIView.as_view(), name='cascade_matrix'),
     path('ingest/', views.IngestCOAFeedAPIView.as_view(), name='ingest_feed'),
     path('<str:train_number>/schedule/', views.TrainScheduleDetailAPIView.as_view(), name='schedule_detail'),
 

@@ -384,6 +384,46 @@ class BlockSanctionAPIView(APIView):
                         code='BLK-400',
                         message=f"Cannot transition from {block.status} to SANCTIONED."
                     )
+
+                # Check for active critical safety Semantic Violations (DL Rule 1: 25kV OHE isolation hazards)
+                from apps.ontology.models import SemanticViolation
+                override = serializer.validated_data.get('override_semantic_hazards', False)
+                unresolved_hazards = SemanticViolation.objects.filter(
+                    block_id__in=[str(block.id), block.block_code],
+                    resolved=False,
+                    severity=SemanticViolation.Severity.CRITICAL_SAFETY
+                )
+                if unresolved_hazards.exists() and not override:
+                    hazard_list = [
+                        {
+                            'id': str(h.id),
+                            'rule': h.rule_identifier,
+                            'violation_type': h.violation_type,
+                            'severity': h.severity,
+                            'narrative': h.explanation_narrative,
+                        }
+                        for h in unresolved_hazards
+                    ]
+                    return ApiResponse.error(
+                        code='SEM-409',
+                        message=(
+                            f"Unauthorized Sanction Blocked: Active Description Logic safety hazard detected "
+                            f"({len(unresolved_hazards)} critical violation(s) e.g. Stranded Electric Train / 25kV OHE isolation hazard). "
+                            f"Resolve hazard or re-route conflicting train before sanctioning."
+                        ),
+                        details={
+                            'block_id': str(block.id),
+                            'block_code': block.block_code,
+                            'unresolved_hazards': hazard_list,
+                            'override_required': True
+                        },
+                        status_code=status.HTTP_409_CONFLICT
+                    )
+
+                if override and unresolved_hazards.exists():
+                    unresolved_hazards.update(resolved=True)
+                    block.work_description = f"{block.work_description} [COA HAZARD OVERRIDE: {request.user.username} approved with safety mitigations]".strip()
+
                 block.status = BlockStatus.SANCTIONED
                 block.sanctioned_by = request.user
                 block.sanctioned_at = timezone.now()

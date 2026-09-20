@@ -150,15 +150,24 @@ REST_FRAMEWORK = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-# Redis Channel Layer for Django Channels + Daphne (TSK-P0-007)
+# Redis Channel Layer for Django Channels + Daphne (TSK-P0-007, TSK-P3-01-BE)
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [config("REDIS_URL", default="redis://redis:6379/0")],
+            "hosts": [
+                {
+                    "address": config("REDIS_URL", default="redis://redis:6379/0"),
+                    "socket_timeout": None,
+                    "health_check_interval": 30,
+                }
+            ],
+            "capacity": 1500,
+            "expiry": 30,
         },
     }
 }
+
 
 # Celery 5.3 Task Broker & Multi-tier Queues (TSK-P0-006)
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://redis:6379/0")

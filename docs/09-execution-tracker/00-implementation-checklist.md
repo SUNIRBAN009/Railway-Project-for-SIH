@@ -121,7 +121,8 @@
 ## Phase 3: Advanced Intelligence & Real-Time (`SVC-ONTO`, `SVC-AST`, `SVC-NOTIF`)
 
 ### Feature: Real-Time WebSocket Dispatch
-- [ ] **TSK-P3-01-BE:** Implement Daphne ASGI channels and Redis Pub/Sub for push-to-invalidate events (`INVALIDATE_CACHE`, `BLOCK_UPDATE`).
+- [x] **TSK-P3-01-BE:** Implement Daphne ASGI channels and Redis Pub/Sub for push-to-invalidate events (`INVALIDATE_CACHE`, `BLOCK_UPDATE`).
+
 - [ ] **TSK-P3-01-FE:** Implement `useCorridorSocket` hook to listen for events and invalidate TanStack Query cache.
 - [ ] **TSK-P3-01-TEST:** Open two browser windows, approve a block in one, and verify the other updates instantly without refreshing.
 

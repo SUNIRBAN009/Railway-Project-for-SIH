@@ -41,10 +41,10 @@
 | **Phase 2** | `TSK-P2-06-BE` | Departmental Gang Rosters, Heavy Equipment Readiness & Rule 3 Exclusivity | **PASS** | 2026-09-20 12:09 IST |
 | **Phase 2** | `TSK-P2-06-FE` | Dynamic Gang & Machinery Pickers in Block Request Form | **PASS** | 2026-09-20 12:10 IST |
 | **Phase 2** | `TSK-P2-06-TEST` | Multi-Department Rosters, Machinery Certification & Rule 3 Relocation Physics | **PASS** | 2026-09-20 12:10 IST |
-
-
+| **Phase 3** | `TSK-P3-01-BE` | Daphne ASGI Channels, Redis Pub/Sub & Push-to-Invalidate WebSocket Stream | **PASS** | 2026-09-20 13:18 IST |
 
 ---
+
 
 ## 2. Phase 0: Infrastructure & Foundation Verification (`TSK-P0-01-TEST`)
 
@@ -1465,6 +1465,140 @@ STEP: 6. Attempting Conflicting Block Submission with Double-Booked Gang (Rule 3
 | **5** | Rule 3 Relocation Physics | Rejection if required speed > 40 km/h | HTTP 400 Travel Physics Violation | **PASS** |
 | **6** | Production Build Audit | Zero compilation or TypeScript errors | `dist/index.html` built cleanly | **PASS** |
 - **Suite Result:** **100% PASS**
+
+---
+
+## 16. Phase 3: Daphne ASGI Channels & Redis Pub/Sub Push-to-Invalidate Dispatch (`TSK-P3-01-BE`)
+
+### 16.1 Backend Architecture & Implementation Summary
+- **Daphne ASGI Infrastructure & Containerization:**
+  - Container: `railway_channels` (Daphne 4.2.3, Twisted 26.4.0) running on TCP port `8001` with reverse proxy mapping at `/ws/` through Vite dev server (`http://localhost:3000/ws/`).
+  - `CHANNEL_LAYERS` in `railway_sih/settings.py` configured with `channels_redis.core.RedisChannelLayer`, connecting to Redis 7 (`redis://redis:6379/0`).
+  - Enhanced connection configuration with `socket_timeout: None` and `health_check_interval: 30`, completely eliminating premature `redis.exceptions.TimeoutError` socket drops.
+- **JWT WebSocket Authentication Middleware (`apps/notifications/middleware.py`):**
+  - Implemented `JWTAuthMiddleware` intercepting connection requests across three transport channels:
+    1. Query Parameter: `?token=<jwt_access_token>`
+    2. HTTP Header: `Authorization: Bearer <jwt_access_token>`
+    3. WebSocket Subprotocol: `Sec-WebSocket-Protocol: bearer.<jwt_access_token>`
+  - Decodes access token with HMAC-SHA256 signature verification, loading active `User` and `UserProfile` directly into ASGI `scope['user']`.
+- **WebSocket URL Routing (`apps/notifications/routing.py`):**
+  - Supported Endpoints:
+    - `/ws/corridor/<corridor_code>/` and `/ws/v1/corridor/<corridor_code>/`
+    - `/ws/notifications/` and `/ws/v1/notifications/`
+- **Corridor & Notification Consumers (`apps/notifications/consumers.py`):**
+  - `CorridorConsumer`:
+    - Auto-subscribes clients to primary corridor (`corridor_ndls-gzb-up`), universal corridor (`corridor_all`), and base corridor (`corridor_ndls-gzb`).
+    - Handshake frame: `{"type": "corridor_connected", "corridor": "NDLS-GZB-UP", "groups": [...]}`.
+    - Handles client ping/pong with sub-2ms response latency.
+    - Dynamic authentication (`{"type": "authenticate", "token": "..."}`) and dynamic corridor subscriptions (`{"type": "subscribe", "corridor": "..."}`).
+  - `NotificationConsumer`:
+    - Auto-subscribes authenticated staff to user channel (`user_{id}`), role channel (`role_{role}`), department channel (`dept_{dept}`), and broadcast group (`notifications_general`).
+- **Standardized Push-to-Invalidate Dispatcher (`apps/blocks/views.py`):**
+  - `broadcast_block_event` broadcasts `INVALIDATE_CACHE` event frames conforming strictly to `docs/08-standards/01-api-standards.md`:
+    - `domain`: `BLOCKS`
+    - `resource`: `blocks`
+    - `action`: `PROPOSED` | `SANCTIONED` | `ACTIVATED` | `COMPLETED` | `REJECTED` | `CANCELLED`
+    - `block_id`, `block_code`, `status`, `version`, `department`, `start_km`, `end_km`, `corridor_code`, `timestamp`.
+  - Dispatches concurrently to Redis channel layer (`group_send`) and PostgreSQL In-App `Notification` and `NotificationDeliveryLog`.
+
+---
+
+### 16.2 Automated Test Execution Log (`scripts/test_p3_01_be.py`)
+```text
+================================================================================
+RUNNING AUTOMATED TEST SUITE: TSK-P3-01-BE
+DAPHNE ASGI CHANNELS & REDIS PUB/SUB REAL-TIME DISPATCH VERIFICATION
+================================================================================
+
+================================================================================
+STEP: 1. Authenticating Personas (ENG Engineer & Chief Controller)
+================================================================================
+  [PASS] eng_track_pway authenticated. Token: eyJhbGciOiJIUzI1NiIs...
+  [PASS] coa_delhi_chief authenticated. Token: eyJhbGciOiJIUzI1NiIs...
+
+================================================================================
+STEP: 2. Daphne ASGI Handshake & Group Subscription
+================================================================================
+  Connecting to ws://127.0.0.1:8001/ws/corridor/NDLS-GZB-UP/ ...
+  [INFO] Handshake Frame: {'type': 'corridor_connected', 'corridor': 'NDLS-GZB-UP', 'message': 'Subscribed to live push-to-invalidate stream for corridor NDLS-GZB-UP', 'groups': ['corridor_ndls-gzb', 'corridor_ndls-gzb-up', 'corridor_all'], 'timestamp': '2026-09-20T07:48:18.001862+00:00'}
+  [PASS] Handshake verified. Subscribed to channel groups: ['corridor_ndls-gzb', 'corridor_ndls-gzb-up', 'corridor_all']
+
+================================================================================
+STEP: 3. Heartbeat Ping/Pong Roundtrip Latency Audit
+================================================================================
+  [INFO] Pong Frame: {'type': 'pong', 'corridor': 'NDLS-GZB-UP', 'timestamp': '2026-09-20T07:48:18.003601+00:00'}
+  [PASS] Heartbeat Pong received in 1.42 ms (sub-20ms requirement met).
+
+================================================================================
+STEP: 4. JWT Bearer Token Authentication over WebSocket
+================================================================================
+  Connecting with JWT query token to ws://127.0.0.1:8001/ws/v1/notifications/ ...
+  [INFO] Notification Handshake: {'type': 'connection_established', 'message': 'Connected to Indian Railways Real-Time Notification Stream', 'user': 'eng_track_pway', 'groups': ['user_3', 'notifications_general', 'role_dept_engineer', 'dept_eng'], 'timestamp': '2026-09-20T07:48:18.030374+00:00'}
+  [PASS] JWT token authenticated as user 'eng_track_pway'. Groups: ['user_3', 'notifications_general', 'role_dept_engineer', 'dept_eng']
+
+================================================================================
+STEP: 5. Real-Time Block Proposal Push-to-Invalidate Broadcast
+================================================================================
+  Submitting Block Proposal via REST API (POST /api/v1/blocks/proposals/) ...
+  [INFO] Block Created: BLK-20260920-ENG-014 (ID: 4cb25325-7048-4070-9f01-9fdd81d6cd25, Version: 1) in 375.7 ms
+  Awaiting real-time WebSocket frame from Redis channel layer ...
+  [INFO] Real-Time Frame Received in 0.3 ms:
+         Type: INVALIDATE_CACHE | Domain: BLOCKS | Resource: blocks
+         Event: BLOCK_PROPOSED | Action: PROPOSED | Block: BLK-20260920-ENG-014
+  [PASS] Block proposal push-to-invalidate event verified (broadcast latency: 0.29 ms).
+
+================================================================================
+STEP: 6. Real-Time Block Sanction Push-to-Invalidate Broadcast
+================================================================================
+  Sanctioning Block BLK-20260920-ENG-014 via REST API (POST /api/v1/blocks/4cb25325-7048-4070-9f01-9fdd81d6cd25/sanction/) ...
+  [INFO] Block Sanctioned: Status=SANCTIONED, Version=2
+  [INFO] Sanction WebSocket Frame Received in 0.2 ms:
+         Type: INVALIDATE_CACHE | Domain: BLOCKS | Resource: blocks
+         Event: BLOCK_SANCTIONED | Action: SANCTIONED | Status: SANCTIONED | Version: 2
+  [PASS] Block sanction push-to-invalidate event verified (broadcast latency: 0.23 ms).
+
+================================================================================
+STEP: 7. Multi-Client Concurrent Broadcast Delivery (2 Listeners)
+================================================================================
+  [INFO] Client 1 connected to NDLS-GZB-UP, Client 2 connected to ALL.
+  [INFO] Block Activated (Caution Order: CO-AUTO-BLK-20260920-ENG-014)
+  [PASS] Client 1 (corridor) and Client 2 (corridor_all) received BLOCK_ACTIVATED concurrently.
+
+================================================================================
+STEP: 8. In-App Notification Database & Delivery Audit
+================================================================================
+  [INFO] Total Notifications in DB for COA: 6
+  [INFO] Matched Notification: 'Block BLK-20260920-ENG-014 PROPOSED' | Priority: ROUTINE_INFO
+  [PASS] In-app notification persistence & delivery confirmed in PostgreSQL.
+
+================================================================================
+ALL TSK-P3-01-BE REAL-TIME WEBSOCKET DISPATCH CHECKS PASSED (100% VERIFIED)
+================================================================================
+```
+
+---
+
+### 16.3 Verification Matrix (`TSK-P3-01-BE`)
+| Test Step | Component Tested | Expected Result | Actual Result | Status |
+|---|---|---|---|:---:|
+| **1** | Persona Authentication | Issue JWT tokens for `eng_track_pway` & `coa_delhi_chief` | Tokens issued successfully, HTTP 200 | **PASS** |
+| **2** | Daphne ASGI Handshake | Connect to `/ws/corridor/NDLS-GZB-UP/` & auto-join groups | Handshake received; joined `corridor_ndls-gzb-up`, `corridor_ndls-gzb`, `corridor_all` | **PASS** |
+| **3** | Ping/Pong Heartbeat | Client sends ping, server returns pong with latency < 20ms | Pong received in 1.42 ms | **PASS** |
+| **4** | JWT WebSocket Auth | Connect to `/ws/v1/notifications/?token=...` | User `eng_track_pway` recognized; joined `user_3`, `role_dept_engineer`, `dept_eng` | **PASS** |
+| **5** | Block Proposal Invalidation | `POST /api/v1/blocks/proposals/` triggers `INVALIDATE_CACHE` | Frame received in 0.29 ms with `domain: BLOCKS`, `resource: blocks`, `action: PROPOSED` | **PASS** |
+| **6** | Block Sanction Invalidation | `POST /api/v1/blocks/{id}/sanction/` triggers `INVALIDATE_CACHE` | Frame received in 0.23 ms with `action: SANCTIONED`, `status: SANCTIONED`, `version: 2` | **PASS** |
+| **7** | Multi-Client Concurrency | 2 concurrent listeners on specific & universal corridors | Both clients received `BLOCK_ACTIVATED` simultaneously without packet drop | **PASS** |
+| **8** | DB Persistence Audit | PostgreSQL `Notification` and `NotificationDeliveryLog` records | Notification persisted with `WEBSOCKET_INAPP` delivery log | **PASS** |
+- **Suite Result:** **100% PASS**
+
+---
+
+### 16.4 Redis Pub/Sub & Performance Metrics
+- **WebSocket Broadcast Latency:** $0.23\text{ ms} - 0.29\text{ ms}$ (Target: $<100\text{ ms}$).
+- **Ping/Pong Heartbeat RTT:** $1.42\text{ ms}$ (Target: $<20\text{ ms}$).
+- **Concurrency Integrity:** Zero packet loss across parallel corridor listeners during concurrent state transitions.
+- **Connection Reliability:** Zero premature socket timeouts or disconnections observed with Redis connection pool.
+
 
 
 

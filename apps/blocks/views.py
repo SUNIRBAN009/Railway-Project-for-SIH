@@ -31,14 +31,35 @@ from channels.layers import get_channel_layer
 
 
 def broadcast_block_event(event_type: str, block, extra=None):
-    """Broadcast real-time push-to-invalidate event to Daphne Redis channel groups."""
+    """
+    Broadcast real-time push-to-invalidate event to Daphne Redis channel groups (TSK-P3-01-BE).
+    Authoritative reference: docs/08-standards/01-api-standards.md & docs/05-deep-dive-logs/03-state-management.md
+    Pushes:
+      - WebSocket INVALIDATE_CACHE frame with domain='BLOCKS', resource='blocks'
+      - Dispatches in-app notification via NotificationDispatcher
+    """
     channel_layer = get_channel_layer()
     if not channel_layer:
         return
     corridor_code = getattr(block.corridor, 'code', 'ALL').lower()
+
+    action_map = {
+        'BLOCK_PROPOSED': 'PROPOSED',
+        'BLOCK_SANCTIONED': 'SANCTIONED',
+        'BLOCK_REJECTED': 'REJECTED',
+        'BLOCK_ACTIVATED': 'ACTIVATED',
+        'BLOCK_COMPLETED': 'COMPLETED',
+        'BLOCK_CANCELLED': 'CANCELLED',
+    }
+    action = action_map.get(event_type, event_type)
+
     payload = {
+        'type': 'INVALIDATE_CACHE',
+        'domain': 'BLOCKS',
+        'resource': 'blocks',
         'event_type': event_type,
-        'type': event_type,
+        'action': action,
+        'entity_id': str(block.id),
         'block_id': str(block.id),
         'block_code': block.block_code,
         'status': block.status,
@@ -46,12 +67,19 @@ def broadcast_block_event(event_type: str, block, extra=None):
         'department': block.department_code,
         'start_km': float(block.start_km),
         'end_km': float(block.end_km),
+        'corridor_code': getattr(block.corridor, 'code', 'ALL'),
         'timestamp': timezone.now().isoformat(),
     }
     if extra:
         payload.update(extra)
 
-    for grp in [f"corridor_{corridor_code}", "corridor_all", "corridor_ndls-gzb"]:
+    groups = {f"corridor_{corridor_code}", "corridor_all"}
+    parts = corridor_code.split('-')
+    if len(parts) > 2:
+        base_corridor = '-'.join(parts[:-1])
+        groups.add(f"corridor_{base_corridor}")
+
+    for grp in groups:
         try:
             async_to_sync(channel_layer.group_send)(
                 grp,
@@ -62,6 +90,28 @@ def broadcast_block_event(event_type: str, block, extra=None):
             )
         except Exception:
             pass
+
+    # In-App Notification persistence & dispatch
+    try:
+        from apps.notifications.services.dispatcher import NotificationDispatcher
+        from apps.notifications.models import NotificationPriority, NotificationCategory
+        dispatcher = NotificationDispatcher()
+        prio = NotificationPriority.OPERATIONAL_ALERT if action in ['SANCTIONED', 'ACTIVATED'] else NotificationPriority.ROUTINE_INFO
+        cat = NotificationCategory.BLOCK_SANCTIONED if action == 'SANCTIONED' else NotificationCategory.GENERAL_INFO
+        dispatcher.dispatch(
+            title=f"Block {block.block_code} {action}",
+            message_body=f"Block {block.block_code} ({block.department_code}) at KM {block.start_km}-{block.end_km} is now {block.status}.",
+            priority=prio,
+            category=cat,
+            target_entity_type='BLOCK',
+            target_entity_id=str(block.id),
+            corridor_code=getattr(block.corridor, 'code', 'ALL'),
+            extra_data=payload
+        )
+
+    except Exception:
+        pass
+
 
 
 # ============================================================================
@@ -350,7 +400,7 @@ class BlockSanctionAPIView(APIView):
                     msg = f"Block {block.block_code} sanctioned by Chief Controller {request.user.username}."
 
                 block.save()
-                broadcast_block_event('BLOCK_SANCTIONED', block, {'action': action, 'remarks': remarks, 'caution_speed': caution_speed})
+                broadcast_block_event('BLOCK_SANCTIONED', block, {'sanction_action': action, 'remarks': remarks, 'caution_speed': caution_speed})
             else:  # REJECT
                 if not block.can_transition_to(BlockStatus.REJECTED):
                     return ApiResponse.error(

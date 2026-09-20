@@ -7,10 +7,11 @@ interface AudioChimeProps {
 }
 
 export const AudioChime: React.FC<AudioChimeProps> = ({ showToggle = false }) => {
-  const [isMuted, setIsMuted] = useState(false);
+  const isAudioMuted = useSocketStore((state) => state.isAudioMuted);
+  const toggleAudioMute = useSocketStore((state) => state.toggleAudioMute);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const emergencyAlert = useSocketStore((state) => state.emergencyAlert);
-  const lastAlertIdRef = useRef<string | null>(null);
+  const sirenIntervalRef = useRef<number | null>(null);
 
   // Initialize or resume AudioContext on user interaction
   const getAudioContext = useCallback(() => {
@@ -28,7 +29,7 @@ export const AudioChime: React.FC<AudioChimeProps> = ({ showToggle = false }) =>
 
   // Synthesize Indian Railways 4-Tone Station Announcement Chime (F4 - A4 - C5 - F5)
   const playStationChime = useCallback(() => {
-    if (isMuted) return;
+    if (isAudioMuted) return;
     try {
       const ctx = getAudioContext();
       if (!ctx) return;
@@ -61,11 +62,11 @@ export const AudioChime: React.FC<AudioChimeProps> = ({ showToggle = false }) =>
     } catch (err) {
       console.warn('[AudioChime] Web Audio playback error:', err);
     }
-  }, [isMuted, getAudioContext]);
+  }, [isAudioMuted, getAudioContext]);
 
-  // Synthesize High-Priority Dual-Tone Railway Emergency Siren (880Hz / 587Hz)
+  // Synthesize High-Priority Dual-Tone Railway Emergency Siren (880Hz / 587.33Hz)
   const playEmergencySiren = useCallback(() => {
-    if (isMuted) return;
+    if (isAudioMuted) return;
     try {
       const ctx = getAudioContext();
       if (!ctx) return;
@@ -97,15 +98,34 @@ export const AudioChime: React.FC<AudioChimeProps> = ({ showToggle = false }) =>
     } catch (err) {
       console.warn('[AudioChime] Emergency siren synthesis error:', err);
     }
-  }, [isMuted, getAudioContext]);
+  }, [isAudioMuted, getAudioContext]);
 
-  // Auto-play emergency siren whenever a new emergency alert arrives
+  // Continuously play emergency siren while emergency alert is active, until dismissed or muted
   useEffect(() => {
-    if (emergencyAlert && emergencyAlert.id !== lastAlertIdRef.current) {
-      lastAlertIdRef.current = emergencyAlert.id;
+    if (emergencyAlert && !isAudioMuted) {
+      // Play immediately once
       playEmergencySiren();
+      // Repeat siren every 1.8s
+      if (sirenIntervalRef.current) {
+        window.clearInterval(sirenIntervalRef.current);
+      }
+      sirenIntervalRef.current = window.setInterval(() => {
+        playEmergencySiren();
+      }, 1800);
+    } else {
+      if (sirenIntervalRef.current) {
+        window.clearInterval(sirenIntervalRef.current);
+        sirenIntervalRef.current = null;
+      }
     }
-  }, [emergencyAlert, playEmergencySiren]);
+
+    return () => {
+      if (sirenIntervalRef.current) {
+        window.clearInterval(sirenIntervalRef.current);
+        sirenIntervalRef.current = null;
+      }
+    };
+  }, [emergencyAlert, isAudioMuted, playEmergencySiren]);
 
   if (!showToggle) return null;
 
@@ -113,19 +133,19 @@ export const AudioChime: React.FC<AudioChimeProps> = ({ showToggle = false }) =>
     <div className="inline-flex items-center gap-2">
       <button
         onClick={() => {
-          setIsMuted(!isMuted);
-          if (isMuted) {
+          toggleAudioMute();
+          if (isAudioMuted) {
             getAudioContext();
           }
         }}
-        title={isMuted ? 'Unmute Audio Chimes' : 'Mute Audio Chimes'}
+        title={isAudioMuted ? 'Unmute Audio Chimes' : 'Mute Audio Chimes'}
         className={`p-2 rounded-lg border transition ${
-          isMuted
+          isAudioMuted
             ? 'border-slate-700 bg-slate-800 text-control-muted hover:text-white'
             : 'border-cyan-500/40 bg-cyan-950/40 text-cyan-400 hover:border-cyan-500'
         }`}
       >
-        {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
       </button>
 
       <button

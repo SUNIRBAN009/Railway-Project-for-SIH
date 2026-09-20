@@ -122,25 +122,39 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
         }
       }
 
-      // 5. Emergency Track Halt Broadcast (FE-TSK-060)
+      // 5. Emergency Track Halt Broadcast (FE-TSK-060 / TSK-P3-03-FE)
       if (
         msgType === 'emergency.broadcast' ||
         msgType === 'EMERGENCY_ALERT' ||
         data.priority === 'CRITICAL_ALARM'
       ) {
         const alertData = data.payload || data;
+        const extra = alertData.extra_data || {};
         setEmergencyAlert({
           id: alertData.id || `emerg-${Date.now()}`,
           title: alertData.title || 'CRITICAL TRACK HALT DECLARED',
           message:
             alertData.message ||
             'Immediate block authority freeze broadcast across corridor by Control Office.',
-          corridor: alertData.corridor_code || corridorCode,
-          kmLocation: alertData.km_location || alertData.extra_data?.km_location,
+          corridor: alertData.corridor_code || alertData.corridor || corridorCode,
+          kmLocation: alertData.km_location ?? alertData.kmLocation ?? extra.km_location,
           priority: 'CRITICAL_ALARM',
-          timestamp: new Date().toISOString(),
+          timestamp: alertData.timestamp || new Date().toISOString(),
+          block_id: alertData.block_id || alertData.emergency_block_id,
+          block_code: alertData.block_code || alertData.emergency_block_code,
+          defect_id: alertData.defect_id,
+          defect_code: alertData.defect_code,
+          defect_type: alertData.defect_type,
+          severity: alertData.severity,
+          caution_speed_kmh: alertData.caution_speed_kmh,
+          flaw_depth_mm: alertData.flaw_depth_mm,
+          risk_score: alertData.risk_score,
+          risk_category: alertData.risk_category,
+          start_km: alertData.start_km ?? extra.start_km,
+          end_km: alertData.end_km ?? extra.end_km,
         });
         queryClient.invalidateQueries({ queryKey: ['blocks'] });
+        queryClient.invalidateQueries({ queryKey: ['riskMatrix'] });
       }
     } catch (err) {
       console.warn('[CorridorSocket] Error parsing WebSocket frame:', err);

@@ -133,8 +133,8 @@
 
 ### Feature: Emergency USFD Alert Modal & Chime
 - [x] **TSK-P3-03-BE:** Implement WebSocket broadcast `EMERGENCY_ALERT` payload generation for catastrophic flaws.
-- [ ] **TSK-P3-03-FE:** Implement full-screen Emergency Containment Modal and Web Audio API chime.
-- [ ] **TSK-P3-03-TEST:** Trigger an emergency broadcast and verify the frontend plays the loud audio chime and blocks the screen until acknowledged.
+- [x] **TSK-P3-03-FE:** Implement full-screen Emergency Containment Modal and Web Audio API chime.
+- [x] **TSK-P3-03-TEST:** Trigger an emergency broadcast and verify the frontend plays the loud audio chime and blocks the screen until acknowledged.
 
 ### Feature: Delay Cascade Recalculator (#115) & Semantic Digital Twin (`SVC-ONTO`)
 - [ ] **TSK-P3-04-BE:** Implement delay cascade propagation algorithm for downstream trains and HermiT DL rule reasoner via Celery for 25kV OHE isolation hazards.

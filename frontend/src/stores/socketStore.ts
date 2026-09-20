@@ -10,6 +10,18 @@ export interface EmergencyEvent {
   kmLocation?: number;
   priority: string;
   timestamp: string;
+  block_id?: string;
+  block_code?: string;
+  defect_id?: string;
+  defect_code?: string;
+  defect_type?: string;
+  severity?: string;
+  caution_speed_kmh?: number;
+  flaw_depth_mm?: number;
+  risk_score?: number;
+  risk_category?: string;
+  start_km?: number;
+  end_km?: number;
 }
 
 export interface SocketEventLog {
@@ -37,6 +49,9 @@ interface SocketState {
   recentEvents: SocketEventLog[];
   liveMetrics: LiveCorridorMetrics;
 
+  isAudioMuted: boolean;
+  toggleAudioMute: () => void;
+  setAudioMuted: (muted: boolean) => void;
   setStatus: (status: SocketStatus) => void;
   setLatency: (latency: number) => void;
   setReconnectAttempts: (attempts: number | ((prev: number) => number)) => void;
@@ -55,6 +70,9 @@ export const useSocketStore = create<SocketState>((set) => ({
   reconnectAttempts: 0,
   activeCorridor: 'NDLS-GZB',
   emergencyAlert: null,
+  isAudioMuted: false,
+  toggleAudioMute: () => set((state) => ({ isAudioMuted: !state.isAudioMuted })),
+  setAudioMuted: (isAudioMuted) => set({ isAudioMuted }),
   recentEvents: [],
   liveMetrics: {
     punctuality: 96.8,
@@ -99,6 +117,11 @@ export const useSocketStore = create<SocketState>((set) => ({
         kmLocation: 14.8,
         priority: 'CRITICAL_ALARM',
         timestamp: new Date().toISOString(),
+        block_code: 'BLK-EMG-DEMO01',
+        caution_speed_kmh: 20,
+        flaw_depth_mm: 16.5,
+        start_km: 14.3,
+        end_km: 15.3,
       },
     }),
 }));

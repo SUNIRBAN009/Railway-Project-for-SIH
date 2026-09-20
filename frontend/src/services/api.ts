@@ -544,6 +544,45 @@ export const analyticsService = {
     );
     return response.data.data;
   },
+
+  downloadCorridorReport: async (params?: {
+    type?: 'PDF' | 'SANCTION_BULLETIN' | 'SANCTION_ORDER';
+    corridor?: string;
+    division?: string;
+    range?: string;
+    block_id?: string;
+  }): Promise<Blob> => {
+    const response = await apiClient.get('/analytics/reports/export/', {
+      params: {
+        type: params?.type || 'PDF',
+        corridor: params?.corridor || 'NDLS-CNB',
+        division: params?.division || 'DLI',
+        range: params?.range || '7d',
+        block_id: params?.block_id,
+      },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  downloadSanctionOrderPDF: async (blockId: string): Promise<Blob> => {
+    const response = await apiClient.get(`/analytics/reports/sanction-order/${blockId}/`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
+
+export function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 
 

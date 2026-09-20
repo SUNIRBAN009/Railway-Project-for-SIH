@@ -15,9 +15,10 @@ import {
   RefreshCw,
   AlertOctagon,
   ShieldAlert,
+  FileDown,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { blockService } from '../../services/api';
+import { blockService, analyticsService, triggerBlobDownload } from '../../services/api';
 
 interface BlockSanctionPanelProps {
   block: Block | null;
@@ -53,12 +54,29 @@ export const BlockSanctionPanel: React.FC<BlockSanctionPanelProps> = ({
   } | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+
+  const handleDownloadSanctionPDF = async () => {
+    if (!block?.id) return;
+    try {
+      setIsDownloadingPDF(true);
+      const blob = await analyticsService.downloadSanctionOrderPDF(block.id);
+      const filename = `IR_Sanction_Order_${block.block_code}.pdf`;
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      console.error('Failed to download Sanction Order PDF:', err);
+      setGeneralError('Failed to download official Block Sanction Order PDF. Please check server logs.');
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
 
   // Semantic Violations & HermiT DL Hazard Reasoning State (TSK-P3-04-FE)
   const [violations, setViolations] = useState<any[]>([]);
   const [isLoadingViolations, setIsLoadingViolations] = useState(false);
   const [showProofDetails, setShowProofDetails] = useState(false);
   const [overrideHazards, setOverrideHazards] = useState(false);
+
 
   useEffect(() => {
     if (!block?.id) {
@@ -641,6 +659,24 @@ export const BlockSanctionPanel: React.FC<BlockSanctionPanelProps> = ({
             <span>Conditional Sanction</span>
           </button>
 
+          {/* Download Sanction Order PDF Button (Feature #107) */}
+          {block.status === 'SANCTIONED' && (
+            <button
+              type="button"
+              onClick={handleDownloadSanctionPDF}
+              disabled={isDownloadingPDF}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl border border-cyan-500/50 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 text-xs font-mono font-bold transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50"
+              title="Download Official Indian Railways Block Sanction Order PDF with SHA-256 Seal"
+            >
+              {isDownloadingPDF ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+              ) : (
+                <FileDown className="w-3.5 h-3.5 text-cyan-400" />
+              )}
+              <span>{isDownloadingPDF ? 'DOWNLOADING...' : 'SANCTION ORDER (PDF)'}</span>
+            </button>
+          )}
+
           {/* Full Sanction Button */}
           <button
             type="button"
@@ -661,6 +697,7 @@ export const BlockSanctionPanel: React.FC<BlockSanctionPanelProps> = ({
           </button>
         </div>
       </div>
+
 
       {/* Conditional Sanction Modal */}
       {showConditionalModal && (

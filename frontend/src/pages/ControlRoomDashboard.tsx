@@ -24,7 +24,9 @@ import {
   Zap,
   FileDown,
   Download,
+  RefreshCw,
 } from 'lucide-react';
+import { analyticsService, triggerBlobDownload } from '../services/api';
 
 export const ControlRoomDashboard: React.FC = () => {
   const { blocks, setBlocks, refetch } = useLiveBlocks();
@@ -36,6 +38,29 @@ export const ControlRoomDashboard: React.FC = () => {
   const handleSelectBlock = (block: Block) => {
     setSelectedBlockId(block.id);
   };
+
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+
+  const handleDownloadCorridorReport = async (reportType: 'PDF' | 'SANCTION_BULLETIN' = 'PDF') => {
+    try {
+      setIsDownloadingReport(true);
+      const blob = await analyticsService.downloadCorridorReport({
+        corridor: 'NDLS-CNB',
+        division: 'DLI',
+        type: reportType,
+        range: '7d',
+      });
+      const filePrefix = reportType === 'SANCTION_BULLETIN' ? 'IR_Sanction_Bulletin' : 'IR_Executive_Audit';
+      const filename = `${filePrefix}_NDLS-CNB_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.pdf`;
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      console.error('Failed to download PDF report:', err);
+      alert('Failed to download Corridor PDF Report. Please check backend connection.');
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
+
 
   const handleSanctionSuccess = (updatedBlock: Block) => {
     setBlocks((prev) =>
@@ -126,14 +151,32 @@ export const ControlRoomDashboard: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* One-Click Download Corridor Report (ReportLab PDF) */}
             <button
-              onClick={() => printCorridorDailyPossessionSheet(blocks)}
-              title="Print Official Daily Corridor Possession Bulletin Sheet (PDF)"
-              className="px-3 py-2 rounded-xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 font-mono text-xs font-bold transition flex items-center gap-1.5 shadow-md"
+              onClick={() => handleDownloadCorridorReport('PDF')}
+              disabled={isDownloadingReport}
+              title="Download Official Corridor Operations Audit & KPI Report (PDF)"
+              className="px-3.5 py-2 rounded-xl border border-emerald-500/50 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 font-mono text-xs font-bold transition flex items-center gap-1.5 shadow-md disabled:opacity-50"
+            >
+              {isDownloadingReport ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+              ) : (
+                <FileDown className="w-4 h-4 text-emerald-400" />
+              )}
+              <span>{isDownloadingReport ? 'Downloading...' : 'Corridor Report (PDF)'}</span>
+            </button>
+
+            {/* Official Sanction Bulletin PDF */}
+            <button
+              onClick={() => handleDownloadCorridorReport('SANCTION_BULLETIN')}
+              disabled={isDownloadingReport}
+              title="Download Official Daily Corridor Block Sanction Bulletin (PDF)"
+              className="px-3 py-2 rounded-xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 font-mono text-xs font-bold transition flex items-center gap-1.5 shadow-md disabled:opacity-50"
             >
               <FileDown className="w-4 h-4 text-cyan-400" />
-              <span>PDF Bulletin</span>
+              <span>Sanction Bulletin</span>
             </button>
+
 
             <button
               onClick={() => exportBlocksToCsv(blocks)}

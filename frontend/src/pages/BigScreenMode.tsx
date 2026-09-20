@@ -4,6 +4,7 @@ import {
   analyticsService,
   DashboardSummaryResponse,
   CorridorComparisonItem,
+  triggerBlobDownload,
 } from '../services/api';
 import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import { useLiveTrains } from '../hooks/useLiveTrains';
@@ -29,6 +30,7 @@ import {
   Gauge,
   Percent,
   ShieldCheck,
+  FileDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -94,6 +96,29 @@ export const BigScreenMode: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['analytics_comparison'] });
     },
   });
+
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+
+  const handleDownloadReport = async (reportType: 'PDF' | 'SANCTION_BULLETIN' = 'PDF') => {
+    try {
+      setIsDownloadingReport(true);
+      const blob = await analyticsService.downloadCorridorReport({
+        corridor: activeCorridor,
+        division: 'DLI',
+        type: reportType,
+        range: '7d',
+      });
+      const filePrefix = reportType === 'SANCTION_BULLETIN' ? 'IR_Sanction_Bulletin' : 'IR_Executive_Audit';
+      const filename = `${filePrefix}_${activeCorridor}_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`;
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      console.error('Failed to download PDF report:', err);
+      alert('Failed to download Corridor PDF Report. Please check backend connection.');
+    } finally {
+      setIsDownloadingReport(false);
+    }
+  };
+
 
   // Derived KPI values with robust fallbacks
   const cards = summary?.executive_cards || {
@@ -174,6 +199,21 @@ export const BigScreenMode: React.FC = () => {
 
         {/* Action Controls & Digital Clock */}
         <div className="flex items-center gap-4">
+          {/* Download Corridor Report Button */}
+          <button
+            onClick={() => handleDownloadReport('PDF')}
+            disabled={isDownloadingReport}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-950/60 hover:border-emerald-400 transition text-xs font-bold shadow-md disabled:opacity-50"
+            title="Download Official Corridor Operations Audit & KPI Report (PDF)"
+          >
+            {isDownloadingReport ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+            ) : (
+              <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+            )}
+            <span>{isDownloadingReport ? 'DOWNLOADING...' : 'CORRIDOR REPORT (PDF)'}</span>
+          </button>
+
           {/* Recalculate OLAP Button */}
           <button
             onClick={() => recalculateMutation.mutate()}
@@ -184,6 +224,7 @@ export const BigScreenMode: React.FC = () => {
             <RefreshCw className={`w-3.5 h-3.5 ${recalculateMutation.isPending ? 'animate-spin text-cyan-400' : ''}`} />
             <span>{recalculateMutation.isPending ? 'RECALCULATING...' : 'RECALCULATE OLAP'}</span>
           </button>
+
 
           {/* Fullscreen Button */}
           <button

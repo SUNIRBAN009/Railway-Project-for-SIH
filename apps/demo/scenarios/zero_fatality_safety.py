@@ -131,6 +131,36 @@ class ZeroFatalitySafetyScenario(BaseScenario):
             self.block.track_fit_certified = True
             self.block.save(update_fields=['status', 'track_fit_certified'])
 
+        # Dispatch Safety Clearance Certificate Notification
+        try:
+            from apps.notifications.models import (
+                Notification, NotificationDeliveryLog, NotificationPriority,
+                NotificationCategory, DeliveryChannel, DeliveryStatus
+            )
+            cert_id = "CERT-SAFE-2026-0920-DLI-01"
+            notif = Notification.objects.create(
+                title=f"Zero-Fatality Track Handback Certified: {cert_id}",
+                message_body=(
+                    f"SAFETY PROTOCOL COMPLETE: Block BLK-SAF-01 verified clear at KM 16.350. "
+                    f"12/12 workers and 24/24 tools safely evacuated. 25kV OHE power restored (25.0 kV). "
+                    f"Track Fit Certified. Track speed restored to 130 km/h (GREEN)."
+                ),
+                priority=NotificationPriority.CRITICAL_EMERGENCY,
+                category=NotificationCategory.WORK_ORDER_ASSIGNED,
+                target_entity_type="BLOCK",
+                target_entity_id="BLK-SAF-01",
+                recipient_role="ALL"
+            )
+            NotificationDeliveryLog.objects.create(
+                notification=notif,
+                channel=DeliveryChannel.WEBSOCKET_INAPP,
+                delivery_status=DeliveryStatus.DELIVERED,
+                external_reference_id="WS-SEC-HANDBACK-01",
+                dispatched_at=timezone.now()
+            )
+        except Exception as e:
+            self.log(f"Notification dispatch error (handled): {e}")
+
         self.log_step(
             step_number=5,
             title="Digital Safety Certificate & Track Handback (#80)",

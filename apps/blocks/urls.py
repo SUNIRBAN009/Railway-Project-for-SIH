@@ -22,6 +22,7 @@ urlpatterns = [
     path('<uuid:pk>/validate/', views.BlockValidateAPIView.as_view(), name='api_block_validate'),
     path('<uuid:pk>/combined-recommendation/', views.BlockCombinedRecommendationAPIView.as_view(), name='api_block_combined_recommendation'),
     path('<uuid:pk>/sanction/', views.BlockSanctionAPIView.as_view(), name='api_block_sanction'),
+    path('<uuid:pk>/sanction-order-pdf/', views.BlockSanctionOrderPDFExportAPIView.as_view(), name='api_block_sanction_order_pdf'),
     path('<uuid:pk>/activate/', views.BlockActivateAPIView.as_view(), name='api_block_activate'),
     path('<uuid:pk>/complete/', views.BlockCompleteAPIView.as_view(), name='api_block_complete'),
     path('<uuid:pk>/cancel/', views.BlockCancelAPIView.as_view(), name='api_block_cancel'),

@@ -457,6 +457,30 @@ class BlockSanctionAPIView(APIView):
         return ApiResponse.success(data=BlockDetailSerializer(block).data, message=msg)
 
 
+class BlockSanctionOrderPDFExportAPIView(APIView):
+    """
+    GET /api/v1/blocks/<uuid:pk>/sanction-order-pdf/
+    Downloads the official Indian Railways Traffic & Power Block Sanction Order PDF (Feature #107 / TSK-P4-02-BE).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').filter(id=pk).first()
+        if not block:
+            return ApiResponse.error(code='BLK-404', message='Block not found.', status_code=status.HTTP_404_NOT_FOUND)
+
+        from apps.analytics.services.pdf_report_service import BlockSanctionOrderPDFGenerator
+        from django.http import HttpResponse
+
+        division = request.query_params.get('division', 'DLI')
+        pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(block, division_code=division)
+        filename = f"IR_Sanction_Order_{block.block_code}.pdf"
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+
 
 class BlockActivateAPIView(APIView):
     """

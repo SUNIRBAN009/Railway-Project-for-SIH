@@ -15,9 +15,11 @@ from apps.analytics.serializers import (
     BlockEfficiencyRecordSerializer,
 )
 from apps.analytics.services.kpi_aggregation_service import KPIAggregationService
-from apps.analytics.services.pdf_report_service import ExecutivePDFReportGenerator
+from apps.analytics.services.pdf_report_service import ExecutivePDFReportGenerator, BlockSanctionOrderPDFGenerator
+from apps.blocks.models import Block, BlockStatus
 
 logger = logging.getLogger(__name__)
+
 
 
 class CorridorDailyKPIViewSet(viewsets.ReadOnlyModelViewSet):
@@ -140,11 +142,139 @@ class BlockEfficiencyListView(APIView):
         return ApiResponse.success(data=records)
 
 
+class BlockSanctionOrderPDFView(APIView):
+    """
+    FUNC-ANL-005: Official Sanction Order & Bulletin PDF Generator (Feature #107).
+    Authoritative reference: docs/04-function-maps/07-analytics-function-map.md
+    GET /api/v1/analytics/reports/sanction-order/<uuid:block_id>/
+    GET /api/v1/analytics/reports/sanction-order/?block_id=...&corridor=...
+    POST /api/v1/analytics/reports/sanction-order/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, block_id=None, *args, **kwargs):
+        target_id = block_id or request.query_params.get('block_id')
+        block_code = request.query_params.get('block_code')
+        corridor = request.query_params.get('corridor')
+        division = request.query_params.get('division', 'DLI')
+
+        try:
+            if target_id or block_code:
+                if target_id:
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=target_id)
+                else:
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_code)
+
+                pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(block, division_code=division)
+                filename = f"IR_Sanction_Order_{block.block_code}.pdf"
+                response = HttpResponse(pdf_bytes, content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            elif corridor:
+                pdf_bytes = BlockSanctionOrderPDFGenerator.generate_corridor_sanction_bulletin_pdf(
+                    corridor_code=corridor,
+                    division_code=division
+                )
+                filename = f"IR_Sanction_Bulletin_{corridor}_{timezone.now().strftime('%Y%m%d')}.pdf"
+                response = HttpResponse(pdf_bytes, content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            else:
+                # Fallback to most recent sanctioned block if any exists
+                recent_block = Block.objects.filter(
+                    status__in=[BlockStatus.SANCTIONED, BlockStatus.ACTIVE, BlockStatus.COMPLETED]
+                ).first()
+                if recent_block:
+                    pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(recent_block, division_code=division)
+                    filename = f"IR_Sanction_Order_{recent_block.block_code}.pdf"
+                    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+                    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                    return response
+
+                return ApiResponse.error(
+                    message="Missing parameter: Please provide block_id, block_code, or corridor.",
+                    code="MISSING_TARGET_BLOCK",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+        except Block.DoesNotExist:
+            return ApiResponse.error(
+                message="Specified block not found.",
+                code="BLOCK_NOT_FOUND",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as exc:
+            logger.error("Failed to generate Sanction Order PDF: %s", exc)
+            return ApiResponse.error(
+                message=f"Sanction Order PDF generation failure: {exc}",
+                code="PDF_GENERATION_FAILED",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def post(self, request, *args, **kwargs):
+        block_id = request.data.get('block_id')
+        block_code = request.data.get('block_code')
+        corridor = request.data.get('corridor_code') or request.data.get('corridor')
+        division = request.data.get('division_code', 'DLI')
+        req_format = request.data.get('format', 'PDF').upper()
+
+        try:
+            if block_id or block_code:
+                if block_id:
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=block_id)
+                else:
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_code)
+
+                pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(block, division_code=division)
+                filename = f"IR_Sanction_Order_{block.block_code}.pdf"
+            elif corridor:
+                pdf_bytes = BlockSanctionOrderPDFGenerator.generate_corridor_sanction_bulletin_pdf(
+                    corridor_code=corridor,
+                    division_code=division
+                )
+                filename = f"IR_Sanction_Bulletin_{corridor}_{timezone.now().strftime('%Y%m%d')}.pdf"
+            else:
+                return ApiResponse.error(
+                    message="Either block_id, block_code, or corridor_code is required in POST payload.",
+                    code="MISSING_PARAMETERS",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+            if req_format == 'JSON':
+                return ApiResponse.success(
+                    data={
+                        "download_url": f"/api/v1/analytics/reports/sanction-order/{block.id if (block_id or block_code) else ''}",
+                        "filename": filename,
+                        "bytes_length": len(pdf_bytes),
+                        "status": "GENERATED"
+                    },
+                    message="Sanction Order PDF compiled successfully.",
+                    status_code=status.HTTP_201_CREATED
+                )
+
+            response = HttpResponse(pdf_bytes, content_type='application/pdf', status=status.HTTP_201_CREATED)
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        except Block.DoesNotExist:
+            return ApiResponse.error(
+                message="Target block not found.",
+                code="BLOCK_NOT_FOUND",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as exc:
+            logger.error("POST Sanction Order PDF failed: %s", exc)
+            return ApiResponse.error(
+                message=f"Sanction Order PDF compilation failure: {exc}",
+                code="PDF_GENERATION_FAILED",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class ReportExportView(APIView):
     """
     GET /api/v1/analytics/reports/export/
     Query parameters:
-      - type: 'PDF' or 'MONTHLY_PDF'
+      - type: 'PDF', 'MONTHLY_PDF', 'SANCTION_ORDER', 'SANCTION_BULLETIN'
+      - block_id: Target block UUID (if type=SANCTION_ORDER)
       - division: Division code (default: 'DLI')
       - corridor: Corridor code (default: 'NDLS-CNB')
       - range: '7d' or '30d'
@@ -156,19 +286,37 @@ class ReportExportView(APIView):
         division = request.query_params.get('division', 'DLI')
         corridor = request.query_params.get('corridor', 'NDLS-CNB')
         range_str = request.query_params.get('range', '7d')
-
-        days_range = 30 if 'MONTHLY' in report_type or range_str == '30d' else 7
+        block_id = request.query_params.get('block_id')
 
         try:
-            pdf_bytes = ExecutivePDFReportGenerator.generate_executive_report(
-                division_code=division,
-                corridor_code=corridor,
-                days_range=days_range
-            )
-            filename = f"IR_Executive_Audit_{corridor}_{timezone.now().strftime('%Y%m%d')}.pdf"
+            if report_type == 'SANCTION_ORDER' and block_id:
+                block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=block_id)
+                pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(block, division_code=division)
+                filename = f"IR_Sanction_Order_{block.block_code}.pdf"
+            elif report_type in ['SANCTION_BULLETIN', 'BULLETIN']:
+                pdf_bytes = BlockSanctionOrderPDFGenerator.generate_corridor_sanction_bulletin_pdf(
+                    corridor_code=corridor,
+                    division_code=division
+                )
+                filename = f"IR_Sanction_Bulletin_{corridor}_{timezone.now().strftime('%Y%m%d')}.pdf"
+            else:
+                days_range = 30 if 'MONTHLY' in report_type or range_str == '30d' else 7
+                pdf_bytes = ExecutivePDFReportGenerator.generate_executive_report(
+                    division_code=division,
+                    corridor_code=corridor,
+                    days_range=days_range
+                )
+                filename = f"IR_Executive_Audit_{corridor}_{timezone.now().strftime('%Y%m%d')}.pdf"
+
             response = HttpResponse(pdf_bytes, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
+        except Block.DoesNotExist:
+            return ApiResponse.error(
+                message=f"Block with ID {block_id} not found.",
+                code="BLOCK_NOT_FOUND",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
         except Exception as exc:
             logger.error("Failed to generate PDF report: %s", exc)
             return ApiResponse.error(
@@ -176,3 +324,4 @@ class ReportExportView(APIView):
                 code="PDF_GENERATION_FAILED",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+

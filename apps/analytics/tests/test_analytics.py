@@ -144,6 +144,27 @@ class AnalyticsAPITests(TestCase):
         self.user = User.objects.create_user(username='api_evaluator', password='password123')
         self.client.login(username='api_evaluator', password='password123')
 
+        self.corridor = Corridor.objects.create(
+            code='NDLS-CNB',
+            name='New Delhi - Kanpur Central',
+            division='DLI'
+        )
+        self.test_block = Block.objects.create(
+            block_code='BLK-SANCTION-TEST-01',
+            corridor=self.corridor,
+            line_type=LineType.UP,
+            work_type=WorkType.TRACK_TAMPING,
+            requested_by=self.user,
+            sanctioned_by=self.user,
+            start_km=Decimal('12.000'),
+            end_km=Decimal('18.000'),
+            scheduled_start_time=timezone.now(),
+            scheduled_end_time=timezone.now() + datetime.timedelta(hours=3),
+            status=BlockStatus.SANCTIONED,
+            traction_power_cutoff_required=True,
+            caution_order_id='CO-DLI-TEST-01',
+        )
+
         CorridorDailyKPI.objects.create(
             metric_date=timezone.now().date(),
             division_code='DLI',
@@ -197,6 +218,52 @@ class AnalyticsAPITests(TestCase):
         self.assertEqual(response['Content-Type'], 'application/pdf')
         self.assertIn('attachment;', response['Content-Disposition'])
         self.assertTrue(len(response.content) > 1000)
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
+    def test_report_export_sanction_order_endpoint(self):
+        url = reverse('analytics:report_export')
+        response = self.client.get(url, {'type': 'SANCTION_ORDER', 'block_id': str(self.test_block.id)})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn(f'IR_Sanction_Order_{self.test_block.block_code}', response['Content-Disposition'])
+        self.assertTrue(len(response.content) > 1000)
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
+    def test_report_export_sanction_bulletin_endpoint(self):
+        url = reverse('analytics:report_export')
+        response = self.client.get(url, {'type': 'SANCTION_BULLETIN', 'corridor': 'NDLS-CNB'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('IR_Sanction_Bulletin_NDLS-CNB', response['Content-Disposition'])
+        self.assertTrue(len(response.content) > 1000)
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
+    def test_sanction_order_pdf_endpoint_get(self):
+        url = reverse('analytics:sanction_order_report_detail', kwargs={'block_id': self.test_block.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
+    def test_sanction_order_pdf_endpoint_post(self):
+        url = reverse('analytics:sanction_order_report')
+        payload = {
+            'block_id': str(self.test_block.id),
+            'division_code': 'DLI',
+            'format': 'PDF'
+        }
+        response = self.client.post(url, payload, content_type='application/json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
+    def test_block_sanction_order_direct_endpoint(self):
+        url = reverse('blocks:api_block_sanction_order_pdf', kwargs={'pk': self.test_block.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+
 
 
 @override_settings(CELERY_TASK_ALWAYS_EAGER=True)

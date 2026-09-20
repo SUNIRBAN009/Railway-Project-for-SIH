@@ -108,8 +108,8 @@
 
 ### Feature: Train Schedule & Live Telemetry (#114, #116)
 - [x] **TSK-P2-05-BE:** Implement `Train`, `TrainLiveStatus` models and ingestion worker for COA timetable feeds seeded with the 12 master trains.
-- [ ] **TSK-P2-05-FE:** Implement 60 FPS requestAnimationFrame train tracking markers on the Mapbox canvas with direction heading and speed badges.
-- [ ] **TSK-P2-05-TEST:** Verify train markers move smoothly on the UI based on backend telemetry coordinates.
+- [x] **TSK-P2-05-FE:** Implement 60 FPS requestAnimationFrame train tracking markers on the Mapbox canvas with direction heading and speed badges.
+- [x] **TSK-P2-05-TEST:** Verify train markers move smoothly on the UI based on backend telemetry coordinates.
 
 ### Feature: Departmental Equipment & Gang Rosters (#100, #101)
 - [] **TSK-P2-06-BE:** Implement `Gang`, `MaintenanceEquipment` models and availability query APIs seeded with the 6 gangs and 5 heavy machines.

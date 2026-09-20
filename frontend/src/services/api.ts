@@ -203,4 +203,69 @@ export const blockService = {
   },
 };
 
+// Train Service API Wrappers (SVC-TRN)
+export interface LiveTrainRecord {
+  train_number: string;
+  train_name: string;
+  train_type: string;
+  direction: 'UP' | 'DOWN';
+  current_km: number;
+  latitude: number;
+  longitude: number;
+  heading: number;
+  speed_kmh: number;
+  delay_minutes: number;
+  status: 'ON_TIME' | 'RUNNING' | 'DELAYED' | 'REGULATED';
+  current_section: string;
+  current_station_code: string;
+  pax_capacity?: number;
+  last_reported_at?: string;
+}
+
+export const trainService = {
+  getLiveTrains: async (params?: {
+    direction?: string;
+    status?: string;
+    delay_greater_than?: number;
+  }): Promise<LiveTrainRecord[]> => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: { count: number; active_live_trains: LiveTrainRecord[] };
+    }>('/trains/live/', { params });
+    return response.data.data?.active_live_trains || [];
+  },
+
+  advanceSimulation: async (
+    deltaSeconds: number = 30
+  ): Promise<{ simulated_trains: number; delta_seconds: number }> => {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: { simulated_trains: number; delta_seconds: number };
+    }>('/trains/live/', { delta_seconds: deltaSeconds });
+    return response.data.data;
+  },
+
+  getCatalog: async (params?: Record<string, string>): Promise<any[]> => {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: { count: number; trains: any[] };
+    }>('/trains/catalog/', { params });
+    return response.data.data?.trains || [];
+  },
+
+  getSchedule: async (trainNumber: string): Promise<any> => {
+    const response = await apiClient.get<{ success: boolean; data: any }>(
+      `/trains/${trainNumber}/schedule/`
+    );
+    return response.data.data;
+  },
+
+  ingestFeed: async (): Promise<any> => {
+    const response = await apiClient.post<{ success: boolean; data: any }>(
+      '/trains/ingest/'
+    );
+    return response.data.data;
+  },
+};
+
 

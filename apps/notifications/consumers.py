@@ -4,6 +4,7 @@ Authoritative reference: docs/03-service-blueprints/08-notifications.md & docs/0
 Provides live push-to-invalidate event stream for Corridor and In-App Notifications with Redis Pub/Sub.
 """
 import logging
+import time
 from django.utils import timezone
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from apps.notifications.middleware import get_user_from_token
@@ -230,9 +231,22 @@ class CorridorConsumer(AsyncJsonWebsocketConsumer):
         """
         Handler invoked when corridor.event message is sent to corridor group.
         Dispatches standard push-to-invalidate frame (INVALIDATE_CACHE) to frontend.
+        Deduplicates identical frames broadcast across overlapping corridor channel groups.
         """
         data = event.get('data', {})
         if isinstance(data, dict):
+            event_key = f"{data.get('domain', '')}:{data.get('entity_id', '')}:{data.get('action', '')}:{data.get('status', '')}:{data.get('version', '')}"
+            now = time.time()
+            if not hasattr(self, '_recent_corridor_events'):
+                self._recent_corridor_events = {}
+            else:
+                last_time = self._recent_corridor_events.get(event_key)
+                if last_time and (now - last_time) < 2.0:
+                    return
+                if len(self._recent_corridor_events) > 100:
+                    self._recent_corridor_events = {k: v for k, v in self._recent_corridor_events.items() if (now - v) < 5.0}
+            self._recent_corridor_events[event_key] = now
+
             out_frame = dict(data)
             # Enforce standard push-to-invalidate contract
             out_frame.setdefault('type', data.get('type', 'INVALIDATE_CACHE'))

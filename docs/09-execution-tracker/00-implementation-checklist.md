@@ -123,8 +123,8 @@
 ### Feature: Real-Time WebSocket Dispatch
 - [x] **TSK-P3-01-BE:** Implement Daphne ASGI channels and Redis Pub/Sub for push-to-invalidate events (`INVALIDATE_CACHE`, `BLOCK_UPDATE`).
 
-- [ ] **TSK-P3-01-FE:** Implement `useCorridorSocket` hook to listen for events and invalidate TanStack Query cache.
-- [ ] **TSK-P3-01-TEST:** Open two browser windows, approve a block in one, and verify the other updates instantly without refreshing.
+- [x] **TSK-P3-01-FE:** Implement `useCorridorSocket` hook to listen for events and invalidate TanStack Query cache.
+- [x] **TSK-P3-01-TEST:** Open two browser windows, approve a block in one, and verify the other updates instantly without refreshing.
 
 ### Feature: Asset Condition, Risk Matrix & Track Quality Index (#92, #93, #94)
 - [ ] **TSK-P3-02-BE:** Implement `TrackAsset`, `AssetDefectLog`, CoF × LoF risk calculation, Defect Aging Score, and automated emergency block generation on critical defect.

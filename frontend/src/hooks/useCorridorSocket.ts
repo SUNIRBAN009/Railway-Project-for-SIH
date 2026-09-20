@@ -51,28 +51,48 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
       // Record event in socket store for audit trail
       addEvent(msgType, data);
 
-      // 2. Cache Invalidation (FE-TSK-057)
+      // 2. Cache Invalidation (FE-TSK-057, TSK-P3-01-FE)
       if (msgType === 'INVALIDATE_CACHE' || msgType === 'cache_invalidate') {
         const resource = data.resource || data.payload?.resource;
+        const domain = (data.domain || data.payload?.domain || '').toUpperCase();
         if (resource) {
           queryClient.invalidateQueries({ queryKey: [resource] });
-        } else {
-          queryClient.invalidateQueries();
         }
+        if (domain === 'BLOCKS' || resource === 'blocks') {
+          queryClient.invalidateQueries({ queryKey: ['blocks'] });
+          queryClient.invalidateQueries({ queryKey: ['corridor_telemetry'] });
+        }
+        if (domain === 'TRAINS' || resource === 'trains') {
+          queryClient.invalidateQueries({ queryKey: ['trains'] });
+        }
+        if (domain === 'ASSETS' || resource === 'assets') {
+          queryClient.invalidateQueries({ queryKey: ['assets'] });
+        }
+        if (domain === 'NOTIFICATIONS' || resource === 'notifications') {
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        }
+        window.dispatchEvent(new CustomEvent('corridor_block_updated', { detail: data }));
       }
 
-      // 3. Block State Transitions (FE-TSK-058)
+      // 3. Block State Transitions (FE-TSK-058, TSK-P3-01-FE)
       if (
         msgType === 'block.updated' ||
         msgType === 'block.sanctioned' ||
         msgType === 'block.proposed' ||
         msgType === 'BLOCK_UPDATE' ||
         msgType === 'BLOCK_SANCTIONED' ||
+        msgType === 'BLOCK_PROPOSED' ||
+        msgType === 'BLOCK_ACTIVATED' ||
+        msgType === 'BLOCK_COMPLETED' ||
+        msgType === 'BLOCK_CANCELLED' ||
+        msgType === 'BLOCK_REJECTED' ||
         msgType === 'BLOCK_RESCHEDULED'
       ) {
         queryClient.invalidateQueries({ queryKey: ['blocks'] });
         queryClient.invalidateQueries({ queryKey: ['corridor_telemetry'] });
+        window.dispatchEvent(new CustomEvent('corridor_block_updated', { detail: data }));
       }
+
 
       // 3b. Live Telemetry & HUD Counters Streaming (TSK-P0.5-05-FE)
       const evtName = data.event_type || data.type || msgType;

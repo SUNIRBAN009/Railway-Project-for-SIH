@@ -29,6 +29,10 @@ class CorridorDailyKPISerializer(serializers.ModelSerializer):
             'corridor_punctuality_percentage',
             'conflict_mitigation_rate_pct',
             'shadow_blocks_count',
+            'shadow_bundling_ratio_pct',
+            'average_tqi_score',
+            'tqi_status',
+            'cancelled_blocks_count',
             'computed_at',
         ]
         read_only_fields = fields

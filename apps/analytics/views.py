@@ -62,6 +62,58 @@ class DashboardSummaryView(APIView):
         return ApiResponse.success(data=summary)
 
 
+class CorridorDailyKPIOLAPRecalculateView(APIView):
+    """
+    POST /api/v1/analytics/kpi/recalculate/
+    Triggers an immediate OLAP recalculation for a corridor or all corridors.
+    Request body (optional):
+      - corridor: Corridor code (e.g. 'NDLS-CNB-MAIN', or 'ALL')
+      - date: Target date 'YYYY-MM-DD' (defaults to today)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        corridor = request.data.get('corridor')
+        date_str = request.data.get('date')
+        target_date = None
+        if date_str:
+            try:
+                target_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return ApiResponse.error(
+                    message="Invalid date format. Expected YYYY-MM-DD.",
+                    code="INVALID_DATE_FORMAT",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            target_date = timezone.now().date()
+
+        if corridor and corridor != 'ALL':
+            kpi = KPIAggregationService.compute_corridor_kpi(corridor_code=corridor, target_date=target_date)
+            serializer = CorridorDailyKPISerializer(kpi)
+            return ApiResponse.success(
+                data={
+                    "corridor": corridor,
+                    "target_date": str(target_date),
+                    "kpi": serializer.data,
+                    "recalculated": True
+                },
+                message=f"OLAP KPI recalculated successfully for corridor {corridor}."
+            )
+        else:
+            kpi_list = KPIAggregationService.recalculate_all_corridors_olap(target_date=target_date)
+            serializer = CorridorDailyKPISerializer(kpi_list, many=True)
+            return ApiResponse.success(
+                data={
+                    "total_corridors": len(kpi_list),
+                    "target_date": str(target_date),
+                    "kpis": serializer.data,
+                    "recalculated": True
+                },
+                message=f"OLAP KPIs recalculated successfully for {len(kpi_list)} corridors."
+            )
+
+
 class CorridorComparisonView(APIView):
     """
     GET /api/v1/analytics/corridors/comparison/

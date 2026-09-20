@@ -33,9 +33,38 @@ class CorridorDailyKPI(models.Model):
     corridor_punctuality_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=100.00)
     conflict_mitigation_rate_pct = models.DecimalField(max_digits=5, decimal_places=2, default=88.00)
     shadow_blocks_count = models.PositiveIntegerField(default=0)
+    shadow_bundling_ratio_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.00,
+        help_text="Shadow block bundling ratio (% of total blocks bundled)"
+    )
+    average_tqi_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=24.50,
+        help_text="Corridor average Track Quality Index (RDSO TRC standard)"
+    )
+    tqi_status = models.CharField(
+        max_length=25,
+        default='GOOD',
+        help_text="TQI classification: EXCELLENT (<20), GOOD (20-30), FAIR (30-45), URGENT (>45)"
+    )
+    cancelled_blocks_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Blocks rejected or cancelled"
+    )
 
     computed_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def bundling_ratio(self):
+        return float(self.shadow_bundling_ratio_pct)
+
+    @property
+    def tqi(self):
+        return float(self.average_tqi_score)
 
     # Aliases for backwards compatibility with earlier prototypes
     @property

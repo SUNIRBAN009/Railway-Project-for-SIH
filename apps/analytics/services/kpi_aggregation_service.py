@@ -46,6 +46,9 @@ class KPIAggregationService:
             status__in=[BlockStatus.SANCTIONED, BlockStatus.ACTIVE, BlockStatus.COMPLETED]
         ).count()
         total_executed = blocks_qs.filter(status=BlockStatus.COMPLETED).count()
+        cancelled_count = blocks_qs.filter(
+            status__in=[BlockStatus.CANCELLED, BlockStatus.REJECTED]
+        ).count()
 
         # Duration calculations
         total_sanctioned_minutes = 0
@@ -73,6 +76,46 @@ class KPIAggregationService:
                 co_possession_count += 1
 
         total_possession_hours = Decimal(str(round(total_actual_minutes / 60.0, 2)))
+
+        # Shadow Block Bundling Ratio calculation
+        # Percentage of sanctioned (or requested) blocks that were bundled as shadow possessions
+        if total_sanctioned > 0:
+            bundling_ratio = round((shadow_count / total_sanctioned) * 100.0, 2)
+        elif total_requested > 0:
+            bundling_ratio = round((shadow_count / total_requested) * 100.0, 2)
+        else:
+            bundling_ratio = 0.00
+        shadow_bundling_ratio_pct = Decimal(str(bundling_ratio))
+
+        # Track Quality Index (TQI) OLAP computation from TrackAsset records
+        try:
+            from apps.assets.models import TrackAsset
+            assets_qs = TrackAsset.objects.filter(
+                Q(corridor__code__iexact=corridor_code) |
+                Q(corridor__code__icontains=corridor_code.split('-')[0])
+            )
+            if not assets_qs.exists():
+                assets_qs = TrackAsset.objects.all()
+
+            if assets_qs.exists():
+                tqi_val = assets_qs.aggregate(avg_tqi=Avg('tqi_index'))['avg_tqi']
+                tqi_score = round(float(tqi_val), 2) if tqi_val is not None else 24.50
+            else:
+                tqi_score = 24.50
+        except Exception as exc:
+            logger.warning("Could not calculate asset TQI for corridor %s: %s", corridor_code, exc)
+            tqi_score = 24.50
+
+        # TQI Classification (RDSO TRC Engineering Standards)
+        if tqi_score < 20.0:
+            tqi_status = 'EXCELLENT'
+        elif tqi_score <= 30.0:
+            tqi_status = 'GOOD'
+        elif tqi_score <= 45.0:
+            tqi_status = 'FAIR'
+        else:
+            tqi_status = 'URGENT_MAINTENANCE'
+        average_tqi_score = Decimal(str(tqi_score))
 
         # Train Delay and Punctuality computation
         from apps.trains.models import TrainLiveStatus
@@ -102,6 +145,7 @@ class KPIAggregationService:
                 'total_blocks_requested': total_requested,
                 'total_blocks_sanctioned': total_sanctioned,
                 'total_blocks_executed': total_executed,
+                'cancelled_blocks_count': cancelled_count,
                 'total_sanctioned_duration_minutes': total_sanctioned_minutes,
                 'total_actual_duration_minutes': total_actual_minutes,
                 'total_possession_hours': total_possession_hours,
@@ -110,6 +154,9 @@ class KPIAggregationService:
                 'corridor_punctuality_percentage': punctuality_pct,
                 'conflict_mitigation_rate_pct': mitigation_rate,
                 'shadow_blocks_count': shadow_count,
+                'shadow_bundling_ratio_pct': shadow_bundling_ratio_pct,
+                'average_tqi_score': average_tqi_score,
+                'tqi_status': tqi_status,
             }
         )
         return kpi_obj
@@ -144,6 +191,24 @@ class KPIAggregationService:
         total_co_possessions = qs.aggregate(s=Sum('co_possession_blocks_count'))['s'] or 0
         total_delay_minutes = qs.aggregate(s=Sum('total_train_delay_minutes_incurred'))['s'] or 0
 
+        # OLAP metrics
+        avg_bundling_ratio = float(qs.aggregate(a=Avg('shadow_bundling_ratio_pct'))['a'] or 0.0)
+        avg_tqi = float(qs.aggregate(a=Avg('average_tqi_score'))['a'] or 24.50)
+        total_requested = qs.aggregate(s=Sum('total_blocks_requested'))['s'] or 0
+        total_sanctioned = qs.aggregate(s=Sum('total_blocks_sanctioned'))['s'] or 0
+        total_executed = qs.aggregate(s=Sum('total_blocks_executed'))['s'] or 0
+        total_shadows = qs.aggregate(s=Sum('shadow_blocks_count'))['s'] or 0
+        total_cancelled = qs.aggregate(s=Sum('cancelled_blocks_count'))['s'] or 0
+
+        if avg_tqi < 20.0:
+            overall_tqi_status = 'EXCELLENT'
+        elif avg_tqi <= 30.0:
+            overall_tqi_status = 'GOOD'
+        elif avg_tqi <= 45.0:
+            overall_tqi_status = 'FAIR'
+        else:
+            overall_tqi_status = 'URGENT_MAINTENANCE'
+
         # Possession Utilization Rate: U = Actual / Sanctioned
         if total_sanctioned_mins > 0:
             possession_utilization_pct = round((total_actual_mins / total_sanctioned_mins) * 100.0, 1)
@@ -163,8 +228,14 @@ class KPIAggregationService:
                 "corridor_code": r.corridor_code,
                 "punctuality_pct": float(r.corridor_punctuality_percentage),
                 "possession_hours": float(r.total_possession_hours),
+                "blocks_requested": r.total_blocks_requested,
                 "blocks_sanctioned": r.total_blocks_sanctioned,
+                "blocks_executed": r.total_blocks_executed,
                 "co_possessions": r.co_possession_blocks_count,
+                "shadow_blocks": r.shadow_blocks_count,
+                "shadow_bundling_ratio_pct": float(r.shadow_bundling_ratio_pct),
+                "average_tqi_score": float(r.average_tqi_score),
+                "tqi_status": r.tqi_status,
             })
 
         return {
@@ -178,8 +249,16 @@ class KPIAggregationService:
                 "average_corridor_punctuality_pct": round(avg_punctuality, 2),
                 "conflict_mitigation_rate_pct": round(avg_mitigation, 2),
                 "total_possession_hours": round(total_possession_hrs, 2),
+                "total_blocks_requested": total_requested,
+                "total_blocks_sanctioned": total_sanctioned,
+                "total_blocks_executed": total_executed,
+                "cancelled_blocks_count": total_cancelled,
                 "co_possession_blocks_count": total_co_possessions,
                 "co_possession_hours_saved": co_possession_hours_saved,
+                "shadow_blocks_count": total_shadows,
+                "shadow_bundling_ratio_pct": round(avg_bundling_ratio, 2),
+                "average_tqi_score": round(avg_tqi, 2),
+                "tqi_status": overall_tqi_status,
                 "train_delay_minutes_incurred": total_delay_minutes,
                 "train_delay_hours_prevented": train_delay_hours_prevented,
             },
@@ -204,19 +283,51 @@ class KPIAggregationService:
             total_hours=Sum('total_possession_hours'),
             total_co_possessions=Sum('co_possession_blocks_count'),
             total_blocks=Sum('total_blocks_sanctioned'),
+            total_shadows=Sum('shadow_blocks_count'),
+            avg_bundling_ratio=Avg('shadow_bundling_ratio_pct'),
+            avg_tqi=Avg('average_tqi_score'),
             avg_mitigation=Avg('conflict_mitigation_rate_pct')
         ).order_by('-avg_punctuality')
 
         results = []
         for item in qs:
+            tqi = round(float(item['avg_tqi'] or 24.50), 2)
             results.append({
                 "corridor_code": item['corridor_code'],
                 "average_punctuality_pct": round(float(item['avg_punctuality'] or 95.0), 2),
                 "total_possession_hours": round(float(item['total_hours'] or 0.0), 2),
                 "total_blocks_sanctioned": item['total_blocks'] or 0,
                 "co_possession_blocks": item['total_co_possessions'] or 0,
+                "shadow_blocks_count": item['total_shadows'] or 0,
+                "shadow_bundling_ratio_pct": round(float(item['avg_bundling_ratio'] or 0.0), 2),
+                "average_tqi_score": tqi,
+                "tqi_status": 'EXCELLENT' if tqi < 20 else 'GOOD' if tqi <= 30 else 'FAIR' if tqi <= 45 else 'URGENT',
                 "conflict_mitigation_rate_pct": round(float(item['avg_mitigation'] or 90.0), 2),
             })
+        return results
+
+    @classmethod
+    def recalculate_all_corridors_olap(cls, target_date: Optional[date] = None) -> List[CorridorDailyKPI]:
+        """
+        On-demand execution of daily OLAP aggregations across all registered corridors.
+        """
+        if target_date is None:
+            target_date = timezone.now().date()
+
+        corridors = list(Corridor.objects.all())
+        results = []
+        if not corridors:
+            kpi = cls.compute_corridor_kpi("NDLS-CNB", target_date=target_date)
+            results.append(kpi)
+            return results
+
+        for corridor in corridors:
+            try:
+                kpi = cls.compute_corridor_kpi(corridor.code, target_date=target_date)
+                results.append(kpi)
+            except Exception as exc:
+                logger.error("Error computing OLAP KPI for corridor %s: %s", corridor.code, exc)
+
         return results
 
     @classmethod

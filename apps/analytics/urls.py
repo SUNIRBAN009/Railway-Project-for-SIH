@@ -13,6 +13,7 @@ router.register(r'kpi', views.CorridorDailyKPIViewSet, basename='kpi')
 
 urlpatterns = [
     path('dashboard/summary/', views.DashboardSummaryView.as_view(), name='dashboard_summary'),
+    path('kpi/recalculate/', views.CorridorDailyKPIOLAPRecalculateView.as_view(), name='kpi_recalculate'),
     path('corridors/comparison/', views.CorridorComparisonView.as_view(), name='corridor_comparison'),
     path('block-efficiency/', views.BlockEfficiencyListView.as_view(), name='block_efficiency'),
     path('reports/export/', views.ReportExportView.as_view(), name='report_export'),

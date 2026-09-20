@@ -62,6 +62,10 @@ class KPIAggregationServiceTests(TestCase):
         self.assertEqual(kpi.total_blocks_executed, 1)
         self.assertGreater(kpi.total_sanctioned_duration_minutes, 0)
         self.assertEqual(kpi.co_possession_blocks_count, 1)
+        self.assertEqual(kpi.shadow_blocks_count, 1)
+        self.assertEqual(kpi.shadow_bundling_ratio_pct, Decimal('100.00'))
+        self.assertGreaterEqual(kpi.average_tqi_score, Decimal('0.00'))
+        self.assertIn(kpi.tqi_status, ['EXCELLENT', 'GOOD', 'FAIR', 'URGENT_MAINTENANCE'])
         self.assertGreaterEqual(kpi.corridor_punctuality_percentage, Decimal('0.00'))
 
     def test_get_dashboard_summary(self):
@@ -77,6 +81,10 @@ class KPIAggregationServiceTests(TestCase):
             total_actual_duration_minutes=1400,
             total_possession_hours=Decimal('23.33'),
             co_possession_blocks_count=3,
+            shadow_blocks_count=3,
+            shadow_bundling_ratio_pct=Decimal('37.50'),
+            average_tqi_score=Decimal('22.80'),
+            tqi_status='GOOD',
             total_train_delay_minutes_incurred=40,
             corridor_punctuality_percentage=Decimal('96.50'),
             conflict_mitigation_rate_pct=Decimal('92.00'),
@@ -92,6 +100,9 @@ class KPIAggregationServiceTests(TestCase):
         self.assertIn('possession_utilization_rate_pct', cards)
         self.assertIn('average_corridor_punctuality_pct', cards)
         self.assertIn('co_possession_hours_saved', cards)
+        self.assertIn('shadow_bundling_ratio_pct', cards)
+        self.assertIn('average_tqi_score', cards)
+        self.assertIn('tqi_status', cards)
         self.assertGreater(cards['possession_utilization_rate_pct'], 0)
         self.assertEqual(cards['co_possession_blocks_count'], 3)
         self.assertGreaterEqual(len(summary['trend']), 1)
@@ -170,6 +181,14 @@ class AnalyticsAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['success'])
+
+    def test_recalculate_endpoint(self):
+        url = reverse('analytics:kpi_recalculate')
+        response = self.client.post(url, {'corridor': 'NDLS-CNB'}, content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertTrue(data['data']['recalculated'])
 
     def test_report_export_pdf_endpoint(self):
         url = reverse('analytics:report_export')

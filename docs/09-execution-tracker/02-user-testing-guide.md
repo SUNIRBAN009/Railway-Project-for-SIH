@@ -1045,4 +1045,58 @@ python scripts/test_p2_06_test.py
 ```
 *যাচাইকৃত বিষয়:* ফ্রন্টএন্ড-ব্যাকএন্ড লাইভ কানেক্টিভিটি, ৩টি ডিপার্টমেন্টের (ENG, TRD, SNT) রোস্টার সেগ্রিগেশন, মেশিনারি ফিটনেস সার্টিফিকশন এবং ৪০ কিমি/ঘণ্টা রিলোকেশন ফিজিক্স পরীক্ষা।
 
+---
+
+### ২৮.৪ ম্যানুয়াল ব্যাকএন্ড টেস্ট নির্দেশিকা (PowerShell / REST Client)
+
+PowerShell উইন্ডোতে নিচের ধাপগুলো রান করে ব্যাকএন্ড গ্যাং রোস্টার ও Rule 3 ডাবল-বুকিং এপিআই সরাসরি যাচাই করতে পারেন:
+
+1. **টোকেন সংগ্রহ করুন (`eng_track_pway`):**
+```powershell
+$login = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/auth/login/" -Method Post -ContentType "application/json" -Body '{"username":"eng_track_pway","password":"railway@123"}'
+$token = $login.data.access_token
+```
+
+2. **৬টি মাস্টার গ্যাং রোস্টার কোয়েরি করুন:**
+```powershell
+$gangs = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/departments/gangs/" -Headers @{Authorization="Bearer $token"}
+$gangs.data.gangs | Format-Table gang_number, department_code, headquarters_station, crew_strength, supervisor_name
+```
+
+3. **৫টি হেভি মেশিনারি ও ফিটনেস কোয়েরি করুন:**
+```powershell
+$eq = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/departments/equipment/?fit_only=true" -Headers @{Authorization="Bearer $token"}
+$eq.data.equipment | Format-Table equipment_code, equipment_name, equipment_type, home_depot, operational_status, fitness_expiry_date
+```
+
+4. **নির্দিষ্ট উইন্ডোতে গ্যাং ফাঁকা আছে কি না চেক করুন:**
+```powershell
+$avail = Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/departments/gangs/?start_time=2026-11-05T02:00:00Z&end_time=2026-11-05T05:00:00Z" -Headers @{Authorization="Bearer $token"}
+$avail.data.gangs | Format-Table gang_number, headquarters_station
+```
+
+5. **ডাবল-বুকিং ট্রাই করে Coherence Rule 3 রিজেকশন দেখুন:**
+```powershell
+$body = @{
+    corridor_code = "NDLS-GZB-UP"
+    line_type = "UP"
+    work_type = "TRACK_TAMPING"
+    start_km = 10.0
+    end_km = 14.5
+    scheduled_start_time = "2026-11-05T03:00:00Z"
+    scheduled_end_time = "2026-11-05T06:00:00Z"
+    department_code = "ENG"
+    gang_id = "GANG-ENG-PWAY-04"
+    equipment_required = "CSM-NR-092"
+    work_description = "Test overlapping block reservation"
+} | ConvertTo-Json
+
+try {
+    Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/blocks/proposals/" -Method Post -Headers @{Authorization="Bearer $token"} -ContentType "application/json" -Body $body
+} catch {
+    $_.ErrorDetails.Message # প্রদর্শিত হবে: COHERENCE-RULE-3 Resource Exclusivity Violation
+}
+```
+
+
 

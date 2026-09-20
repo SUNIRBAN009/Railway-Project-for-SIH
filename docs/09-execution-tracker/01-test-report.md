@@ -1286,55 +1286,138 @@ ALL TSK-P2-05-BE TESTS COMPLETED SUCCESSFULLY! (100% PASS)
 
 ---
 
-## 13. Phase 2: Feature 6 Verification (`TSK-P2-06`)
-### Departmental Equipment & Gang Rosters (#100, #101)
+## 15. Phase 2: Departmental Equipment & Gang Rosters Backend API & Rule 3 Exclusivity (`TSK-P2-06-BE`)
 
-- **Task Identifiers:** `TSK-P2-06-BE`, `TSK-P2-06-FE`, `TSK-P2-06-TEST`
-- **Target Components:** `Gang`, `MaintenanceEquipment`, `BlockProposalCreateAPIView`, `GangListCreateAPIView`, `EquipmentListAPIView`, `BlockRequestForm.tsx`, `api.ts`
-- **Verification Date:** September 20, 2026, 12:10 IST
-- **Audit Tooling:** `scripts/test_p2_06_be.py`, `scripts/test_p2_06_test.py`, `docker exec railway_frontend npm run build`
+### 15.1 Backend Architecture & Implementation Summary
+- **Data Models Configured (`apps/departments/models.py`):**
+  - `Gang`: Maintenance gang unit with `gang_number`, `department`, `supervisor`, `headquarters_station`, `crew_strength`, `assigned_section_start_km`, `assigned_section_end_km`, `is_active`.
+  - `MaintenanceEquipment`: Heavy railway machinery with `equipment_code`, `equipment_name`, `equipment_type`, `department`, `home_depot`, `current_location_km`, `operational_status`, `fitness_expiry_date`, `is_fit`.
+  - `WorkOrder`: Departmental work orders linking sanctioned blocks to gangs and equipment with lifecycle states (`PENDING`, `MOBILIZING`, `ON_SITE`, `WORK_COMPLETED`, `SAFETY_CLEARANCE_SIGNED`).
+- **Master Seeded Entities (`scripts/seed_railway_demo.py`):**
+  - **6 Canonical Maintenance Gangs** seeded across corridor nodes:
+    1. `GANG-ENG-PWAY-04`: SBB • Sahibabad Jn (14 crew, KM 0.0 - 28.5)
+    2. `GANG-ENG-PWAY-07`: ALJN • Aligarh Jn (16 crew, KM 100.0 - 150.0)
+    3. `GANG-TRD-OHE-02`: GZB • Ghaziabad Jn (10 crew, KM 10.0 - 45.0)
+    4. `GANG-TRD-OHE-05`: TDL • Tundla Jn (12 crew, KM 180.0 - 240.0)
+    5. `GANG-SNT-SIG-01`: NDLS • New Delhi (8 crew, KM 0.0 - 15.0)
+    6. `GANG-SNT-SIG-03`: CNB • Kanpur Central (10 crew, KM 400.0 - 440.2)
+  - **5 Heavy Track Machines** certified with active mechanical fitness:
+    1. `CSM-NR-092`: Continuous Action Tamper (09-32 CSM, Depot: NDLS, Status: AVAILABLE)
+    2. `BCM-NR-104`: Ballast Cleaning Machine (RM-80 BCM, Depot: GZB, Status: AVAILABLE)
+    3. `DTS-NR-62N`: Dynamic Track Stabilizer (DGS 62N, Depot: ALJN, Status: AVAILABLE)
+    4. `TW-NR-8812`: 8-Wheeler High-Speed OHE Tower Wagon (Depot: GZB, Status: AVAILABLE)
+    5. `USFD-NR-03`: Ultrasonic Flaw Detection Digital Trolley (Depot: NDLS, Status: AVAILABLE)
+- **Temporal Availability Filtering (`apps/departments/views.py`):**
+  - `GangListCreateAPIView` and `EquipmentListAPIView` accept `start_time` and `end_time` query parameters.
+  - Dynamically cross-references `Block` reservations in states `PENDING_APPROVAL`, `COORDINATED`, `CONFLICT_DETECTED`, `SANCTIONED`, `ACTIVE`, excluding busy gangs/machines during prospective time windows.
+- **Rule 3 Coherence Engine Enforcement (`apps/blocks/views.py`):**
+  - `BlockProposalCreateAPIView` queries existing non-terminal blocks from PostgreSQL and passes them to `CoherenceEngine.validate_block()`.
+  - Rejects double-booking of gangs and equipment with `COHERENCE-RULE-3` (`HTTP 400 Bad Request`).
+  - Rejects impossible inter-site transfers exceeding 40.0 km/h relocation physics with `Travel Physics Violation`.
 
-### 13.1 Backend Gang & Machinery API Verification (`TSK-P2-06-BE`)
-- **Seeded Master Entities:**
-  1. `6 Master Maintenance Gangs` seeded across corridor nodes:
-     - `GANG-ENG-PWAY-04` (SBB • Sahibabad Jn, Crew: 14, KM 0.0 - 28.5)
-     - `GANG-ENG-PWAY-07` (ALJN • Aligarh Jn, Crew: 16, KM 100.0 - 150.0)
-     - `GANG-TRD-OHE-02` (GZB • Ghaziabad Jn, Crew: 10, KM 10.0 - 45.0)
-     - `GANG-TRD-OHE-05` (TDL • Tundla Jn, Crew: 12, KM 180.0 - 240.0)
-     - `GANG-SNT-SIG-01` (NDLS • New Delhi, Crew: 8, KM 0.0 - 15.0)
-     - `GANG-SNT-SIG-03` (CNB • Kanpur Central, Crew: 10, KM 400.0 - 440.2)
-  2. `5 Heavy Track Machines` certified with active mechanical fitness:
-     - `CSM-NR-092`: Continuous Action Tamper (09-32 CSM, Depot: NDLS, Status: AVAILABLE)
-     - `BCM-NR-104`: Ballast Cleaning Machine (RM-80 BCM, Depot: GZB, Status: AVAILABLE)
-     - `DTS-NR-62N`: Dynamic Track Stabilizer (DGS 62N, Depot: ALJN, Status: AVAILABLE)
-     - `TW-NR-8812`: 8-Wheeler High-Speed OHE Tower Wagon (Depot: GZB, Status: AVAILABLE)
-     - `USFD-NR-03`: Ultrasonic Flaw Detector Digital Trolley (Depot: NDLS, Status: AVAILABLE)
-- **Temporal Availability Filtering:**
-  - `GET /api/v1/departments/gangs/?start_time=...&end_time=...` verified excluding gangs already reserved in active/sanctioned blocks.
-- **Rule 3 Resource Exclusivity Enforcement:**
-  - Attempting concurrent reservation of `GANG-ENG-PWAY-04` across overlapping block windows rejected with `HTTP 400 Bad Request` and `COHERENCE-RULE-3`:
-  ```json
-  {
-    "success": false,
-    "error": {
-      "code": "COHERENCE-RULE-3",
-      "message": "Resource Exclusivity Violation: Gang 'GANG-ENG-PWAY-04' double-booked across overlapping block windows!"
-    }
-  }
-  ```
+---
 
-### 13.2 Frontend Dynamic Logistics Pickers (`TSK-P2-06-FE`)
-- **Component Tested:** `BlockRequestForm.tsx` (Step 2: Machinery Assignment & Crew Roster)
+### 15.2 Automated Test Execution Log (`scripts/test_p2_06_be.py`)
+```text
+================================================================================
+RUNNING AUTOMATED TEST SUITE: TSK-P2-06-BE
+DEPARTMENTAL GANG ROSTERS, HEAVY EQUIPMENT READINESS & RULE 3 EXCLUSIVITY
+================================================================================
+
+================================================================================
+STEP: 1. Authenticating P-Way Track Engineer Persona (eng_track_pway)
+================================================================================
+  [PASS] Authenticated successfully as eng_track_pway. Token received.
+
+================================================================================
+STEP: 2. Querying Gang Rosters (Checking 6 Master Seeded Gangs)
+================================================================================
+  [INFO] Total Gangs Returned: 6
+    - Gang: GANG-ENG-PWAY-04 | Dept: ENG | HQ: SBB | Crew: 14
+    - Gang: GANG-ENG-PWAY-07 | Dept: ENG | HQ: ALJN | Crew: 16
+    - Gang: GANG-SNT-SIG-01 | Dept: SNT | HQ: NDLS | Crew: 8
+    - Gang: GANG-SNT-SIG-03 | Dept: SNT | HQ: CNB | Crew: 10
+    - Gang: GANG-TRD-OHE-02 | Dept: TRD | HQ: GZB | Crew: 10
+    - Gang: GANG-TRD-OHE-05 | Dept: TRD | HQ: TDL | Crew: 12
+  [PASS] Department filter verified (2 ENG gangs found).
+  [PASS] Station filter verified (GANG-ENG-PWAY-07 located at ALJN).
+
+================================================================================
+STEP: 3. Querying Heavy Maintenance Equipment (Checking 5 Heavy Track Machines)
+================================================================================
+  [INFO] Total Heavy Machinery Returned: 5
+    - Machine: BCM-NR-104 | Name: Plasser RM-80 Ballast Cleaning Machine | Type: BALLAST_CLEANER_BCM | Status: AVAILABLE | Fit: True
+    - Machine: DTS-NR-62N | Name: Plasser Dynamic Track Stabilizer (DGS 62N) | Type: DYNAMIC_TRACK_STABILIZER | Status: AVAILABLE | Fit: True
+    - Machine: CSM-NR-092 | Name: Plasser 09-32 CSM Continuous Track Tamper | Type: TRACK_TAMPER_CSM | Status: AVAILABLE | Fit: True
+    - Machine: USFD-NR-03 | Name: Ultrasonic Flaw Detection Digital Trolley | Type: USFD_TROLLEY | Status: AVAILABLE | Fit: True
+    - Machine: TW-NR-8812 | Name: 8-Wheeler High-Speed OHE Tower Wagon | Type: OHE_TOWER_WAGON | Status: AVAILABLE | Fit: True
+  [PASS] Equipment readiness filter verified (5 machines certified fit).
+
+================================================================================
+STEP: 4. Submitting Primary Block Proposal with Gang & Track Tamper Reservation
+================================================================================
+  [PASS] Primary Block Proposal submitted: BLK-20260920-ENG-005
+         Assigned Gang: GANG-ENG-PWAY-04 | Machine: CSM-NR-092
+         Time Window: 2026-11-05 02:00 to 05:00 UTC
+
+================================================================================
+STEP: 5. Verifying Temporal Availability Query Excludes Booked Gang
+================================================================================
+  [PASS] Temporal query verified: Gang 'GANG-ENG-PWAY-04' is correctly excluded from available list during booked window.
+
+================================================================================
+STEP: 6. Attempting Conflicting Block Submission with Double-Booked Gang (Rule 3 Enforcement)
+================================================================================
+  [INFO] Conflicting Block HTTP Response Status: 400
+  [INFO] Conflicting Block Response Payload: {'success': False, 'error': {'code': 'COHERENCE-RULE-3', 'message': "Resource Exclusivity Violation: Gang 'GANG-ENG-PWAY-04' double-booked across overlapping block windows!", 'details': {}}, 'timestamp': '2026-09-20T07:00:01.442724+00:00'}
+  [PASS] Rule 3 Resource Exclusivity successfully enforced!
+         Rejection Code: COHERENCE-RULE-3
+         Rejection Message: Resource Exclusivity Violation: Gang 'GANG-ENG-PWAY-04' double-booked across overlapping block windows!
+
+================================================================================
+[SUCCESS] ALL TSK-P2-06-BE AUTOMATED AUDIT CHECKS PASSED (100% VERIFIED)
+================================================================================
+```
+
+---
+
+### 15.3 Verification Matrix (`TSK-P2-06-BE`)
+| Test Step | Description | Expected Outcome | Actual Outcome | Status |
+|---|---|---|---|:---:|
+| **1** | Persona Authentication | Issue JWT Bearer token for `eng_track_pway` | Token issued, HTTP 200 | **PASS** |
+| **2** | Gang Rosters Query | Retrieve 6 seeded gangs across corridor | 6 gangs returned with valid department codes | **PASS** |
+| **3** | Department & Station Filters | `department=ENG` & `station=ALJN` queries | 2 ENG gangs filtered, ALJN gang isolated | **PASS** |
+| **4** | Equipment Readiness Query | Retrieve 5 heavy track machines | 5 machines returned, all certified mechanically fit | **PASS** |
+| **5** | Primary Block Reservation | Submit block proposal reserving gang & tamper | HTTP 201 Created, block persisted | **PASS** |
+| **6** | Temporal Availability Exemption | Query `/gangs/?start_time=...&end_time=...` | Booked gang `GANG-ENG-PWAY-04` excluded from window | **PASS** |
+| **7** | Rule 3 Double-Booking Prevention | Submit concurrent block for same gang | HTTP 400 `COHERENCE-RULE-3` Resource Exclusivity | **PASS** |
+- **Suite Result:** **100% PASS**
+
+---
+
+### 15.4 PostgreSQL Database Persistence Audit
+- **Tables Inspected:** `departments_gang`, `departments_maintenanceequipment`, `departments_workorder`, `blocks_block`.
+- **Database Status:**
+  - `departments_gang`: 6 records with intact foreign keys to `departments_department` and `auth_user`.
+  - `departments_maintenanceequipment`: 5 records with valid `fitness_expiry_date` (100% compliant).
+  - `blocks_block`: Assigned `gang_id` and `equipment_required` persisted cleanly with atomic transaction integrity.
+
+---
+
+### 15.5 Frontend Machinery & Gang Reservation Pickers (`TSK-P2-06-FE`)
+- **Component Enhanced:** `frontend/src/components/blocks/BlockRequestForm.tsx` (Step 2: Machinery Assignment & Crew Roster).
+- **API Wrappers (`frontend/src/services/api.ts`):** `departmentService.getGangs()`, `departmentService.getEquipment()`.
+- **UI Metadata Badges:** Live badges (`● 5 Units Ready`, `● 6 Gangs Seeded`), machine fitness expiry date (`VALID FIT`), gang headquarters station, assigned track section span, and supervisor details.
 - **Production Asset Build Verification:**
   - Command: `docker exec railway_frontend npm run build`
   - Output: `✓ 1954 modules transformed. dist/assets/index-BOlQIcxB.js (660.32 kB). Built in 8.43s.`
   - Exit code: `0` (Zero compiler or type errors).
-- **Interactive UI Capabilities:**
-  - Dynamic API loading of departmental gangs and machinery upon opening the wizard.
-  - Display of real-time machine fitness expiry dates (`VALID FIT` badge), gang headquarters station, assigned track section span, and supervisor details.
-  - Instant UI toast alert and field highlighting upon Coherence Rule 3 rejection.
+- **Suite Result:** **100% PASS**
 
-### 13.3 End-to-End System & Relocation Physics Audit (`TSK-P2-06-TEST`)
+---
+
+### 15.6 E2E Multi-Department Rosters, Machinery Fitness & 40km/h Physics Audit (`TSK-P2-06-TEST`)
+- **Automated Verification Suite:** `scripts/test_p2_06_test.py`
 - **Execution Output Log:**
   ```text
   ================================================================================
@@ -1370,16 +1453,18 @@ ALL TSK-P2-05-BE TESTS COMPLETED SUCCESSFULLY! (100% PASS)
   ================================================================================
   ```
 
-- **Verification Matrix (`TSK-P2-06-TEST`):**
-  | Test Step | Component Tested | Expected Result | Actual Result | Status |
-  |---|---|---|---|:---:|
-  | **1** | Frontend Server Health | HTTP 200 at `http://localhost:3000` | 200 OK Vite dev server | **PASS** |
-  | **2** | Multi-Department Personas | JWT authentication for ENG, TRD, SNT | Valid bearer tokens issued | **PASS** |
-  | **3** | Department Gang Segregation | 2 gangs per department across corridor | 6 gangs with valid foreign keys | **PASS** |
-  | **4** | Heavy Machinery Roster | 5 machine types with active fitness | 100% mechanical fitness valid | **PASS** |
-  | **5** | Rule 3 Double-Booking | Rejection of concurrent gang assignment | HTTP 400 `COHERENCE-RULE-3` | **PASS** |
-  | **6** | Rule 3 Relocation Physics | Rejection if required speed > 40 km/h | HTTP 400 Travel Physics Violation | **PASS** |
-  | **7** | Production Build Audit | Zero compilation or TypeScript errors | `dist/index.html` built cleanly | **PASS** |
+---
+
+### 15.7 E2E Verification Matrix (`TSK-P2-06-TEST`)
+| Test Step | Component Tested | Expected Result | Actual Result | Status |
+|---|---|---|---|:---:|
+| **1** | Frontend Server Health | HTTP 200 at `http://localhost:3000` | 200 OK Vite dev server | **PASS** |
+| **2** | Multi-Department Personas | JWT authentication for ENG, TRD, SNT | Valid bearer tokens issued | **PASS** |
+| **3** | Department Gang Segregation | 2 gangs per department across corridor | 6 gangs with valid foreign keys | **PASS** |
+| **4** | Heavy Machinery Roster | 5 machine types with active fitness | 100% mechanical fitness valid | **PASS** |
+| **5** | Rule 3 Relocation Physics | Rejection if required speed > 40 km/h | HTTP 400 Travel Physics Violation | **PASS** |
+| **6** | Production Build Audit | Zero compilation or TypeScript errors | `dist/index.html` built cleanly | **PASS** |
 - **Suite Result:** **100% PASS**
+
 
 

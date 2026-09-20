@@ -140,7 +140,34 @@ class RajdhaniDelayCascadeScenario(BaseScenario):
         )
         self.wait(1.0)
 
-        # Step 5: Automated Gang Alerts
+        # Step 5: Automated Gang Alerts & SMS Dispatch
+        try:
+            from apps.notifications.models import (
+                Notification, NotificationDeliveryLog, NotificationPriority,
+                NotificationCategory, DeliveryChannel, DeliveryStatus
+            )
+            notif = Notification.objects.create(
+                title="Schedule Shift Notice: BLK-ENG-CNB-05",
+                message_body=(
+                    "TIMETABLE UPDATE: Block BLK-ENG-CNB-05 (KM 314.0 to 316.5) shifted by +45 mins to 03:15 IST "
+                    "due to Rajdhani Express 12424 headway priority. CSM-092 Tamper gang standby on siding."
+                ),
+                priority=NotificationPriority.URGENT_ACTION,
+                category=NotificationCategory.TRAIN_DELAY_ALERT,
+                target_entity_type="BLOCK",
+                target_entity_id="BLK-ENG-CNB-05",
+                recipient_role="ALL"
+            )
+            NotificationDeliveryLog.objects.create(
+                notification=notif,
+                channel=DeliveryChannel.SMS_GATEWAY,
+                delivery_status=DeliveryStatus.DELIVERED,
+                external_reference_id="CDAC-SMS-GANG-03",
+                dispatched_at=timezone.now()
+            )
+        except Exception as e:
+            self.log(f"Notification dispatch error (handled): {e}")
+
         self.log_step(
             step_number=5,
             title="Field Gang Dispatch & Timeline Gantt Resynchronization",
@@ -149,7 +176,8 @@ class RajdhaniDelayCascadeScenario(BaseScenario):
                 "sms_recipient": "Gang 03 Supervisor (Ram Singh)",
                 "notification_status": "DELIVERED",
                 "gantt_status": "RESYNCHRONIZED",
-                "corridor_punctuality": "PRESERVED"
+                "corridor_punctuality": "PRESERVED",
+                "sms_reference": "CDAC-SMS-GANG-03"
             },
             event_type="GANG_ALERT_DISPATCHED",
             event_payload={"gang_id": "GANG-CNB-03", "status": "CONFIRMED", "shift": "+45m"},

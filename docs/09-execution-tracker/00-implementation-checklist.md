@@ -166,7 +166,7 @@
 
 - [x] **TSK-FINAL-01:** Execute Presentation Scenario A: "Morning Dashboard" (Chief Controller Login -> Corridor 3D Map -> 8 Blocks -> "Why #1?" Card).
 - [x] **TSK-FINAL-02:** Execute Presentation Scenario B: "Conflict -> Combined Block USP" (ENG vs TRD Overlap -> AI Combined Suggestion -> 1-Click Sanction -> SMS).
-- [ ] **TSK-FINAL-03:** Execute Presentation Scenario C: "Live Disruption & Breathing Plan" (Rajdhani 45m Late -> Cascade Recalculator -> Window Shift -> Auto SMS).
+- [x] **TSK-FINAL-03:** Execute Presentation Scenario C: "Live Disruption & Breathing Plan" (Rajdhani 45m Late -> Cascade Recalculator -> Window Shift -> Auto SMS).
 - [ ] **TSK-FINAL-04:** Execute Presentation Scenario D: "Zero-Fatality Digital Safety Protocol" (Digital Token #71 -> LOTO #81 -> Clearance Photo #82 -> Track GREEN).
 - [ ] **TSK-FINAL-05:** Verify Wallboard Presentation Mode (`/bigscreen`) on 1080p and 4K displays with continuous live streaming (`stream_demo_data`).
 

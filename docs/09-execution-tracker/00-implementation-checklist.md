@@ -146,7 +146,7 @@
 ## Phase 4: Observability, Hardening & Analytics
 
 ### Feature: Corridor Key Performance Indicators (KPI)
-- [ ] **TSK-P4-01-BE:** Implement daily OLAP aggregations for punctuality, block counts, shadow block bundling ratios, and TQI scores.
+- [x] **TSK-P4-01-BE:** Implement daily OLAP aggregations for punctuality, block counts, shadow block bundling ratios, and TQI scores.
 - [ ] **TSK-P4-01-FE:** Implement Big Screen Wallboard Dashboard with live KPI counters, charts, and 4K display optimization.
 - [ ] **TSK-P4-01-TEST:** Seed demo data and verify the Wallboard numbers update correctly.
 

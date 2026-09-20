@@ -1566,6 +1566,69 @@ python scripts/test_p3_04_test.py
 - ওভাররাইড চেকবক্সে টিক না দেওয়া পর্যন্ত "SANCTION BLOCK" বাটন অক্ষম থাকবে।
 - নিরাপত্তা নিশ্চিত করে চেকবক্সে টিক দিলে তবেই সফলভাবে স্যাংশন সম্পন্ন হবে।
 
+---
+
+## ৩৭. ইউজার টেস্টিং গাইড: দৈনিক OLAP অ্যাগ্রিগেশন — পাঙ্কচুয়ালিটি, ব্লক কাউন্ট, শ্যাডো ব্লক বান্ডলিং রেশিও ও TQI স্কোর (`TSK-P4-01-BE`)
+
+### ৩৭.১ ফিচারের মূল উদ্দেশ্য ও আর্কিটেকচার
+রেলওয়ের কেন্দ্রীয় অপারেশন এবং সিনিয়র ম্যানেজমেন্টের জন্য দৈনিক ভিত্তিতে করিডোরের পারফরম্যান্স এবং ট্র্যাকের গুণগত মান ট্র্যাক করা অত্যন্ত জরুরি। এই ফিচারে ব্যাকএন্ডে আন্তর্জাতিক রেলওয়ে স্ট্যান্ডার্ড (RDSO TRC) অনুযায়ী ৪টি মূল OLAP ডাইমেনশন বাস্তবায়ন করা হয়েছে:
+
+১. **পাঙ্কচুয়ালিটি ও বিলম্ব ক্ষয়ক্ষতি হিসাব (Punctuality & Delay Incurred):**
+   - লাইভ ট্রেন টেলিমেট্রি এবং শিডিউল ট্র্যাকিং থেকে অন-টাইম ট্রেনের অনুপাত নির্ণয় এবং ১০ মিনিটের বেশি বিলম্বিত ট্রেনের কারণে করিডোর পাঙ্কচুয়ালিটি পার্সেন্টেজ ($0-100\%$) ও মোট বিলম্ব মিনিট নির্ণয়।
+২. **ব্লক কাউন্টস ও পজেশন ইউটিলাইজেশন (Block Counts & Possession Utilization):**
+   - দিনে কতগুলো ব্লক অনুরোধ করা হয়েছে (`total_blocks_requested`), কতগুলো অনুমোদিত হয়েছে (`total_blocks_sanctioned`), কতগুলো সম্পন্ন হয়েছে (`total_blocks_executed`) এবং কতগুলো বাতিল বা প্রত্যাখ্যাত হয়েছে (`cancelled_blocks_count`)।
+   - স্যাংশন সময়ের বিপরীতে প্রকৃত কাজের সময় তুলনা করে পজেশন ইউটিলাইজেশন রেট নির্ণয়।
+৩. **শ্যাডো ব্লক বান্ডলিং রেশিও (Shadow Block Bundling Ratio %):**
+   - ট্রাফিকের ব্যাঘাত না ঘটিয়ে একই ব্লকের ছত্রছায়ায় একাধিক বিভাগের (P-Way, OHE, Signal) যৌথ কাজের অনুপাত:
+     $$\text{Bundling Ratio (\%)} = \left(\frac{\text{shadow\_blocks\_count}}{\max(1, \text{total\_blocks\_sanctioned})}\right) \times 100$$
+   - প্রতি বান্ডিল পজেশনে আনুমানিক ২.৫ ঘণ্টা ট্র্যাকের সময় এবং ৪৫ মিনিট ট্রেন বিলম্ব সাশ্রয় হিসাব করা হয়।
+৪. **ট্র্যাক কোয়ালিটি ইনডেক্স বা TQI স্কোর (Track Quality Index - RDSO TRC Standards):**
+   - ট্র্যাক রেকর্ডিং কার (TRC) রান থেকে করিডোরের সমস্ত ট্র্যাক অ্যাসেটের গড় TQI স্কোর হিসাব করা হয় এবং ইঞ্জিনিয়ারিং শ্রেণিবিন্যাস প্রদান করা হয়:
+     - $\text{TQI} < ২০.০ \implies \text{EXCELLENT}$ (উচ্চগতির ট্রেনের জন্য আদর্শ)
+     - $২০.০ \le \text{TQI} \le ৩০.০ \implies \text{GOOD}$ (স্বাভাবিক নিরাপদ ট্র্যাক)
+     - $৩০.০ < \text{TQI} \le ৪৫.০ \implies \text{FAIR}$ (নজরদারিতে রাখা প্রয়োজন)
+     - $\text{TQI} > ৪৫.০ \implies \text{URGENT\_MAINTENANCE}$ (অবিলম্বে ট্র্যাক ট্যাম্পিং/ব্যালাস্টিং ব্লক বাধ্যতামূলক)
+
+---
+
+### ৩৭.২ স্বয়ংক্রিয় ব্যাকএন্ড টেস্ট স্ক্রিপ্ট চালান (Automated Verification)
+
+পাওয়ারশেল বা টার্মিনাল থেকে নিচের কমান্ডটি চালান:
+
+```powershell
+docker exec railway_backend python scripts/test_p4_01_be.py
+```
+
+#### টেস্ট স্ক্রিপ্ট যা যা স্বয়ংক্রিয়ভাবে যাচাই করে:
+1. **চিফ কন্ট্রোলার অথেনটিকেশন:** `coa_delhi_chief` persona দিয়ে অথেনটিকেশন ও করিডোর লিংকেজ নিশ্চিতকরণ।
+2. **অ্যাসেট TQI অডিট:** করিডোরের ৫৭টি ট্র্যাক অ্যাসেটের মধ্যে RDSO TRC TQI মেজারমেন্ট (১৮.৪০ থেকে ২৬.৮০) যাচাই।
+3. **ব্লক পজেশন ও শ্যাডো বান্ডলিং সিডিং:** প্রাইমারি, শ্যাডো, সাধারণ এবং বাতিল ব্লক ডাটাবেসে সিড করা।
+4. **ম্যাথমেটিক্যাল OLAP রিক্যাপ:** রিয়েল-টাইমে বান্ডলিং রেশিও (২০.০%), TQI গড় (২৬.২০ - GOOD) এবং পাঙ্কচুয়ালিটি হিসাব।
+5. **এক্সিকিউটিভ ড্যাশবোর্ড সামারি REST API:** `GET /api/v1/analytics/dashboard/summary/?corridor=NDLS-CNB-MAIN&range=7d` এন্ডপয়েন্ট থেকে ১৬টি KPI কার্ড ডেটা যাচাই।
+6. **অন-ডিমান্ড OLAP রিক্যালকুলেশন API:** `POST /api/v1/analytics/kpi/recalculate/` কল করে মধ্যরাতের সেলেরি টাস্কের অপেক্ষা ছাড়াই তাৎক্ষণিক রিক্যালকুলেশন যাচাই।
+7. **মাল্টি-করিডোর কম্প্যারিজন API:** `GET /api/v1/analytics/corridors/comparison/` এন্ডপয়েন্টে করিডোরগুলোর তুলনামূলক TQI ও বান্ডলিং রেশিও র্যাঙ্কিং পর্যবেক্ষণ।
+8. **সরাসরি PostgreSQL ডাটাবেজ অডিট:** `corridor_daily_kpis` টেবিলে সমস্ত নতুন কলামের পারসিসটেন্স নিশ্চিতকরণ।
+
+---
+
+### ৩৭.৩ ম্যানুয়াল REST API ও ডাটাবেজ পরীক্ষা (cURL / PowerShell)
+
+#### ১. এক্সিকিউটিভ ড্যাশবোর্ড সামারি কল করা:
+```powershell
+$token = (Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/login/" -Method Post -Body '{"username":"coa_delhi_chief","password":"railway@123"}' -ContentType "application/json").data.access_token
+
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/analytics/dashboard/summary/?corridor=NDLS-CNB-MAIN&range=7d" -Method Get -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Depth 4
+```
+*(রেসপন্সে `shadow_bundling_ratio_pct`, `average_tqi_score`, `tqi_status`, `total_blocks_sanctioned` ইত্যাদি কার্ড দেখতে পাবেন।)*
+
+#### ২. তাত্ক্ষণিক অন-ডিমান্ড OLAP রিক্যালকুলেশন ট্রিগার করা:
+```powershell
+$body = '{"corridor":"NDLS-CNB-MAIN"}'
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/analytics/kpi/recalculate/" -Method Post -Body $body -ContentType "application/json" -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Depth 4
+```
+*(রেসপন্সে `recalculated: true` সহ তাজা গণনাকৃত OLAP অবজেক্ট রিটার্ন হবে।)*
+
+
 
 
 

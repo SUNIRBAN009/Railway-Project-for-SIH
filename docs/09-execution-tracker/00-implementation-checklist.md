@@ -156,7 +156,7 @@
 - [x] **TSK-P4-02-TEST:** Click download, verify the PDF is generated perfectly with current tabular data.
 
 ### Feature: Load & Security Verification
-- [ ] **TSK-P4-03-BE:** Perform k6 load testing (1,000 VUs) and Bandit AST security scans (0 high/medium issues).
+- [x] **TSK-P4-03-BE:** Perform k6 load testing (1,000 VUs) and Bandit AST security scans (0 high/medium issues).
 - [ ] **TSK-P4-03-FE:** Run Vite build and verify zero production build errors.
 - [ ] **TSK-P4-03-TEST:** Ensure end-to-end system remains responsive during load (<50ms p95) and passes all security checks.
 

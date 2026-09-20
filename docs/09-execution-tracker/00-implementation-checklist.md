@@ -132,7 +132,7 @@
 - [x] **TSK-P3-02-TEST:** Trigger a simulated rail fracture in backend and verify the UI displays the flaw heatmap and "Why #1?" card immediately.
 
 ### Feature: Emergency USFD Alert Modal & Chime
-- [ ] **TSK-P3-03-BE:** Implement WebSocket broadcast `EMERGENCY_ALERT` payload generation for catastrophic flaws.
+- [x] **TSK-P3-03-BE:** Implement WebSocket broadcast `EMERGENCY_ALERT` payload generation for catastrophic flaws.
 - [ ] **TSK-P3-03-FE:** Implement full-screen Emergency Containment Modal and Web Audio API chime.
 - [ ] **TSK-P3-03-TEST:** Trigger an emergency broadcast and verify the frontend plays the loud audio chime and blocks the screen until acknowledged.
 

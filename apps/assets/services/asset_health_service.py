@@ -287,8 +287,119 @@ class AssetHealthService:
         except Exception as pub_err:
             logger.debug(f"Redis publish skipped/non-fatal: {pub_err}")
 
+        # Broadcast real-time WebSocket EMERGENCY_ALERT frame across Daphne ASGI (TSK-P3-03-BE)
+        cls.broadcast_emergency_alert(defect, emergency_block)
+
         logger.info(f"Automated Emergency Block {emergency_block.block_code} created for defect {defect.defect_code}")
         return emergency_block
+
+    @classmethod
+    def broadcast_emergency_alert(cls, defect: AssetDefectLog, emergency_block: Block) -> Dict[str, Any]:
+        """
+        TSK-P3-03-BE: Real-Time WebSocket broadcast of EMERGENCY_ALERT payload
+        across Daphne ASGI / Redis channel layer groups:
+        - `corridor_{corridor_code.lower()}`
+        - `corridor_all`
+        - `emergency_all`
+        - `notifications_general`
+        - `role_coa`, `dept_eng`, `dept_trd`, `dept_snt`
+        Also persists in-app notification in SVC-NOTIF with CRITICAL_ALARM priority.
+        """
+        asset = defect.asset
+        corridor = asset.corridor
+        speed_restriction = defect.recommended_speed_restriction_kmh or 30
+
+        alert_id = f"EMG-{str(uuid.uuid4())[:8].upper()}"
+        flaw_name = defect.get_defect_type_display() if hasattr(defect, 'get_defect_type_display') else defect.defect_type
+        title = "CRITICAL USFD TRACK HALT DECLARED"
+        message = (
+            f"Ultrasonic Flaw Detector (USFD) confirmed {flaw_name} on {asset.asset_tag} "
+            f"at KM {float(asset.location_km):.1f} ({corridor.name}). Automated emergency possession "
+            f"{emergency_block.block_code} active with 500m safety buffer. Speed restricted to {speed_restriction} km/h."
+        )
+
+        payload = {
+            "type": "EMERGENCY_ALERT",
+            "priority": "CRITICAL_ALARM",
+            "id": alert_id,
+            "title": title,
+            "message": message,
+            "corridor": corridor.code,
+            "corridor_code": corridor.code,
+            "km_location": float(asset.location_km),
+            "kmLocation": float(asset.location_km),
+            "block_id": str(emergency_block.id),
+            "block_code": emergency_block.block_code,
+            "defect_id": str(defect.id),
+            "defect_code": defect.defect_code,
+            "defect_type": defect.defect_type,
+            "severity": defect.severity,
+            "caution_speed_kmh": speed_restriction,
+            "flaw_depth_mm": float(defect.flaw_depth_mm) if defect.flaw_depth_mm else None,
+            "risk_score": float(defect.final_risk_score) if defect.final_risk_score else 25.0,
+            "risk_category": defect.risk_category or "EXTREME_RISK",
+            "timestamp": timezone.now().isoformat(),
+            "extra_data": {
+                "caution_order_id": emergency_block.caution_order_id,
+                "start_km": float(emergency_block.start_km),
+                "end_km": float(emergency_block.end_km),
+                "line_type": emergency_block.line_type,
+            }
+        }
+
+        # 1. Broadcast via Django Channels / Daphne ASGI
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                groups = [
+                    f"corridor_{corridor.code.lower()}",
+                    "corridor_all",
+                    "emergency_all",
+                    "notifications_general",
+                    "role_coa",
+                    "dept_eng",
+                    "dept_trd",
+                    "dept_snt",
+                ]
+                # Sub-corridor trunk prefix
+                parts = corridor.code.lower().split('-')
+                if len(parts) > 2:
+                    groups.append(f"corridor_{'-'.join(parts[:-1])}")
+
+                for group in set(groups):
+                    try:
+                        async_to_sync(channel_layer.group_send)(
+                            group,
+                            {
+                                "type": "emergency_alert",
+                                "data": payload,
+                            }
+                        )
+                    except Exception as grp_err:
+                        logger.warning(f"Error sending emergency_alert to group {group}: {grp_err}")
+                logger.info(f"EMERGENCY_ALERT payload broadcasted to groups: {list(set(groups))}")
+        except Exception as ch_err:
+            logger.warning(f"Channel layer emergency broadcast failed: {ch_err}")
+
+        # 2. Persist in-app Notification record in database
+        try:
+            from apps.notifications.models import Notification, NotificationPriority, NotificationCategory
+            Notification.objects.create(
+                recipient_role='ALL',
+                priority=NotificationPriority.CRITICAL_ALARM,
+                category=NotificationCategory.CRITICAL_DEFECT_DETECTED,
+                title=title,
+                message_body=message,
+                target_entity_type='BLOCK',
+                target_entity_id=str(emergency_block.id),
+            )
+        except Exception as notif_err:
+            logger.warning(f"Failed to log in-app notification: {notif_err}")
+
+        return payload
 
     @classmethod
     def register_defect(cls, asset: TrackAsset, defect_data: Dict[str, Any]) -> Tuple[AssetDefectLog, Optional[Block]]:

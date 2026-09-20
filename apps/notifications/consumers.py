@@ -27,6 +27,10 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(general_group, self.channel_name)
         self.groups_joined.add(general_group)
 
+        # Universal emergency alert group
+        await self.channel_layer.group_add("emergency_all", self.channel_name)
+        self.groups_joined.add("emergency_all")
+
         # 2. Join authenticated user, role, and department channels
         await self._join_user_groups()
 
@@ -129,6 +133,26 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
                 "payload": data,
             })
 
+    async def emergency_alert(self, event):
+        """
+        Handler invoked when emergency.alert message is sent to group.
+        Dispatches high-priority EMERGENCY_ALERT frame to client.
+        """
+        data = event.get('data', {})
+        if isinstance(data, dict):
+            out_frame = dict(data)
+            out_frame.setdefault('type', 'EMERGENCY_ALERT')
+            out_frame.setdefault('priority', 'CRITICAL_ALARM')
+            out_frame.setdefault('timestamp', timezone.now().isoformat())
+            await self.send_json(out_frame)
+        else:
+            await self.send_json({
+                "type": "EMERGENCY_ALERT",
+                "priority": "CRITICAL_ALARM",
+                "payload": data,
+                "timestamp": timezone.now().isoformat(),
+            })
+
 
 class CorridorConsumer(AsyncJsonWebsocketConsumer):
     """
@@ -149,6 +173,10 @@ class CorridorConsumer(AsyncJsonWebsocketConsumer):
         # 2. Universal corridor group
         await self.channel_layer.group_add("corridor_all", self.channel_name)
         self.groups_joined.add("corridor_all")
+
+        # 3. Universal emergency alert group
+        await self.channel_layer.group_add("emergency_all", self.channel_name)
+        self.groups_joined.add("emergency_all")
 
         # 3. Base corridor group if sub-corridor is specified (e.g. NDLS-GZB-UP -> NDLS-GZB)
         parts = self.corridor_code.lower().split('-')
@@ -283,4 +311,27 @@ class CorridorConsumer(AsyncJsonWebsocketConsumer):
                 "type": "corridor_event",
                 "corridor": self.corridor_code,
                 "payload": data,
+            })
+
+    async def emergency_alert(self, event):
+        """
+        Handler invoked when emergency.alert message is sent to corridor or emergency_all groups.
+        Dispatches high-priority EMERGENCY_ALERT frame to corridor client.
+        """
+        data = event.get('data', {})
+        if isinstance(data, dict):
+            out_frame = dict(data)
+            out_frame.setdefault('type', 'EMERGENCY_ALERT')
+            out_frame.setdefault('priority', 'CRITICAL_ALARM')
+            out_frame.setdefault('corridor', self.corridor_code)
+            out_frame.setdefault('corridor_code', self.corridor_code)
+            out_frame.setdefault('timestamp', timezone.now().isoformat())
+            await self.send_json(out_frame)
+        else:
+            await self.send_json({
+                "type": "EMERGENCY_ALERT",
+                "priority": "CRITICAL_ALARM",
+                "corridor": self.corridor_code,
+                "payload": data,
+                "timestamp": timezone.now().isoformat(),
             })

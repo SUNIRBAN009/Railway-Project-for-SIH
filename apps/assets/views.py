@@ -333,3 +333,102 @@ class RiskMatrixScoringView(APIView):
         }
 
         return ApiResponse.success(data=response_payload)
+
+
+class EmergencyAlertBroadcastView(APIView):
+    """
+    TSK-P3-03-BE: Trigger manual or simulated emergency track halt broadcast (EMERGENCY_ALERT)
+    over Daphne Channels and auto-provision an emergency block in SVC-BLK.
+    POST /api/v1/assets/emergency-alert/
+    Payload:
+      - corridor: Corridor code (e.g. NDLS-CNB-MAIN)
+      - km_location: Milepost KM (float)
+      - reason: string (e.g. "USFD Rail Fatigue Fracture")
+      - caution_speed_kmh: int (optional, default 20)
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        import uuid
+        from datetime import timedelta
+        from decimal import Decimal
+        from django.utils import timezone
+        from apps.assets.models import DefectType, DefectSeverity
+        from apps.blocks.models import Corridor, Block, BlockStatus, WorkType, DepartmentCode
+
+        corridor_code = request.data.get('corridor') or request.data.get('corridor_code') or 'NDLS-CNB-MAIN'
+        km_location = request.data.get('km_location') or request.data.get('kmLocation') or 14.8
+        reason = request.data.get('reason') or "USFD Rail Fatigue Fracture (Transverse Crack)"
+        caution_speed = int(request.data.get('caution_speed_kmh') or 20)
+
+        # Locate corridor
+        try:
+            corridor = Corridor.objects.get(code=corridor_code)
+        except Corridor.DoesNotExist:
+            corridor = Corridor.objects.first()
+
+        loc_km = float(km_location)
+        start_km = round(max(float(corridor.start_km), loc_km - 0.5), 3)
+        end_km = round(min(float(corridor.end_km), loc_km + 0.5), 3)
+
+        # Locate or create track asset at this location
+        asset = TrackAsset.objects.filter(corridor=corridor, location_km=Decimal(str(loc_km))).first()
+        if not asset:
+            asset = TrackAsset.objects.create(
+                asset_tag=f"AST-{corridor.code[:8]}-{int(loc_km)}KM",
+                corridor=corridor,
+                location_km=Decimal(str(loc_km)),
+                asset_category="PERMANENT_WAY",
+                sub_type="60KG_UIC_RAIL",
+                line_type="UP"
+            )
+
+        # Register critical defect
+        defect = AssetDefectLog.objects.create(
+            asset=asset,
+            defect_code=f"DEF-{uuid.uuid4().hex[:8].upper()}",
+            defect_type=DefectType.INTERNAL_RAIL_FRACTURE,
+            severity=DefectSeverity.CRITICAL_IMMEDIATE_STOP,
+            flaw_depth_mm=Decimal("15.5"),
+            recommended_speed_restriction_kmh=caution_speed,
+            cof_score=5,
+            lof_score=5,
+            description=reason
+        )
+
+        short_id = str(uuid.uuid4())[:8].upper()
+        block_code = f"BLK-EMG-{short_id}"
+        caution_id = f"CO-EMG-{short_id[:6]}"
+
+        now = timezone.now()
+        emergency_block = Block.objects.create(
+            block_code=block_code,
+            corridor=corridor,
+            line_type=asset.line_type,
+            department_code=DepartmentCode.ENG,
+            work_type=WorkType.RAIL_RENEWAL,
+            start_km=start_km,
+            end_km=end_km,
+            scheduled_start_time=now,
+            scheduled_end_time=now + timedelta(hours=2),
+            status=BlockStatus.PENDING_APPROVAL,
+            caution_order_id=caution_id,
+            work_description=f"[EMERGENCY TRACK HALT] {reason} at KM {loc_km}. Caution speed: {caution_speed} km/h."
+        )
+
+        defect.emergency_block_id = str(emergency_block.id)
+        defect.block_recommended = True
+        defect.save(update_fields=['emergency_block_id', 'block_recommended'])
+
+        # Broadcast real-time EMERGENCY_ALERT frame across Daphne ASGI
+        payload = AssetHealthService.broadcast_emergency_alert(defect, emergency_block)
+
+        return ApiResponse.success(
+            data={
+                "alert_broadcast": True,
+                "payload": payload,
+                "block_code": emergency_block.block_code,
+                "defect_code": defect.defect_code,
+            },
+            message="Emergency track halt broadcasted successfully."
+        )

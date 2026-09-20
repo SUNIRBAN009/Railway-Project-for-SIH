@@ -14,6 +14,7 @@ urlpatterns = [
     path('risk-matrix/', views.RiskMatrixScoringView.as_view(), name='risk_matrix'),
     path('maintenance-recommendations/', views.MaintenanceRecommendationsView.as_view(), name='maintenance_recommendations'),
     path('tqi/calculate/', views.TQICalculateView.as_view(), name='tqi_calculate'),
+    path('emergency-alert/', views.EmergencyAlertBroadcastView.as_view(), name='emergency_alert'),
     path('<str:asset_tag_or_id>/', views.TrackAssetDetailView.as_view(), name='asset_detail'),
     path('', include(router.urls)),
 ]

@@ -1324,3 +1324,52 @@ python scripts/test_p3_02_test.py
 ```
 *এই স্ক্রিপ্টটি একটি মারাত্মক রেল ফ্র্যাকচার ব্যাকএন্ডে সিমুলেট করবে, মুহূর্তের মধ্যে (১৬৯.৫৪ মিলি-সেকেন্ডে) ৫০০ মিটার বাফার সহ `BLK-EMG-...` জরুরি ব্লক তৈরি করবে এবং সাথে সাথে (৩০.২৬ মিলি-সেকেন্ডে) রিস্ক ম্যাট্রিক্সে ত্রুটিটি শীর্ষ #1 কার্ডে প্রজেক্ট করবে।*
 
+---
+
+## ৩২. Phase 3: ক্যাটাগরিক্যাল রেল ফ্র্যাকচার ওয়েবসকেট `EMERGENCY_ALERT` ব্রডকাস্ট ভেরিফিকেশন (`TSK-P3-03-BE`)
+
+### ৩২.১ ফিচার ওভারভিউ ও আর্কিটেকচার
+রেলওয়ের সুরক্ষা অখণ্ডতা স্তর ৪ (Safety Integrity Level - SIL-4) মানদণ্ড অনুযায়ী, কোনো সেকশনে মারাত্মক আল্ট্রাসনিক রেল ক্র্যাক (১২ মিমি বা তার বেশি গভীরতার ফাটল), ক্যাটেনারি তার ছিঁড়ে যাওয়া বা ট্র্যাক বাকলিং শনাক্ত হওয়ামাত্র:
+1. **Daphne ASGI Channels ব্রডকাস্ট:** তাৎক্ষণিকভাবে চ্যানেল লেয়ারের মাধ্যমে ৯টি পৃথক গ্রুপে (যথা: `corridor_{code}`, `corridor_all`, `emergency_all`, `notifications_general`, `role_coa`, `dept_eng`, ইত্যাদি) রিয়েল-টাইমে `EMERGENCY_ALERT` ফ্রেম ছড়িয়ে দেওয়া হয়।
+2. **আল্ট্রা-লো লেটেন্সি:** মাত্র **১.০০ মিলি-সেকেন্ডে** ক্লায়েন্ট ব্রাউজার ও কন্ট্রোলার কনসোলে অ্যালার্ট ফ্রেমটি পৌঁছে যায়।
+3. **কন্ট্রোলার ম্যানুয়াল এমার্জেন্সি ট্র্যাকিং:** চিফ কন্ট্রোলার যে কোনো সময় সরাসরি `POST /api/v1/assets/emergency-alert/` কলের মাধ্যমে করিডোরের নির্দিষ্ট কিলোমিটারে এমার্জেন্সি ব্লক ও ব্রডকাস্ট জারি করতে পারেন।
+4. **ডাটাবেজ অডিট ট্রেইল:** সিস্টেমে `CRITICAL_ALARM` প্রায়োরিটি এবং `CRITICAL_DEFECT_DETECTED` ক্যাটাগরিতে স্থায়ী ইন-অ্যাপ নোটিফিকেশন সংরক্ষিত হয়।
+
+---
+
+### ৩২.২ স্বয়ংক্রিয় টেস্ট স্ক্রিপ্ট চালান (Automated Verification)
+
+PowerShell বা টার্মিনালে নিচের কমান্ডটি চালিয়ে ৭-স্টেপ স্বয়ংক্রিয় ওয়েবসকেট ব্রডকাস্ট টেস্ট পর্যবেক্ষণ করুন:
+
+```powershell
+python scripts/test_p3_03_be.py
+```
+
+**এই স্ক্রিপ্টটি যা যা যাচাই করে:**
+1. **Persona Authentication:** পি-ওয়ে ট্র্যাক ইঞ্জিনিয়ার ও চিফ কন্ট্রোলার হিসেবে লগইন ও টোকেন সংগ্রহ।
+2. **Corridor WebSocket Connect:** `/ws/corridor/ALL/` স্ট্রিমে কানেক্ট হয়ে `emergency_all` গ্রুপে সাবস্ক্রিপশন যাচাই।
+3. **Notifications WebSocket Connect:** `/ws/notifications/` স্ট্রিমে কানেক্ট হয়ে ইউনিভার্সাল অ্যালার্ট গ্রুপ অডিট।
+4. **Catastrophic Defect Ingestion:** ১৬.৫ মিমি গভীরতার মারাত্মক ফ্র্যাকচার রিপোর্ট এবং স্বয়ংক্রিয় `BLK-EMG-...` ব্লক তৈরি হওয়া (১৬১.১৬ মিলি-সেকেন্ডে)।
+5. **Real-Time EMERGENCY_ALERT Interception:** ওয়েবসকেটে মাত্র **১.০০ মিলি-সেকেন্ডে** `EMERGENCY_ALERT` ফ্রেম রিসিভ করা (ব্লক কোড, কেএম লোকেশন ও ২০ কিমি/ঘণ্টা কশন স্পিড সহ)।
+6. **Manual Controller Trigger API:** কন্ট্রোলার কর্তৃক কেএম ২৮.৫-এ ম্যানুয়াল ট্রাফিক হল্ট জারি করে ওয়েবসকেটে তাৎক্ষণিক রিসিভ নিশ্চিত করা।
+7. **PostgreSQL Audit:** ডাটাবেজে পারসিসটেন্ট `Notification` রেকর্ড যাচাই।
+
+---
+
+### ৩২.৩ ম্যানুয়াল API টেস্ট (REST / cURL)
+
+#### কন্ট্রোলার হিসেবে ম্যানুয়াল এমার্জেন্সি ব্রডকাস্ট পাঠানো:
+```powershell
+$token = (Invoke-RestMethod -Uri "http://localhost:8000/api/v1/auth/login/" -Method Post -Body '{"username":"coa_delhi_chief","password":"railway@123"}' -ContentType "application/json").data.access_token
+
+$body = @{
+    corridor = "NDLS-CNB-MAIN"
+    km_location = 18.4
+    reason = "Sudden 25kV OHE Catenary Wire Dropper Parting"
+    caution_speed_kmh = 15
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/assets/emergency-alert/" -Method Post -Body $body -ContentType "application/json" -Headers @{ Authorization = "Bearer $token" } | ConvertTo-Json -Depth 4
+```
+*(এটি কল করামাত্র সংযুক্ত সমস্ত ব্রাউজারে লাল এমার্জেন্সি অ্যালার্ট মোডাল ট্রিগার হবে।)*
+

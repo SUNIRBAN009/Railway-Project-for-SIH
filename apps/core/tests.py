@@ -62,7 +62,7 @@ class PrometheusTelemetryTests(TestCase):
 
         # Create KPI record
         self.kpi = CorridorDailyKPI.objects.create(
-            metric_date=timezone.now().date(),
+            metric_date=timezone.localdate(),
             corridor_code='NDLS-CNB-METRICS',
             division_code='DLI',
             corridor_punctuality_percentage=Decimal('96.80'),

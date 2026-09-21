@@ -7,11 +7,13 @@ import { CrewAssignment } from '../components/departments/CrewAssignment';
 import { MaterialInventory } from '../components/departments/MaterialInventory';
 import { CalendarView } from '../components/blocks/CalendarView';
 import { Block } from '../types';
+import { useBlockStore } from '../stores/blockStore';
 import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import {
   Zap,
   Plus,
   AlertTriangle,
+  Clock,
   Layers,
   Calendar,
   Users,
@@ -23,10 +25,12 @@ import {
 
 export const TrdDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BLOCKS' | 'PROPOSE' | 'TIMELINE' | 'CREW' | 'INVENTORY' | 'CALENDAR'>('BLOCKS');
-  const { blocks, setBlocks, refetch } = useLiveBlocks('TRD');
+  const { blocks: storeBlocks, submitBlockProposal } = useBlockStore();
+  const { blocks: liveBlocks, setBlocks, refetch } = useLiveBlocks('TRD');
+  const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks.filter((b) => b.department_code === 'TRD');
 
-  const handleBlockCreated = (newBlock: Partial<Block>) => {
-    setBlocks((prev) => [newBlock as Block, ...prev]);
+  const handleBlockCreated = async (newBlock: Partial<Block>) => {
+    await submitBlockProposal(newBlock);
     setActiveTab('BLOCKS');
     refetch();
   };

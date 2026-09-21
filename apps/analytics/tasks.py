@@ -25,7 +25,7 @@ def rollup_corridor_daily_kpis_task(self, target_date_str: str = None):
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
     else:
         # Default to previous calendar day for completed daily rollup
-        target_date = timezone.now().date() - timedelta(days=1)
+        target_date = timezone.localdate() - timedelta(days=1)
 
     corridors = Corridor.objects.all()
     if not corridors.exists():

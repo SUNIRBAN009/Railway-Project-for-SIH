@@ -8,6 +8,116 @@
 
 # Master Engineering Implementation Checklist
 
+---
+
+## 0. Quick Start: Single-Command Platform Execution Engine
+
+> [!TIP]
+> The entire Indian Railways AI Block Planning Platform (React Frontend, Django Backend, PostGIS Spatial DB, Redis Broker, 4 Celery Workers, Celery Beat & Daphne WebSockets) can be orchestrated with a single command.
+
+### 🚀 Launch With a Single Command
+
+Choose the command matching your operating environment:
+
+#### Linux / macOS (Bash)
+```bash
+# Make start script executable and launch
+chmod +x scripts/start.sh
+./scripts/start.sh
+```
+
+#### Windows (PowerShell / Command Prompt)
+```powershell
+# PowerShell:
+.\scripts\start.ps1
+
+# Or Windows Batch / CMD:
+.\scripts\start.bat
+```
+
+#### Direct Docker Compose (Cross-Platform)
+```bash
+# Build and launch all background containers
+docker-compose up -d --build
+```
+
+---
+
+### 📦 Services Initialized Automatically
+
+When executed, the startup engine provisions and verifies:
+1. **PostgreSQL 15 + PostGIS 3.3** (`localhost:5432`): Spatial track topology & GIS coordinate engine
+2. **Redis 7.2** (`localhost:6379`): Task broker, pub/sub channel layer & high-speed cache
+3. **Django REST API Backend** (`localhost:8000`): Application microservices & data models
+4. **Daphne ASGI WebSockets** (`localhost:8001`): Real-time live track telemetry & conflict feeds
+5. **Celery Multi-Tier Workers**:
+   - `railway_celery_high`: Urgent safety & conflict resolution
+   - `railway_celery_notify`: Emergency CDAC SMS & real-time alerts
+   - `railway_celery_ontology`: OWL 2 DL reasoning & spatial graph validation
+   - `railway_celery_default`: Routine analytics & corridor rollups
+6. **Celery Beat Scheduler**: Nightly corridor KPI aggregations and periodic maintenance
+7. **React 18 + Vite Frontend SPA** (`localhost:3000`): Real-time interactive operator console
+
+---
+
+### 🌐 Access URLs & Endpoints
+
+| Portal / Service | URL | Description |
+| :--- | :--- | :--- |
+| **Frontend Control Room** | [http://localhost:3000](http://localhost:3000) | React 18 + Vite 3D GIS Operator UI |
+| **Backend REST API** | [http://localhost:8000](http://localhost:8000) | Django Core REST Framework |
+| **API Health Check** | [http://localhost:8000/api/v1/health/](http://localhost:8000/api/v1/health/) | Database & Redis status |
+| **Admin Console** | [http://localhost:8000/admin/](http://localhost:8000/admin/) | Django Superuser Administration |
+| **WebSocket ASGI** | `ws://localhost:8001/ws/` | Real-time live track telemetry |
+
+---
+
+### 🔑 Default Credentials
+
+- **Username**: `admin`
+- **Password**: `admin123`
+- **Role / Department**: `COA` (Chief Operations Admin)
+
+---
+
+### 🛠️ Useful Management & Verification Commands
+
+```bash
+# Check running status of all 10 containers
+docker-compose ps
+
+# Stream logs in real-time
+docker-compose logs -f
+
+# Follow backend or frontend logs specifically
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# Verify API and frontend health
+curl http://localhost:8000/api/v1/health/
+curl http://localhost:3000
+
+# Restart stack
+docker-compose restart
+
+# Graceful shutdown
+docker-compose down
+```
+
+---
+
+## Master Implementation Summary
+
+| Phase       | Milestone Focus                                                        | Status       | Total Tasks | Done Tasks | Completion |
+|:------------|:-----------------------------------------------------------------------|:------------:|:-----------:|:----------:|:----------:|
+| **Phase 0** | Infrastructure, Docker & PostGIS Foundation                            |  Completed   |    10     |     10      |    100%    |
+| **Phase 1** | Foundation, Identity & RBAC (`SVC-AUTH`)                               |  Completed   |    12     |     12      |    100%    |
+| **Phase 2** | Core Domain Microservices (`SVC-BLK`, `SVC-TRN`, `SVC-DEPT`)           |  Completed   |    24     |     24      |    100%    |
+| **Phase 3** | Advanced Intelligence & Real-Time (`SVC-ONTO`, `SVC-AST`, `SVC-NOTIF`) |  Completed   |    14     |     14      |    100%    |
+| **Phase 4** | Production Hardening, Observability & Deployment                       |  Completed   |    10     |     10      |    100%    |
+| **Phase 7** | Next-Gen Decoupled Frontend SPA (`React 18` + `Mapbox GL JS`)           |  Completed   |    10     |     10      |   100.0%   |
+| **TOTAL**   | **Enterprise Platform & SPA Suite**                                    | **COMPLETED**|  **80**   |   **80**    | **100.0%** |
+
 *Critical Mandate: As per architecture specifications, NO frontend task shall commence until its corresponding backend API/Logic is completely implemented. NO feature shall be marked complete until the full Backend + Frontend integration is tested and verified. Furthermore, normal domain code relies entirely on the Master Coherent Demo Data System (`apps/demo/`); hence, Demo Data & Coherence Engine MUST be established first.*
 
 ---

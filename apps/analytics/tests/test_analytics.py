@@ -32,7 +32,7 @@ class KPIAggregationServiceTests(TestCase):
             end_km=Decimal('28.500'),
         )
         self.now = timezone.now()
-        self.target_date = self.now.date()
+        self.target_date = timezone.localdate(self.now)
 
         # Create a sanctioned block
         self.block1 = Block.objects.create(
@@ -166,7 +166,7 @@ class AnalyticsAPITests(TestCase):
         )
 
         CorridorDailyKPI.objects.create(
-            metric_date=timezone.now().date(),
+            metric_date=timezone.localdate(),
             division_code='DLI',
             corridor_code='NDLS-CNB',
             total_blocks_requested=5,

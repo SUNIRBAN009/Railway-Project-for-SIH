@@ -5,9 +5,10 @@ export type UserRole =
   | 'SECTION_CONTROLLER'
   | 'DEPT_ENGINEER'
   | 'SITE_SUPERVISOR'
+  | 'AUDITOR'
   | 'ADMIN';
 
-export type DepartmentCode = 'ENG' | 'TRD' | 'SNT' | 'OPERATIONS';
+export type DepartmentCode = 'ENG' | 'TRD' | 'SNT' | 'OPERATIONS' | 'SAFETY';
 
 export type BlockStatus =
   | 'DRAFT'

@@ -166,7 +166,6 @@ CHANNEL_LAYERS = {
             "expiry": 30,
         },
     }
-}
 
 
 # Celery 5.3 Task Broker & Multi-tier Queues (TSK-P0-006)
@@ -201,8 +200,8 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# JWT Token Configuration (SVC-AUTH)
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES = 15
+# JWT Token Configuration (SVC-AUTH) - Extended to 7 days for resilient multi-device demos
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES = 60 * 24 * 7
 JWT_REFRESH_TOKEN_LIFETIME_DAYS = 7
 
 LOGGING = {

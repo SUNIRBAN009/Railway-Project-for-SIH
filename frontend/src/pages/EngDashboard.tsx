@@ -7,6 +7,7 @@ import { CrewAssignment } from '../components/departments/CrewAssignment';
 import { MaterialInventory } from '../components/departments/MaterialInventory';
 import { CalendarView } from '../components/blocks/CalendarView';
 import { Block } from '../types';
+import { useBlockStore } from '../stores/blockStore';
 import { useLiveBlocks } from '../hooks/useLiveBlocks';
 import { useRiskMatrix } from '../hooks/useRiskMatrix';
 import { WhyNumberOneCard } from '../components/common/WhyNumberOneCard';
@@ -31,8 +32,8 @@ export const EngDashboard: React.FC = () => {
   const { blocks, setBlocks, refetch } = useLiveBlocks('ENG');
   const { riskMatrix, whyNumberOne } = useRiskMatrix('NDLS-CNB-MAIN');
 
-  const handleBlockCreated = (newBlock: Partial<Block>) => {
-    setBlocks((prev) => [newBlock as Block, ...prev]);
+  const handleBlockCreated = async (newBlock: Partial<Block>) => {
+    await submitBlockProposal(newBlock);
     setActiveTab('BLOCKS');
     refetch();
   };

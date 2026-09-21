@@ -4,11 +4,20 @@ import {
   Sparkles,
   AlertTriangle,
   Clock,
-  ArrowRight,
-  ShieldCheck,
   CheckCircle2,
   Zap,
   Layers,
+  RefreshCw,
+  ShieldCheck,
+  Radio,
+  Wrench,
+  ChevronDown,
+  ChevronUp,
+  TrendingDown,
+  Filter,
+  Archive,
+  Info,
+  ArrowRight,
 } from 'lucide-react';
 
 interface ConflictResolutionPanelProps {
@@ -45,10 +54,229 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
     };
   });
 
-  const handleResolve = (conflict: ConflictItem) => {
-    setResolvedIds((prev) => [...prev, conflict.id]);
-    if (onApplyResolution) {
-      onApplyResolution(conflict.id, conflict.recommended_shift_minutes);
+const STORAGE_RESOLVED_CONFLICTS_KEY = 'railway_resolved_conflicts_v3';
+
+const getStoredResolvedIds = (): string[] => {
+  try {
+    const cached = localStorage.getItem(STORAGE_RESOLVED_CONFLICTS_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
+export const ConflictResolutionPanel: React.FC = () => {
+  const { blocks, applyTimeShiftAndDeconflict } = useBlockStore();
+  const [resolvedIds, setResolvedIds] = useState<string[]>(getStoredResolvedIds);
+  const [selectedDept, setSelectedDept] = useState<'ALL' | 'ENG' | 'TRD' | 'SNT' | 'SHADOW'>('ALL');
+  const [expandedConflictId, setExpandedConflictId] = useState<string | null>(null);
+  const [showResolvedArchive, setShowResolvedArchive] = useState(false);
+  const [isSweeping, setIsSweeping] = useState(false);
+  const [lastSweepTime, setLastSweepTime] = useState<Date>(new Date());
+
+  const markConflictResolved = (conflictId: string) => {
+    setResolvedIds((prev) => {
+      const next = prev.includes(conflictId) ? prev : [...prev, conflictId];
+      try {
+        localStorage.setItem(STORAGE_RESOLVED_CONFLICTS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const handleManualSweep = () => {
+    setIsSweeping(true);
+    setTimeout(() => {
+      setIsSweeping(false);
+      setLastSweepTime(new Date());
+    }, 500);
+  };
+
+  // Continuous Dynamic AI Sweep-Line Evaluation
+  const allConflicts = useMemo<DynamicConflict[]>(() => {
+    const list: DynamicConflict[] = [];
+
+    // Baseline demonstration conflict: TRD vs Rajdhani
+    const blk002 = blocks.find((b) => b.id === 'blk-002' || b.block_code === 'BLK-TRD-OHE-02');
+    if (blk002) {
+      const isRes = resolvedIds.includes('cnf-blk-002') || blk002.status === 'COORDINATED';
+      list.push({
+        id: 'cnf-blk-002',
+        blockId: blk002.id,
+        blockCode: blk002.block_code,
+        departmentCode: 'TRD',
+        conflictType: 'TRAIN_COLLISION',
+        title: 'Priority Train Path Intersect (12424 Dibrugarh Rajdhani)',
+        description: '25kV Catenary inspection window overlaps with scheduled Rajdhani Express track slot between KM 14.0–15.5.',
+        startKm: blk002.start_km || 14.0,
+        endKm: blk002.end_km || 15.5,
+        severity: 'CRITICAL',
+        conflictingEntity: 'Train #12424 Dibrugarh Rajdhani Express',
+        estimatedDelayMinutes: 38,
+        recommendedShiftMinutes: 45,
+        recommendedAction: 'Shift start by +45m to 02:45 IST after Rajdhani clears Ghaziabad junction.',
+        isShadow: false,
+        status: isRes ? 'RESOLVED' : 'PENDING',
+      });
+    }
+
+    // Baseline demonstration conflict: ENG vs Shatabdi
+    const blk004 = blocks.find((b) => b.id === 'blk-004' || b.block_code === 'BLK-ENG-BCM-04');
+    if (blk004) {
+      const isRes = resolvedIds.includes('cnf-blk-004') || blk004.status === 'COORDINATED';
+      list.push({
+        id: 'cnf-blk-004',
+        blockId: blk004.id,
+        blockCode: blk004.block_code,
+        departmentCode: 'ENG',
+        conflictType: 'TRAIN_COLLISION',
+        title: 'High-Speed Headway Violation (12004 Lucknow Shatabdi)',
+        description: 'Ballast cleaning operations at KM 18.0–21.5 cause adjacent line speed restriction during Shatabdi passage.',
+        startKm: blk004.start_km || 18.0,
+        endKm: blk004.end_km || 21.5,
+        severity: 'MAJOR',
+        conflictingEntity: 'Train #12004 Lucknow Swarna Shatabdi Express',
+        estimatedDelayMinutes: 24,
+        recommendedShiftMinutes: 60,
+        recommendedAction: 'Shift block slot by +60m to 11:00 IST to ensure uninterrupted 130 km/h passage.',
+        isShadow: false,
+        status: isRes ? 'RESOLVED' : 'PENDING',
+      });
+    }
+
+    // Sweep all newly submitted or updated blocks across departments
+    for (let i = 0; i < blocks.length; i++) {
+      const b1 = blocks[i];
+      if (b1.id === 'blk-002' || b1.id === 'blk-004') continue;
+
+      const b1Start = Number(b1.start_km) || 0;
+      const b1End = Number(b1.end_km) || 0;
+      const b1Span = `${b1Start.toFixed(1)}–${b1End.toFixed(1)}`;
+
+      // A. Shadow Bundling Opportunities with overlapping departmental blocks
+      for (let j = i + 1; j < blocks.length; j++) {
+        const b2 = blocks[j];
+        const b2Start = Number(b2.start_km) || 0;
+        const b2End = Number(b2.end_km) || 0;
+
+        const spatialOverlap = !(b1End + 1.5 < b2Start || b1Start - 1.5 > b2End);
+
+        if (spatialOverlap && b1.department_code !== b2.department_code) {
+          const shadowId = `shadow-${b1.id}-${b2.id}`;
+          const isEligibleShadow =
+            (b1.department_code === 'ENG' && b2.department_code === 'TRD') ||
+            (b1.department_code === 'TRD' && b2.department_code === 'ENG') ||
+            (b1.department_code === 'ENG' && b2.department_code === 'SNT') ||
+            (b1.department_code === 'SNT' && b2.department_code === 'ENG');
+
+          if (isEligibleShadow) {
+            const isRes = resolvedIds.includes(shadowId) || b1.status === 'COORDINATED' || b2.status === 'COORDINATED';
+            list.push({
+              id: shadowId,
+              blockId: b1.id,
+              blockCode: b1.block_code,
+              departmentCode: b1.department_code,
+              conflictType: 'SHADOW_OPPORTUNITY',
+              title: `Shadow Bundling: ${b1.department_code} + ${b2.department_code} Joint Possession`,
+              description: `${b1.block_code} (${b1.department_code}) and ${b2.block_code} (${b2.department_code}) share KM span ${b1Span}. Bundling avoids a second separate track closure.`,
+              startKm: Math.min(b1Start, b2Start),
+              endKm: Math.max(b1End, b2End),
+              severity: 'OPPORTUNITY',
+              conflictingEntity: `${b2.department_code} Block ${b2.block_code}`,
+              estimatedDelayMinutes: 0,
+              recommendedShiftMinutes: 0,
+              recommendedAction: `Synchronize ${b1.department_code} and ${b2.department_code} into a single coordinated window.`,
+              isShadow: true,
+              status: isRes ? 'RESOLVED' : 'PENDING',
+            });
+          }
+        }
+      }
+
+      // B. Train timetable collision detection for pending/conflict blocks
+      if (['PENDING_APPROVAL', 'CONFLICT_DETECTED', 'SUBMITTED', 'DRAFT'].includes(b1.status)) {
+        const matchingTrain = TRAIN_PATHS.find(
+          (tp) => !(b1End < tp.startKm || b1Start > tp.endKm)
+        );
+
+        if (matchingTrain) {
+          const trainConflictId = `cnf-${b1.id}-train-${matchingTrain.number}`;
+          const isRes = resolvedIds.includes(trainConflictId) || b1.status === 'COORDINATED';
+          list.push({
+            id: trainConflictId,
+            blockId: b1.id,
+            blockCode: b1.block_code,
+            departmentCode: b1.department_code,
+            conflictType: 'TRAIN_COLLISION',
+            title: `Train Path Intersect (${matchingTrain.number} ${matchingTrain.name})`,
+            description: `Requested possession for ${b1.block_code} at KM ${b1Span} intersects priority path of ${matchingTrain.name}.`,
+            startKm: b1Start,
+            endKm: b1End,
+            severity: matchingTrain.speedKmh >= 130 ? 'CRITICAL' : 'MAJOR',
+            conflictingEntity: `Train #${matchingTrain.number} (${matchingTrain.name})`,
+            estimatedDelayMinutes: 30,
+            recommendedShiftMinutes: 30,
+            recommendedAction: `Shift start by +30m to safely clear path after train #${matchingTrain.number} departs.`,
+            isShadow: false,
+            status: isRes ? 'RESOLVED' : 'PENDING',
+          });
+        }
+      }
+    }
+
+    return list;
+  }, [blocks, resolvedIds]);
+
+  // Separate Pending (active) and Resolved (archive)
+  const pendingConflicts = useMemo(() => {
+    return allConflicts.filter((c) => c.status === 'PENDING');
+  }, [allConflicts]);
+
+  const resolvedConflicts = useMemo(() => {
+    return allConflicts.filter((c) => c.status === 'RESOLVED');
+  }, [allConflicts]);
+
+  // Filter pending items by selected department tab
+  const filteredPending = useMemo(() => {
+    if (selectedDept === 'ALL') return pendingConflicts;
+    if (selectedDept === 'SHADOW') return pendingConflicts.filter((c) => c.isShadow);
+    return pendingConflicts.filter((c) => c.departmentCode === selectedDept && !c.isShadow);
+  }, [pendingConflicts, selectedDept]);
+
+  // Handle resolution action
+  const handleResolveConflict = async (conflict: DynamicConflict) => {
+    markConflictResolved(conflict.id);
+    if (expandedConflictId === conflict.id) {
+      setExpandedConflictId(null);
+    }
+
+    if (conflict.isShadow) {
+      await applyTimeShiftAndDeconflict(
+        conflict.blockId,
+        0,
+        `Co-allocated shadow possession bundled with ${conflict.conflictingEntity}. Unified window verified.`
+      );
+    } else {
+      await applyTimeShiftAndDeconflict(
+        conflict.blockId,
+        conflict.recommendedShiftMinutes,
+        `Shifted +${conflict.recommendedShiftMinutes}m to deconflict from ${conflict.conflictingEntity}.`
+      );
+    }
+  };
+
+  const getDeptBadgeColor = (dept: DepartmentCode | string) => {
+    switch (dept) {
+      case 'ENG':
+        return 'text-blue-400 border-blue-500/50 bg-blue-950/40';
+      case 'TRD':
+        return 'text-amber-400 border-amber-500/50 bg-amber-950/40';
+      case 'SNT':
+        return 'text-emerald-400 border-emerald-500/50 bg-emerald-950/40';
+      default:
+        return 'text-purple-400 border-purple-500/50 bg-purple-950/40';
     }
   };
 
@@ -61,18 +289,18 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
   });
 
   return (
-    <div className="bg-control-panel border border-control-border rounded-xl p-5 shadow-lg space-y-4">
+    <div className="bg-control-panel border border-control-border rounded-xl p-5 shadow-lg space-y-4 font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-control-border pb-3 gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-extrabold font-mono text-white">
+            <Sparkles className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-sm font-extrabold font-mono text-white tracking-wide">
               AI Sweep-Line Conflict Resolution & Shadow Bundling Engine
             </h3>
           </div>
           <p className="text-xs text-control-muted mt-0.5 font-mono">
-            Automated collision detection between track block intervals & priority train paths
+            Automated collision detection & multi-department possession bundling (One-by-One Explainable View)
           </p>
         </div>
 

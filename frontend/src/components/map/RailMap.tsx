@@ -236,6 +236,17 @@ export const RailMap: React.FC<RailMapProps> = ({ onSelectBlock }) => {
           </div>
         </div>
       </div>
+
+      {/* Interactive AI Simulation Suite Modal */}
+      <AiScenarioSimulator
+        isOpen={isSimulatorOpen}
+        onClose={() => setIsSimulatorOpen(false)}
+        onSelectScenarioToMap={(scenario) => {
+          if (scenario.id === 'sc-1') handlePreset('SBB');
+          else if (scenario.id === 'sc-2') handlePreset('GZB');
+          else if (scenario.id === 'sc-3') handlePreset('SBB');
+        }}
+      />
     </div>
   );
 };

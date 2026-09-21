@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/api';
 import { UserRole, DepartmentCode, User } from '../types';
+import { getDestinationRoute } from '../utils/routeHelpers';
 import {
   ShieldCheck,
   Train,
@@ -12,7 +13,8 @@ import {
   Sparkles,
   Zap,
   ArrowRight,
-  CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface DemoPreset {
@@ -118,6 +120,8 @@ const DEMO_PRESETS: DemoPreset[] = [
   },
 ];
 
+export { getDestinationRoute };
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -125,6 +129,7 @@ export const LoginPage: React.FC = () => {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -144,7 +149,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       // 1. Call Backend Login API
-      const response = await authService.login(preset.username, 'railway@123');
+      const response = await authService.login(preset.username, '9999');
       if (response && response.data) {
         setAuth(response.data.user, response.data.access_token, response.data.refresh_token);
         const route = getTargetRouteForUser(response.data.user);
@@ -184,7 +189,7 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      const response = await authService.login(inputUser, password || 'railway@123');
+      const response = await authService.login(inputUser, password || '9999');
 
       if (response && response.data) {
         const { user, access_token, refresh_token } = response.data;
@@ -195,40 +200,44 @@ export const LoginPage: React.FC = () => {
       } else {
         setErrorMessage('Authentication rejected. Please click any 1-click persona below.');
       }
-    } catch {
+    } catch (err: unknown) {
       // Fallback: match by number or default
       const preset =
-        DEMO_PRESETS.find((p) => p.number === inputUser || p.username === inputUser) || DEMO_PRESETS[0];
+        DEMO_PRESETS.find((p) => p.number === inputUser || p.username.toLowerCase() === inputUser.toLowerCase()) ||
+        DEMO_PRESETS[0];
 
-      const fallbackUser: User = {
-        id: String(parseInt(inputUser) || 1),
-        employee_id: `IR-USER-${inputUser}`,
-        username: inputUser,
-        first_name: 'Operator',
-        last_name: inputUser,
-        email: `operator${inputUser}@railway.gov.in`,
+      const mockUser: User = {
+        id: String(parseInt(preset.number) || 1),
+        employee_id: `IR-SIH-${preset.number.padStart(4, '0')}`,
+        username: preset.username,
+        first_name: preset.label.split(' ')[0] || 'User',
+        last_name: preset.label.split(' ')[1] || 'Demo',
+        email: `${preset.username}@railway.gov.in`,
         role: preset.role,
         department_code: preset.department,
         division_code: 'DLI',
       };
-      setAuth(fallbackUser, `mock-token-${inputUser}`);
-      navigate(preset.targetRoute, { replace: true });
+      setAuth(mockUser, `mock-demo-token-${preset.username}`);
+
+      const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
+      navigate(fromPath && fromPath !== '/' ? fromPath : preset.targetRoute, { replace: true });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-control-bg text-control-text flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl text-center mb-6">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-400 mb-3 shadow-lg shadow-cyan-950/50">
+    <div className="min-h-screen bg-control-bg flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8">
+      {/* BRANDING HEADER */}
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 mb-3 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
           <Train className="w-8 h-8" />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-          Indian Railways AI Block Planning Platform
+        <h1 className="text-2xl font-black text-white tracking-tight font-mono">
+          RailBlock AI <span className="text-cyan-400 text-sm font-sans font-medium px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/30">SIH PS 26027</span>
         </h1>
-        <p className="mt-1.5 text-xs sm:text-sm text-cyan-400/90 font-mono tracking-wide">
-          SMART INDIA HACKATHON 2026 • PROBLEM STATEMENT 26027
+        <p className="mt-1 text-xs text-control-muted font-sans max-w-sm mx-auto">
+          Automatic Block Planning & Multi-Departmental Track Availability Optimization System
         </p>
       </div>
 
@@ -329,7 +338,7 @@ export const LoginPage: React.FC = () => {
                   className="block text-xs uppercase font-mono text-control-muted mb-1 flex items-center justify-between"
                 >
                   <span>Password</span>
-                  <span className="text-[10px] text-emerald-400 lowercase font-mono">(optional)</span>
+                  <span className="text-[10px] text-emerald-400 lowercase font-mono">(optional: 9999)</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-control-muted">
@@ -338,12 +347,20 @@ export const LoginPage: React.FC = () => {
                   <input
                     id="password"
                     name="password"
-                    type="text"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-control-bg border border-control-border rounded-xl text-xs text-white font-mono placeholder-control-muted focus:outline-none focus:border-cyan-400"
-                    placeholder="Leave empty or any password"
+                    className="w-full pl-9 pr-10 py-2 bg-control-bg border border-control-border rounded-xl text-xs text-white font-mono placeholder-control-muted focus:outline-none focus:border-cyan-400"
+                    placeholder="Leave empty or enter 9999"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-control-muted hover:text-cyan-400 transition"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
             </div>

@@ -67,6 +67,7 @@ class BlockConflictSerializer(serializers.ModelSerializer):
 
 
 class BlockDetailSerializer(serializers.ModelSerializer):
+    corridor = CorridorSerializer(read_only=True)
     corridor_code = serializers.CharField(source='corridor.code', read_only=True)
     corridor_name = serializers.CharField(source='corridor.name', read_only=True)
     conflicts = BlockConflictSerializer(many=True, read_only=True)

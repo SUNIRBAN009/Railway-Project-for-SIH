@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useBlockStore } from '../../stores/blockStore';
 import { Sparkles, Layers, CheckCircle2, ShieldCheck, ArrowRight, Zap, Radio, Wrench } from 'lucide-react';
 import { Block } from '../../types';
 

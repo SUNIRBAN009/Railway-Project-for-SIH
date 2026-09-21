@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './components/auth/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { useAuthStore } from './stores/authStore';
+import { useBlockStore } from './stores/blockStore';
 import { ControlRoomLayout } from './layouts/ControlRoomLayout';
 import { ControlRoomDashboard } from './pages/ControlRoomDashboard';
 import { EngDashboard } from './pages/EngDashboard';
@@ -10,7 +12,6 @@ import { TrdDashboard } from './pages/TrdDashboard';
 import { SntDashboard } from './pages/SntDashboard';
 import { BlockDetailPage } from './pages/BlockDetailPage';
 import { BigScreenMode } from './pages/BigScreenMode';
-
 import { NetworkMapPage } from './pages/NetworkMap';
 import { MasterDataPage } from './pages/MasterDataPage';
 import { useCorridorSocket } from './hooks/useCorridorSocket';
@@ -19,12 +20,11 @@ import { EmergencyModal } from './components/common/EmergencyModal';
 import { AudioChime } from './components/common/AudioChime';
 import { KeyboardShortcutsModal } from './components/common/KeyboardShortcutsModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { SanctionAcknowledgementModal } from './components/common/SanctionAcknowledgementModal';
 import { ToastContainer } from './components/common/ToastContainer';
 import { DemoControllerToolbar } from './components/common/DemoControllerToolbar';
 import { AutomatedTestRunnerModal } from './components/common/AutomatedTestRunnerModal';
 import { ScenarioPlayerModal } from './components/common/ScenarioPlayerModal';
-
-import { useAuthStore } from './stores/authStore';
 
 function RealTimeCorridorSubscriber() {
   useCorridorSocket({ corridorCode: 'NDLS-GZB' });
@@ -41,6 +41,7 @@ function RealTimeCorridorSubscriber() {
       <EmergencyModal />
       <AudioChime />
       <KeyboardShortcutsModal />
+      <SanctionAcknowledgementModal />
     </>
   );
 }
@@ -75,35 +76,35 @@ export default function App() {
         <AuthProvider>
           <RealTimeCorridorSubscriber />
           <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<RoleBasedRedirect />} />
-          <Route path="/dashboard" element={<RoleBasedRedirect />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<RoleBasedRedirect />} />
+            <Route path="/dashboard" element={<RoleBasedRedirect />} />
 
-          {/* Protected Operating Console (COA) */}
-          <Route
-            path="/coa"
-            element={
-              <ProtectedRoute 
-                allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}
-                allowedDepartments={['OPERATIONS']}
-              >
-                <ControlRoomDashboard />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected Operating Console (COA) */}
+            <Route
+              path="/coa"
+              element={
+                <ProtectedRoute 
+                  allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}
+                  allowedDepartments={['OPERATIONS']}
+                >
+                  <ControlRoomDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* 4K Panoramic Video Wall Mode */}
-          <Route
-            path="/bigscreen"
-            element={
-              <ProtectedRoute 
-                allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}
-                allowedDepartments={['OPERATIONS']}
-              >
-                <BigScreenMode />
-              </ProtectedRoute>
-            }
-          />
+            {/* 4K Panoramic Video Wall Mode */}
+            <Route
+              path="/bigscreen"
+              element={
+                <ProtectedRoute 
+                  allowedRoles={['CHIEF_CONTROLLER', 'SECTION_CONTROLLER', 'ADMIN']}
+                  allowedDepartments={['OPERATIONS']}
+                >
+                  <BigScreenMode />
+                </ProtectedRoute>
+              }
+            />
 
           {/* Protected Engineering Console (ENG) */}
           <Route
@@ -144,48 +145,48 @@ export default function App() {
             }
           />
 
-          {/* Protected Block Inspection Details */}
-          <Route
-            path="/blocks/:id"
-            element={
-              <ProtectedRoute>
-                <ControlRoomLayout>
-                  <BlockDetailPage />
-                </ControlRoomLayout>
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected Block Inspection Details */}
+            <Route
+              path="/blocks/:id"
+              element={
+                <ProtectedRoute>
+                  <ControlRoomLayout>
+                    <BlockDetailPage />
+                  </ControlRoomLayout>
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Protected 3D GIS Digital Twin */}
-          <Route
-            path="/map"
-            element={
-              <ProtectedRoute>
-                <NetworkMapPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected 3D GIS Digital Twin */}
+            <Route
+              path="/map"
+              element={
+                <ProtectedRoute>
+                  <NetworkMapPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Master Ground-Truth Data & GeoJSON Inspector */}
-          <Route
-            path="/master-data"
-            element={
-              <ProtectedRoute>
-                <MasterDataPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/master-data"
-            element={
-              <ProtectedRoute>
-                <MasterDataPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Master Ground-Truth Data & GeoJSON Inspector */}
+            <Route
+              path="/master-data"
+              element={
+                <ProtectedRoute>
+                  <MasterDataPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/master-data"
+              element={
+                <ProtectedRoute>
+                  <MasterDataPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

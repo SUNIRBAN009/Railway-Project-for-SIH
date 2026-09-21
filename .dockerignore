@@ -1,6 +1,7 @@
 .git
 .gitignore
 .env
+.venv
 __pycache__
 *.pyc
 *.pyo
@@ -11,6 +12,10 @@ dist
 build
 node_modules
 frontend/node_modules
+frontend/dist
+staticfiles/
+media/
+db.sqlite3
 docs
 Side
 .vscode

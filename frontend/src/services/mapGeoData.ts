@@ -137,6 +137,17 @@ export const TRACK_SECTIONS: TrackSectionGeo[] = [
       [88.1362, 25.0108],
     ],
   },
+  {
+    id: 'SEC-05',
+    name: 'Ghaziabad – Maripat (UP)',
+    startKm: 25.6,
+    endKm: 32.0,
+    status: 'CLEAR',
+    coordinates: [
+      [77.4320, 28.6650],
+      [77.5100, 28.6400],
+    ],
+  },
 ];
 
 // Live Train Markers with coordinates along corridor
@@ -144,7 +155,7 @@ export interface LiveMapTrain {
   id: string;
   trainNumber: string;
   trainName: string;
-  type: string;
+  type: 'SUPERFAST' | 'SHATABDI' | 'VANDE_BHARAT' | 'DURONTO' | 'EXPRESS' | 'FREIGHT';
   coordinates: [number, number];
   heading: number; // degrees
   speedKmh: number;
@@ -207,6 +218,19 @@ export const LIVE_MAP_TRAINS: LiveMapTrain[] = [
     lineType: 'UP',
     currentSection: 'Kharagpur – Howrah',
   },
+  {
+    id: 'trn-map-8',
+    trainNumber: 'CON-DL-09',
+    trainName: 'Dedicated Freight Container Express',
+    type: 'FREIGHT',
+    coordinates: [77.4800, 28.6500],
+    heading: 65,
+    speedKmh: 75,
+    delayMinutes: 0,
+    status: 'ON_TIME',
+    lineType: 'UP',
+    currentSection: 'Ghaziabad – Maripat DFC Line',
+  },
 ];
 
 // Ultrasonic (USFD) defect heatmap points
@@ -228,7 +252,7 @@ export const USFD_DEFECT_POINTS: USFDDefectPoint[] = [
     flawSeverity: 'CRITICAL',
     detectionDate: '2026-09-08',
     flawType: '4.8mm Transverse Fatigue Crack',
-    containmentStatus: 'Clamped with Jogglled Plate',
+    containmentStatus: 'Clamped with Jogglled Plate (Speed 30 km/h)',
   },
   {
     id: 'usfd-wb-02',

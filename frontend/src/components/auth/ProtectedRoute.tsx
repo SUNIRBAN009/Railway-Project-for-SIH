@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { UserRole, DepartmentCode } from '../../types';
+import { UserRole, DepartmentCode, User } from '../../types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -32,51 +32,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  const getUserHome = (user: User): string => {
+    if (user.role === 'ADMIN') return '/coa';
+    if (user.department_code === 'ENG') return '/eng';
+    if (user.department_code === 'TRD') return '/trd';
+    if (user.department_code === 'SNT') return '/snt';
+    return '/coa';
+  };
+
   // 1. Role Clearance Check
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    return (
-      <div className="min-h-screen bg-control-bg p-8 flex items-center justify-center">
-        <div className="max-w-md w-full bg-control-panel border border-rose-500/50 p-6 rounded-xl shadow-2xl text-center">
-          <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-            !
-          </div>
-          <h2 className="text-xl font-bold text-rose-400 mb-2">Unauthorized Terminal Access</h2>
-          <p className="text-sm text-control-muted mb-4">
-            Your role ({user.role}) does not have security clearance for this operational console.
-          </p>
-          <button
-            onClick={() => window.history.back()}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-semibold rounded text-white transition"
-          >
-            Return to Safety
-          </button>
-        </div>
-      </div>
-    );
+    return <Navigate to={getUserHome(user)} replace />;
   }
 
-  // 2. Departmental Isolation Check (Chief Controller and Admin have corridor-wide clearance)
-  const isSuperUser = user.role === 'ADMIN' || user.role === 'CHIEF_CONTROLLER';
+  // 2. Departmental Isolation Check (Only Admin has universal clearance)
+  const isSuperUser = user.role === 'ADMIN';
   if (!isSuperUser && allowedDepartments && allowedDepartments.length > 0 && !allowedDepartments.includes(user.department_code)) {
-    return (
-      <div className="min-h-screen bg-control-bg p-8 flex items-center justify-center">
-        <div className="max-w-md w-full bg-control-panel border border-amber-500/50 p-6 rounded-xl shadow-2xl text-center">
-          <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-4 font-bold text-xl">
-            !
-          </div>
-          <h2 className="text-xl font-bold text-amber-400 mb-2">Departmental Isolation Clearance</h2>
-          <p className="text-sm text-control-muted mb-4">
-            Your department ({user.department_code}) is restricted from accessing this operational console ({allowedDepartments.join(', ')} only).
-          </p>
-          <button
-            onClick={() => window.history.back()}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-semibold rounded text-white transition"
-          >
-            Return to Safety
-          </button>
-        </div>
-      </div>
-    );
+    return <Navigate to={getUserHome(user)} replace />;
   }
 
   return <>{children}</>;

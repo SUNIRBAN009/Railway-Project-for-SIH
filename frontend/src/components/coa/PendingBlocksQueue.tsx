@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Block, BlockStatus } from '../../types';
 import { Clock, AlertTriangle, ShieldCheck, Zap, ChevronRight, ArrowUpRight } from 'lucide-react';
 
@@ -13,10 +13,12 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
   selectedBlockId,
   onSelectBlock,
 }) => {
+  const [deptFilter, setDeptFilter] = useState<string>('ALL');
+
   // Pending items awaiting COA action (SUBMITTED, COORDINATED, PENDING_APPROVAL)
-  const pendingBlocks = blocks.filter((b) =>
-    ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL'].includes(b.status)
-  );
+  const pendingBlocks = blocks
+    .filter((b) => ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL'].includes(b.status))
+    .filter((b) => deptFilter === 'ALL' || b.department_code === deptFilter);
 
   const getPriorityBadge = (block: Block) => {
     if (block.work_type.toLowerCase().includes('emergency') || block.work_type.toLowerCase().includes('usfd')) {
@@ -58,9 +60,26 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
             Awaiting Chief Operating Controller sanction or revision
           </p>
         </div>
-        <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-950/70 border border-amber-500/50 text-amber-300">
-          {pendingBlocks.length} QUEUED
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-950/70 border border-amber-500/50 text-amber-300">
+            {pendingBlocks.length} QUEUED
+          </span>
+          <div className="flex bg-control-bg rounded-lg border border-control-border overflow-hidden text-[10px] font-mono font-bold">
+            {['ALL', 'ENG', 'TRD', 'SNT'].map((dept) => (
+              <button
+                key={dept}
+                onClick={() => setDeptFilter(dept)}
+                className={`px-2.5 py-1 transition-colors ${
+                  deptFilter === dept 
+                    ? 'bg-cyan-900/60 text-cyan-300 border-b-2 border-cyan-400' 
+                    : 'text-control-muted hover:text-slate-300'
+                }`}
+              >
+                {dept}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {pendingBlocks.length === 0 ? (

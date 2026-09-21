@@ -180,10 +180,10 @@ export const BlockList: React.FC<BlockListProps> = ({
 
                 <td className="px-4 py-3.5">
                   <div className="text-cyan-400 font-bold">
-                    KM {block.start_km.toFixed(1)} – {block.end_km.toFixed(1)}
+                    KM {Number(block.start_km).toFixed(1)} – {Number(block.end_km).toFixed(1)}
                   </div>
                   <div className="text-[10px] text-control-muted">
-                    {(block.end_km - block.start_km).toFixed(2)} KM
+                    {(Number(block.end_km) - Number(block.start_km)).toFixed(2)} KM
                   </div>
                 </td>
 

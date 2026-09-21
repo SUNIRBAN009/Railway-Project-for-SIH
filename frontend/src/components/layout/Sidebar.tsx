@@ -20,62 +20,174 @@ export const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
 
-  const navItems = [
-    {
-      to: '/coa',
-      label: 'Control Room (COA)',
-      shortLabel: 'COA',
-      icon: <LayoutDashboard className="w-5 h-5 shrink-0" />,
-      color: 'text-cyan-400 group-hover:text-cyan-300',
-      activeColor: 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-950/50',
-      description: 'Chief Operating Controller Terminal',
-    },
-    {
-      to: '/eng',
-      label: 'Civil Engineering (ENG)',
-      shortLabel: 'ENG',
-      icon: <Wrench className="w-5 h-5 shrink-0" />,
-      color: 'text-blue-400 group-hover:text-blue-300',
-      activeColor: 'bg-blue-950/60 border-blue-400 text-blue-300 shadow-sm shadow-blue-950/50',
-      description: 'P-Way Track Maintenance & Tamping',
-    },
-    {
-      to: '/trd',
-      label: 'Traction Power (TRD)',
-      shortLabel: 'TRD',
-      icon: <Zap className="w-5 h-5 shrink-0" />,
-      color: 'text-amber-400 group-hover:text-amber-300',
-      activeColor: 'bg-amber-950/60 border-amber-400 text-amber-300 shadow-sm shadow-amber-950/50',
-      description: '25kV Catenary OHE Isolation',
-    },
-    {
-      to: '/snt',
-      label: 'Signal & Telecom (S&T)',
-      shortLabel: 'S&T',
-      icon: <Radio className="w-5 h-5 shrink-0" />,
-      color: 'text-emerald-400 group-hover:text-emerald-300',
-      activeColor: 'bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-sm shadow-emerald-950/50',
-      description: 'Point Machines & Interlocking',
-    },
-    {
-      to: '/map',
-      label: '3D Corridor GIS Map',
-      shortLabel: 'GIS',
-      icon: <Map className="w-5 h-5 shrink-0" />,
-      color: 'text-purple-400 group-hover:text-purple-300',
-      activeColor: 'bg-purple-950/60 border-purple-400 text-purple-300 shadow-sm shadow-purple-950/50',
-      description: 'Mapbox 60 FPS Vector Twin',
-    },
-    {
-      to: '/master-data',
-      label: 'Master Data & GeoJSON',
-      shortLabel: 'DATA',
-      icon: <Database className="w-5 h-5 shrink-0" />,
-      color: 'text-cyan-400 group-hover:text-cyan-300',
-      activeColor: 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-950/50',
-      description: 'Ground-Truth Inspector & RFC 7946',
-    },
-  ];
+  const getNavItems = () => {
+    if (!user) return [];
+
+    // 1. Civil Engineering Department (ENG)
+    if (user.department_code === 'ENG') {
+      return [
+        {
+          to: '/eng',
+          label: 'Civil Engineering (ENG)',
+          shortLabel: 'ENG',
+          icon: <Wrench className="w-5 h-5 shrink-0" />,
+          color: 'text-blue-400 group-hover:text-blue-300',
+          activeColor: 'bg-blue-950/60 border-blue-400 text-blue-300 shadow-sm shadow-blue-950/50',
+          description: 'P-Way Track Maintenance & Tamping',
+        },
+        {
+          to: '/map',
+          label: '3D Corridor GIS Map',
+          shortLabel: 'GIS',
+          icon: <Map className="w-5 h-5 shrink-0" />,
+          color: 'text-purple-400 group-hover:text-purple-300',
+          activeColor: 'bg-purple-950/60 border-purple-400 text-purple-300 shadow-sm shadow-purple-950/50',
+          description: 'Mapbox 60 FPS Vector Twin',
+        },
+      ];
+    }
+
+    // 2. Traction Power Department (TRD)
+    if (user.department_code === 'TRD') {
+      return [
+        {
+          to: '/trd',
+          label: 'Traction Power (TRD)',
+          shortLabel: 'TRD',
+          icon: <Zap className="w-5 h-5 shrink-0" />,
+          color: 'text-amber-400 group-hover:text-amber-300',
+          activeColor: 'bg-amber-950/60 border-amber-400 text-amber-300 shadow-sm shadow-amber-950/50',
+          description: '25kV Catenary OHE Isolation',
+        },
+        {
+          to: '/map',
+          label: '3D Corridor GIS Map',
+          shortLabel: 'GIS',
+          icon: <Map className="w-5 h-5 shrink-0" />,
+          color: 'text-purple-400 group-hover:text-purple-300',
+          activeColor: 'bg-purple-950/60 border-purple-400 text-purple-300 shadow-sm shadow-purple-950/50',
+          description: 'Mapbox 60 FPS Vector Twin',
+        },
+      ];
+    }
+
+    // 3. Signal & Telecom Department (S&T)
+    if (user.department_code === 'SNT') {
+      return [
+        {
+          to: '/snt',
+          label: 'Signal & Telecom (S&T)',
+          shortLabel: 'S&T',
+          icon: <Radio className="w-5 h-5 shrink-0" />,
+          color: 'text-emerald-400 group-hover:text-emerald-300',
+          activeColor: 'bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-sm shadow-emerald-950/50',
+          description: 'Point Machines & Interlocking',
+        },
+        {
+          to: '/map',
+          label: '3D Corridor GIS Map',
+          shortLabel: 'GIS',
+          icon: <Map className="w-5 h-5 shrink-0" />,
+          color: 'text-purple-400 group-hover:text-purple-300',
+          activeColor: 'bg-purple-950/60 border-purple-400 text-purple-300 shadow-sm shadow-purple-950/50',
+          description: 'Mapbox 60 FPS Vector Twin',
+        },
+      ];
+    }
+
+    // 4. Operating Control Office (COA / Section Controller)
+    if (user.role === 'CHIEF_CONTROLLER' || user.role === 'SECTION_CONTROLLER' || user.department_code === 'OPERATIONS') {
+      return [
+        {
+          to: '/coa',
+          label: 'Control Room (COA)',
+          shortLabel: 'COA',
+          icon: <LayoutDashboard className="w-5 h-5 shrink-0" />,
+          color: 'text-cyan-400 group-hover:text-cyan-300',
+          activeColor: 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-950/50',
+          description: 'Chief Operating Controller Terminal',
+        },
+        {
+          to: '/map',
+          label: '3D Corridor GIS Map',
+          shortLabel: 'GIS',
+          icon: <Map className="w-5 h-5 shrink-0" />,
+          color: 'text-purple-400 group-hover:text-purple-300',
+          activeColor: 'bg-purple-950/60 border-purple-400 text-purple-300 shadow-sm shadow-purple-950/50',
+          description: 'Mapbox 60 FPS Vector Twin',
+        },
+        {
+          to: '/master-data',
+          label: 'Master Data & GeoJSON',
+          shortLabel: 'DATA',
+          icon: <Database className="w-5 h-5 shrink-0" />,
+          color: 'text-cyan-400 group-hover:text-cyan-300',
+          activeColor: 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-950/50',
+          description: 'Ground-Truth Inspector & RFC 7946',
+        },
+      ];
+    }
+
+    // 5. System Administrator (Full root clearance)
+    return [
+      {
+        to: '/coa',
+        label: 'Control Room (COA)',
+        shortLabel: 'COA',
+        icon: <LayoutDashboard className="w-5 h-5 shrink-0" />,
+        color: 'text-cyan-400 group-hover:text-cyan-300',
+        activeColor: 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-950/50',
+        description: 'Chief Operating Controller Terminal',
+      },
+      {
+        to: '/eng',
+        label: 'Civil Engineering (ENG)',
+        shortLabel: 'ENG',
+        icon: <Wrench className="w-5 h-5 shrink-0" />,
+        color: 'text-blue-400 group-hover:text-blue-300',
+        activeColor: 'bg-blue-950/60 border-blue-400 text-blue-300 shadow-sm shadow-blue-950/50',
+        description: 'P-Way Track Maintenance & Tamping',
+      },
+      {
+        to: '/trd',
+        label: 'Traction Power (TRD)',
+        shortLabel: 'TRD',
+        icon: <Zap className="w-5 h-5 shrink-0" />,
+        color: 'text-amber-400 group-hover:text-amber-300',
+        activeColor: 'bg-amber-950/60 border-amber-400 text-amber-300 shadow-sm shadow-amber-950/50',
+        description: '25kV Catenary OHE Isolation',
+      },
+      {
+        to: '/snt',
+        label: 'Signal & Telecom (S&T)',
+        shortLabel: 'S&T',
+        icon: <Radio className="w-5 h-5 shrink-0" />,
+        color: 'text-emerald-400 group-hover:text-emerald-300',
+        activeColor: 'bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-sm shadow-emerald-950/50',
+        description: 'Point Machines & Interlocking',
+      },
+      {
+        to: '/map',
+        label: '3D Corridor GIS Map',
+        shortLabel: 'GIS',
+        icon: <Map className="w-5 h-5 shrink-0" />,
+        color: 'text-purple-400 group-hover:text-purple-300',
+        activeColor: 'bg-purple-950/60 border-purple-400 text-purple-300 shadow-sm shadow-purple-950/50',
+        description: 'Mapbox 60 FPS Vector Twin',
+      },
+      {
+        to: '/master-data',
+        label: 'Master Data & GeoJSON',
+        shortLabel: 'DATA',
+        icon: <Database className="w-5 h-5 shrink-0" />,
+        color: 'text-cyan-400 group-hover:text-cyan-300',
+        activeColor: 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-950/50',
+        description: 'Ground-Truth Inspector & RFC 7946',
+      },
+    ];
+  };
+
+  const navItems = getNavItems();
 
   return (
     <aside
@@ -128,41 +240,17 @@ export const Sidebar: React.FC = () => {
           ))}
         </nav>
 
-        {/* Quick Demo Switcher Widget */}
-        {!sidebarCollapsed && (
+        {/* Department Clearance Badge */}
+        {!sidebarCollapsed && user && (
           <div className="mt-6 p-3 rounded-xl bg-control-bg/80 border border-control-border/80">
-            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-cyan-400 mb-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>SIH Demo Fast-Switch</span>
+            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-300 mb-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Terminal Clearance</span>
             </div>
-            <p className="text-[11px] text-control-muted mb-2.5 leading-snug">
-              Instant department preview for jury presentation:
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
-              <NavLink
-                to="/coa"
-                className="py-1 px-2 text-center rounded border border-cyan-500/30 bg-cyan-950/30 text-cyan-300 hover:bg-cyan-900/40"
-              >
-                COA Chief
-              </NavLink>
-              <NavLink
-                to="/eng"
-                className="py-1 px-2 text-center rounded border border-blue-500/30 bg-blue-950/30 text-blue-300 hover:bg-blue-900/40"
-              >
-                ENG Track
-              </NavLink>
-              <NavLink
-                to="/trd"
-                className="py-1 px-2 text-center rounded border border-amber-500/30 bg-amber-950/30 text-amber-300 hover:bg-amber-900/40"
-              >
-                TRD Power
-              </NavLink>
-              <NavLink
-                to="/snt"
-                className="py-1 px-2 text-center rounded border border-emerald-500/30 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40"
-              >
-                S&T Signals
-              </NavLink>
+            <div className="space-y-1 font-mono text-[11px]">
+              <div className="text-white font-bold truncate">{user.username}</div>
+              <div className="text-cyan-400 text-[10px] uppercase font-bold">{user.role}</div>
+              <div className="text-control-muted text-[10px]">{user.department_code} Department</div>
             </div>
           </div>
         )}

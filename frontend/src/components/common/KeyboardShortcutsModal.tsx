@@ -34,24 +34,13 @@ export const KeyboardShortcutsModal: React.FC = () => {
       ) {
         return;
       }
-
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
         setIsOpen((prev) => !prev);
       } else if (e.key === 'Escape') {
         setIsOpen(false);
-      } else if (e.key === 'c' || e.key === 'C') {
-        navigate('/coa');
       } else if (e.key === 'm' || e.key === 'M') {
         navigate('/map');
-      } else if (e.key === 'b' || e.key === 'B') {
-        navigate('/bigscreen');
-      } else if (e.key === 'e' || e.key === 'E') {
-        navigate('/eng');
-      } else if (e.key === 't' || e.key === 'T') {
-        navigate('/trd');
-      } else if (e.key === 's' || e.key === 'S') {
-        navigate('/snt');
       } else if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         printCorridorDailyPossessionSheet(blocks);
@@ -68,12 +57,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: 'C', label: 'Central Operating Console (COA)', icon: LayoutDashboard },
     { key: 'M', label: '3D Spatial GIS Digital Twin', icon: Compass },
-    { key: 'B', label: '4K Panoramic Wallboard Mode', icon: Tv },
-    { key: 'E', label: 'Civil Engineering Console (P-Way)', icon: Wrench },
-    { key: 'T', label: 'Traction Distribution Console (OHE)', icon: Zap },
-    { key: 'S', label: 'Signal & Telecom Console (S&T)', icon: Radio },
     { key: 'P', label: 'Print Daily Possession Bulletin (PDF)', icon: FileDown },
     { key: 'X', label: 'Simulate Critical USFD Flaw (Emergency)', icon: AlertTriangle },
     { key: 'Esc', label: 'Close Active Overlays / Modals', icon: X },

@@ -278,14 +278,14 @@ export const ControlRoomDashboard: React.FC = () => {
               onRefresh={refetch}
             />
 
-            <ConflictResolutionPanel />
+            <ConflictResolutionPanel block={selectedBlock} />
           </div>
         </div>
 
         {/* Secondary Row: Train Impact Assessment & Shadow Bundling */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TrainImpactPanel />
-          <CoPossessionOptimizer />
+          <CoPossessionOptimizer block={selectedBlock} />
         </div>
 
         {/* Tertiary Row: Weather Telemetry & Department Comms */}

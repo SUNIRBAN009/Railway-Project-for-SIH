@@ -123,10 +123,19 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
   const { setAuth } = useAuthStore();
 
-  const [username, setUsername] = useState('1');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const getTargetRouteForUser = (user: User): string => {
+    if (user.role === 'ADMIN') return '/coa';
+    if (user.department_code === 'ENG') return '/eng';
+    if (user.department_code === 'TRD') return '/trd';
+    if (user.department_code === 'SNT') return '/snt';
+    if (user.role === 'CHIEF_CONTROLLER' || user.role === 'SECTION_CONTROLLER' || user.department_code === 'OPERATIONS') return '/coa';
+    return '/coa';
+  };
 
   // Instant 1-Click Persona Login
   const handleDirectPersonaLogin = async (preset: DemoPreset) => {
@@ -138,7 +147,8 @@ export const LoginPage: React.FC = () => {
       const response = await authService.login(preset.username, 'railway@123');
       if (response && response.data) {
         setAuth(response.data.user, response.data.access_token, response.data.refresh_token);
-        navigate(preset.targetRoute, { replace: true });
+        const route = getTargetRouteForUser(response.data.user);
+        navigate(route, { replace: true });
         return;
       }
     } catch {
@@ -166,7 +176,12 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     setErrorMessage(null);
 
-    const inputUser = username.trim() || '1';
+    const inputUser = username.trim();
+    if (!inputUser) {
+      setErrorMessage('Please enter an Operator ID, Username, or select a department persona below.');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await authService.login(inputUser, password || 'railway@123');
@@ -175,15 +190,8 @@ export const LoginPage: React.FC = () => {
         const { user, access_token, refresh_token } = response.data;
         setAuth(user, access_token, refresh_token);
 
-        let targetRoute = '/coa';
-        if (user.role === 'DEPT_ENGINEER' || user.role === 'SITE_SUPERVISOR') {
-          if (user.department_code === 'ENG') targetRoute = '/eng';
-          else if (user.department_code === 'TRD') targetRoute = '/trd';
-          else if (user.department_code === 'SNT') targetRoute = '/snt';
-        }
-
-        const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
-        navigate(fromPath || targetRoute, { replace: true });
+        const targetRoute = getTargetRouteForUser(user);
+        navigate(targetRoute, { replace: true });
       } else {
         setErrorMessage('Authentication rejected. Please click any 1-click persona below.');
       }
@@ -353,7 +361,7 @@ export const LoginPage: React.FC = () => {
               ) : (
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Authorize Access (ID: {username || '1'})</span>
+                  <span>Authorize Access {username ? `(${username})` : ''}</span>
                 </div>
               )}
             </button>

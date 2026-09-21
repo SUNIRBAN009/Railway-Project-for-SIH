@@ -28,12 +28,15 @@ import { useAuthStore } from './stores/authStore';
 
 function RealTimeCorridorSubscriber() {
   useCorridorSocket({ corridorCode: 'NDLS-GZB' });
+  const { user } = useAuthStore();
+  const isAdminOrChief = user?.role === 'ADMIN' || user?.role === 'CHIEF_CONTROLLER';
+
   return (
     <>
       <ToastContainer />
-      <DemoControllerToolbar />
-      <ScenarioPlayerModal />
-      <AutomatedTestRunnerModal />
+      {isAdminOrChief && <DemoControllerToolbar />}
+      {isAdminOrChief && <ScenarioPlayerModal />}
+      {isAdminOrChief && <AutomatedTestRunnerModal />}
       <EmergencyBanner />
       <EmergencyModal />
       <AudioChime />
@@ -47,7 +50,7 @@ const RoleBasedRedirect: React.FC = () => {
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
-  if (user.role === 'CHIEF_CONTROLLER' || user.role === 'SECTION_CONTROLLER' || user.role === 'ADMIN') {
+  if (user.role === 'ADMIN') {
     return <Navigate to="/coa" replace />;
   }
   if (user.department_code === 'ENG') {
@@ -58,6 +61,9 @@ const RoleBasedRedirect: React.FC = () => {
   }
   if (user.department_code === 'SNT') {
     return <Navigate to="/snt" replace />;
+  }
+  if (user.role === 'CHIEF_CONTROLLER' || user.role === 'SECTION_CONTROLLER' || user.department_code === 'OPERATIONS') {
+    return <Navigate to="/coa" replace />;
   }
   return <Navigate to="/coa" replace />;
 };
@@ -104,8 +110,8 @@ export default function App() {
             path="/eng"
             element={
               <ProtectedRoute 
-                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}
-                allowedDepartments={['ENG', 'OPERATIONS']}
+                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'ADMIN']}
+                allowedDepartments={['ENG']}
               >
                 <EngDashboard />
               </ProtectedRoute>
@@ -117,8 +123,8 @@ export default function App() {
             path="/trd"
             element={
               <ProtectedRoute 
-                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}
-                allowedDepartments={['TRD', 'OPERATIONS']}
+                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'ADMIN']}
+                allowedDepartments={['TRD']}
               >
                 <TrdDashboard />
               </ProtectedRoute>
@@ -130,8 +136,8 @@ export default function App() {
             path="/snt"
             element={
               <ProtectedRoute 
-                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'CHIEF_CONTROLLER', 'ADMIN']}
-                allowedDepartments={['SNT', 'OPERATIONS']}
+                allowedRoles={['DEPT_ENGINEER', 'SITE_SUPERVISOR', 'ADMIN']}
+                allowedDepartments={['SNT']}
               >
                 <SntDashboard />
               </ProtectedRoute>

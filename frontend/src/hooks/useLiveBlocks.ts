@@ -4,6 +4,8 @@ import { Block, DepartmentCode } from '../types';
 import { blockService } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
 
+const EMPTY_BLOCKS: Block[] = [];
+
 export function useLiveBlocks(department?: DepartmentCode) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
@@ -43,7 +45,7 @@ export function useLiveBlocks(department?: DepartmentCode) {
 
   // TanStack Query integration with queryKey: ['blocks', department] (TSK-P3-01-FE)
   const {
-    data: blocksData = [],
+    data: blocksData = EMPTY_BLOCKS,
     isLoading,
     error: queryError,
     refetch,
@@ -56,9 +58,7 @@ export function useLiveBlocks(department?: DepartmentCode) {
   const [localBlocks, setLocalBlocks] = useState<Block[]>(blocksData);
 
   useEffect(() => {
-    if (blocksData) {
-      setLocalBlocks(blocksData);
-    }
+    setLocalBlocks(blocksData);
   }, [blocksData]);
 
   // Reactive listener for push-to-invalidate custom events dispatched by useCorridorSocket

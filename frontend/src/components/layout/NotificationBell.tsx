@@ -3,9 +3,12 @@ import { Bell } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../services/api';
 import { useUIStore } from '../../stores/uiStore';
+import { useAuthStore } from '../../stores/authStore';
 
 export const NotificationBell: React.FC = () => {
   const { toggleNotifications, notificationsOpen } = useUIStore();
+
+  const { isAuthenticated } = useAuthStore();
 
   const { data: unreadCount = 4 } = useQuery<number>({
     queryKey: ['notifications', 'unread-count'],
@@ -19,6 +22,7 @@ export const NotificationBell: React.FC = () => {
       }
     },
     refetchInterval: 15000,
+    enabled: isAuthenticated,
   });
 
   return (

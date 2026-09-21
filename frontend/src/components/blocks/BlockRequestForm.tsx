@@ -45,7 +45,7 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
   // Form State
   const [corridorCode, setCorridorCode] = useState(DEMO_CORRIDORS[0].code);
   const [lineType, setLineType] = useState<LineType>('UP');
-  const [workType, setWorkType] = useState('Track Tamping (CSM)');
+  const [workType, setWorkType] = useState('TRACK_TAMPING');
   const [startKm, setStartKm] = useState(14.2);
   const [endKm, setEndKm] = useState(18.5);
 
@@ -429,7 +429,7 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
                 >
                   <option value="UP">UP Main Line (Toward NDLS)</option>
                   <option value="DOWN">DOWN Main Line (From NDLS)</option>
-                  <option value="BOTH">Both Lines (Full Corridor Shutdown)</option>
+                  <option value="BIDIRECTIONAL">Both Lines (Full Corridor Shutdown)</option>
                 </select>
               </div>
             </div>
@@ -500,13 +500,19 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
 
             <div>
               <label className="text-xs font-mono text-slate-300 block mb-1">Specific Work Designation</label>
-              <input
-                type="text"
+              <select
                 value={workType}
                 onChange={(e) => setWorkType(e.target.value)}
-                placeholder="e.g., Track Tamping (CSM) or 25kV Catenary Dropper Renewal"
                 className="w-full px-3 py-2.5 text-xs font-mono bg-control-bg border border-control-border rounded-xl text-white focus:border-cyan-400 focus:outline-none"
-              />
+              >
+                <option value="TRACK_TAMPING">Track Tamping (CSM Machine)</option>
+                <option value="BALLAST_CLEANING">Ballast Deep Screening (BCM)</option>
+                <option value="RAIL_RENEWAL">Through Rail Renewal (TRR)</option>
+                <option value="OHE_INSPECTION">25kV OHE Tower Wagon Inspection</option>
+                <option value="CATENARY_MAINTENANCE">Catenary & Contact Wire Adjustment</option>
+                <option value="SIGNAL_INTERLOCKING_TEST">Electronic Interlocking Point Overhaul</option>
+                <option value="TURNOUT_OVERHAUL">Turnout & Switch Crossing Renewal</option>
+              </select>
             </div>
           </div>
         )}

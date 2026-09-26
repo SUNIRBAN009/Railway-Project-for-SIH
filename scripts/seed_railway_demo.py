@@ -188,6 +188,18 @@ def run_seeder():
             'end_km': Decimal('126.000'),
             'is_electrified': True,
             'max_permissible_speed_kmh': 160,
+        },
+        {
+            'code': 'NDLS-CNB-MAIN',
+            'name': 'New Delhi - Kanpur Central Trunk Golden Corridor',
+            'zone': 'NCR',
+            'division': 'DLI',
+            'source_station': 'NDLS',
+            'destination_station': 'CNB',
+            'start_km': Decimal('0.000'),
+            'end_km': Decimal('440.200'),
+            'is_electrified': True,
+            'max_permissible_speed_kmh': 160,
         }
     ]
 
@@ -449,8 +461,101 @@ def run_seeder():
         }
     )
 
+    # Block 5: Sanctioned ENG Track Packing
+    t5_start = tomorrow.replace(hour=5, minute=0, second=0, microsecond=0)
+    t5_end = tomorrow.replace(hour=8, minute=0, second=0, microsecond=0)
+    b5, _ = Block.objects.update_or_create(
+        block_code='BLK-DEMO-ENG-003',
+        defaults={
+            'corridor': corridor_map['GZB-ALJN-DN'],
+            'line_type': LineType.DOWN,
+            'department_code': DepartmentCode.ENG,
+            'work_type': WorkType.TRACK_TAMPING,
+            'requested_by': staff_map['eng_track_pway'],
+            'gang_id': 'GANG-ENG-PWAY-07',
+            'equipment_required': 'CSM-NR-092 Track Tamper',
+            'start_km': Decimal('45.000'),
+            'end_km': Decimal('49.000'),
+            'scheduled_start_time': t5_start,
+            'scheduled_end_time': t5_end,
+            'status': BlockStatus.SANCTIONED,
+            'sanctioned_by': staff_map['coa_delhi_chief'],
+            'sanctioned_at': now,
+            'work_description': 'GZB-ALJN section mechanized track tamping and alignment.',
+        }
+    )
+
+    # Block 6: Proposed TRD OHE Inspection
+    t6_start = tomorrow.replace(hour=9, minute=30, second=0, microsecond=0)
+    t6_end = tomorrow.replace(hour=12, minute=0, second=0, microsecond=0)
+    b6, _ = Block.objects.update_or_create(
+        block_code='BLK-DEMO-TRD-002',
+        defaults={
+            'corridor': corridor_map['NDLS-GZB-DN'],
+            'line_type': LineType.DOWN,
+            'department_code': DepartmentCode.TRD,
+            'work_type': WorkType.OHE_INSPECTION,
+            'requested_by': staff_map['trd_ohe_power'],
+            'gang_id': 'GANG-TRD-OHE-02',
+            'equipment_required': 'TW-NR-8812 Tower Wagon',
+            'start_km': Decimal('18.000'),
+            'end_km': Decimal('21.000'),
+            'scheduled_start_time': t6_start,
+            'scheduled_end_time': t6_end,
+            'traction_power_cutoff_required': True,
+            'status': BlockStatus.PENDING_APPROVAL,
+            'work_description': '25kV AC OHE annual inspection and insulator replacement.',
+        }
+    )
+
+    # Block 7: Sanctioned SNT Track Circuit Calibration
+    t7_start = tomorrow.replace(hour=14, minute=0, second=0, microsecond=0)
+    t7_end = tomorrow.replace(hour=16, minute=30, second=0, microsecond=0)
+    b7, _ = Block.objects.update_or_create(
+        block_code='BLK-DEMO-SNT-002',
+        defaults={
+            'corridor': corridor_map['NDLS-GZB-DN'],
+            'line_type': LineType.DOWN,
+            'department_code': DepartmentCode.SNT,
+            'work_type': WorkType.SIGNAL_INTERLOCKING_TEST,
+            'requested_by': staff_map['snt_signal_telecom'],
+            'gang_id': 'GANG-SNT-SIG-01',
+            'equipment_required': 'Point Machine Testing Rig',
+            'start_km': Decimal('16.000'),
+            'end_km': Decimal('17.500'),
+            'scheduled_start_time': t7_start,
+            'scheduled_end_time': t7_end,
+            'status': BlockStatus.SANCTIONED,
+            'sanctioned_by': staff_map['coa_delhi_chief'],
+            'sanctioned_at': now,
+            'work_description': 'Sahibabad yard audio frequency track circuit calibration.',
+        }
+    )
+
+    # Block 8: Pending Approval ENG Rail Renewal
+    t8_start = tomorrow.replace(hour=18, minute=0, second=0, microsecond=0)
+    t8_end = tomorrow.replace(hour=21, minute=0, second=0, microsecond=0)
+    b8, _ = Block.objects.update_or_create(
+        block_code='BLK-DEMO-ENG-004',
+        defaults={
+            'corridor': corridor_map['NDLS-GZB-UP'],
+            'line_type': LineType.UP,
+            'department_code': DepartmentCode.ENG,
+            'work_type': WorkType.RAIL_RENEWAL,
+            'requested_by': staff_map['eng_track_pway'],
+            'gang_id': 'GANG-ENG-PWAY-04',
+            'equipment_required': 'USFD-NR-03 Ultrasonic Flaw Trolley',
+            'start_km': Decimal('22.000'),
+            'end_km': Decimal('24.500'),
+            'scheduled_start_time': t8_start,
+            'scheduled_end_time': t8_end,
+            'status': BlockStatus.PENDING_APPROVAL,
+            'work_description': 'Ultrasonic flaw guided through rail renewal.',
+        }
+    )
+
     # Run sweep-line detector on all blocks
-    for blk in [b1, b2, b3, b4]:
+    for blk in [b1, b2, b3, b4, b5, b6, b7, b8]:
         detector = ConflictDetector(blk)
         res = detector.run_sweep()
         print(f"  [OK] Block {blk.block_code} evaluated: status={blk.status}, "

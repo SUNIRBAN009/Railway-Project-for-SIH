@@ -165,7 +165,7 @@ CHANNEL_LAYERS = {
             "capacity": 1500,
             "expiry": 30,
         },
-    }
+    },
 }
 
 

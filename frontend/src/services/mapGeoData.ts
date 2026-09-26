@@ -77,6 +77,8 @@ export const WB_STATIONS: StationData[] = [
   }
 ];
 
+export const DELHI_STATIONS: StationData[] = WB_STATIONS;
+
 // Simplified Howrah to NJP Trunk coordinates
 export const CORRIDOR_MAIN_LINE: [number, number][] = [
   [88.3411, 22.5833], // HWH

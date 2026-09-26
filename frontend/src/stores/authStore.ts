@@ -27,21 +27,25 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
 
-      setAuth: (user, accessToken, refreshToken) =>
+      setAuth: (user, accessToken, refreshToken) => {
+        const isMock = !accessToken || accessToken.startsWith('mock-');
         set((state) => ({
           user,
-          accessToken,
+          accessToken: isMock ? null : accessToken,
           refreshToken: refreshToken || state.refreshToken,
-          isAuthenticated: true,
+          isAuthenticated: !isMock,
           error: null,
           isLoading: false,
-        })),
+        }));
+      },
 
-      setAccessToken: (accessToken) =>
+      setAccessToken: (accessToken) => {
+        const isMock = !accessToken || accessToken.startsWith('mock-');
         set({
-          accessToken,
-          isAuthenticated: true,
-        }),
+          accessToken: isMock ? null : accessToken,
+          isAuthenticated: !isMock,
+        });
+      },
 
       setError: (error) => set({ error, isLoading: false }),
 
@@ -64,10 +68,16 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        accessToken: state.accessToken,
+        accessToken: state.accessToken && !state.accessToken.startsWith('mock-') ? state.accessToken : null,
         refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
+        isAuthenticated: Boolean(state.isAuthenticated && state.accessToken && !state.accessToken.startsWith('mock-')),
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.accessToken && state.accessToken.startsWith('mock-')) {
+          state.accessToken = null;
+          state.isAuthenticated = false;
+        }
+      },
     }
   )
 );

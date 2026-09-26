@@ -29,6 +29,7 @@ import {
 export const EngDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BLOCKS' | 'PROPOSE' | 'TIMELINE' | 'CREW' | 'INVENTORY' | 'CALENDAR'>('BLOCKS');
   const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
+  const { submitBlockProposal } = useBlockStore();
   const { blocks, setBlocks, refetch } = useLiveBlocks('ENG');
   const { riskMatrix, whyNumberOne } = useRiskMatrix('NDLS-CNB-MAIN');
 

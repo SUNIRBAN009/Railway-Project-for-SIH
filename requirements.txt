@@ -24,3 +24,4 @@ google-generativeai>=0.7.0
 pybreaker>=1.0.0
 structlog>=24.1.0
 reportlab>=4.0.0
+bandit>=1.7.0

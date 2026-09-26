@@ -166,6 +166,7 @@ CHANNEL_LAYERS = {
             "expiry": 30,
         },
     }
+}
 
 
 # Celery 5.3 Task Broker & Multi-tier Queues (TSK-P0-006)

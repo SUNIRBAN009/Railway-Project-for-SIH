@@ -148,29 +148,31 @@ export const LoginPage: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      // 1. Call Backend Login API
-      const response = await authService.login(preset.username, '9999');
+      // 1. Call Backend Login API with standard demo credentials
+      let response: any = null;
+      try {
+        response = await authService.login(preset.username, '9999');
+      } catch {
+        try {
+          response = await authService.login(preset.username, 'Password123!');
+        } catch {
+          response = await authService.login(preset.username, 'railway@123');
+        }
+      }
+
       if (response && response.data) {
         setAuth(response.data.user, response.data.access_token, response.data.refresh_token);
         const route = getTargetRouteForUser(response.data.user);
         navigate(route, { replace: true });
         return;
       }
-    } catch {
-      // 2. Direct Fallback if network or backend delay occurs
-      const mockUser: User = {
-        id: String(parseInt(preset.number) || 1),
-        employee_id: `IR-SIH-${preset.number.padStart(4, '0')}`,
-        username: preset.username,
-        first_name: preset.label.split(' ')[0] || 'User',
-        last_name: preset.label.split(' ')[1] || 'Demo',
-        email: `${preset.username}@railway.gov.in`,
-        role: preset.role,
-        department_code: preset.department,
-        division_code: 'DLI',
-      };
-      setAuth(mockUser, `mock-demo-token-${preset.username}`);
-      navigate(preset.targetRoute, { replace: true });
+      setErrorMessage(`Authentication failed for ${preset.label}.`);
+    } catch (err: any) {
+      console.error('Direct persona login error:', err);
+      setErrorMessage(
+        err.response?.data?.message ||
+        `Unable to authenticate as ${preset.label}. Please verify backend server is online.`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +191,21 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      const response = await authService.login(inputUser, password || '9999');
+      let response: any = null;
+      const pass = password || '9999';
+      try {
+        response = await authService.login(inputUser, pass);
+      } catch (firstErr) {
+        if (!password) {
+          try {
+            response = await authService.login(inputUser, 'Password123!');
+          } catch {
+            response = await authService.login(inputUser, 'railway@123');
+          }
+        } else {
+          throw firstErr;
+        }
+      }
 
       if (response && response.data) {
         const { user, access_token, refresh_token } = response.data;
@@ -198,29 +214,15 @@ export const LoginPage: React.FC = () => {
         const targetRoute = getTargetRouteForUser(user);
         navigate(targetRoute, { replace: true });
       } else {
-        setErrorMessage('Authentication rejected. Please click any 1-click persona below.');
+        setErrorMessage('Authentication rejected. Please check credentials or click any 1-click persona below.');
       }
-    } catch (err: unknown) {
-      // Fallback: match by number or default
-      const preset =
-        DEMO_PRESETS.find((p) => p.number === inputUser || p.username.toLowerCase() === inputUser.toLowerCase()) ||
-        DEMO_PRESETS[0];
-
-      const mockUser: User = {
-        id: String(parseInt(preset.number) || 1),
-        employee_id: `IR-SIH-${preset.number.padStart(4, '0')}`,
-        username: preset.username,
-        first_name: preset.label.split(' ')[0] || 'User',
-        last_name: preset.label.split(' ')[1] || 'Demo',
-        email: `${preset.username}@railway.gov.in`,
-        role: preset.role,
-        department_code: preset.department,
-        division_code: 'DLI',
-      };
-      setAuth(mockUser, `mock-demo-token-${preset.username}`);
-
-      const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
-      navigate(fromPath && fromPath !== '/' ? fromPath : preset.targetRoute, { replace: true });
+    } catch (err: any) {
+      console.error('Login submit error:', err);
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error?.message ||
+        'Authentication rejected. Please check credentials or click any 1-click persona below.';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }

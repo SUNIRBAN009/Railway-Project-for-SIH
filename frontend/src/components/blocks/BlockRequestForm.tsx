@@ -3,6 +3,9 @@ import { DepartmentCode, LineType, Block } from '../../types';
 import { DEMO_CORRIDORS, DEMO_MACHINERY, DEMO_GANGS } from '../../services/demoData';
 import { blockService, departmentService, GangRecord, EquipmentRecord } from '../../services/api';
 import { useToastStore } from '../../stores/toastStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useBlockStore } from '../../stores/blockStore';
+import { queryClient } from '../../services/queryClient';
 import {
   Wrench,
   Zap,
@@ -249,7 +252,10 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
         message: `Saved to database in state: ${createdBlock.status_display || createdBlock.status}. ${conflictCount} sweep conflict(s) evaluated.`,
       });
 
-      useBlockStore.getState().submitBlockProposal(createdBlock, user?.username || 'Field Engineer');
+      // Synchronize frontend query caches & broadcast event across windows
+      queryClient.invalidateQueries({ queryKey: ['blocks'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      window.dispatchEvent(new CustomEvent('corridor_block_updated', { detail: createdBlock }));
     } catch (err: any) {
       console.warn('Block submission falling back to local session store:', err);
       const fallbackBlock: any = {

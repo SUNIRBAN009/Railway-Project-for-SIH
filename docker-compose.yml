@@ -111,8 +111,6 @@ services:
         condition: service_healthy
     networks:
       - railway_network
-    healthcheck:
-      disable: true
 
   # ============================================
   # Celery Worker - High Priority (Conflict Detection)
@@ -141,8 +139,6 @@ services:
         condition: service_healthy
     networks:
       - railway_network
-    healthcheck:
-      disable: true
 
   # ============================================
   # Celery Worker - Notifications (SMS & WebSockets)
@@ -169,8 +165,6 @@ services:
         condition: service_healthy
     networks:
       - railway_network
-    healthcheck:
-      disable: true
 
   # ============================================
   # Celery Worker - Ontology (HermiT Reasoner)
@@ -204,8 +198,6 @@ services:
           memory: 4G
     networks:
       - railway_network
-    healthcheck:
-      disable: true
 
   # ============================================
   # Celery Worker - Default & Low Priority
@@ -234,8 +226,6 @@ services:
         condition: service_healthy
     networks:
       - railway_network
-    healthcheck:
-      disable: true
 
   # ============================================
   # Celery Beat (Scheduled Operational Rollups)
@@ -261,8 +251,6 @@ services:
         condition: service_healthy
     networks:
       - railway_network
-    healthcheck:
-      disable: true
 
   # ============================================
   # React Frontend (Vite Dev Server)

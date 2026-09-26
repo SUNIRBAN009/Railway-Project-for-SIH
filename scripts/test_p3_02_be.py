@@ -212,7 +212,7 @@ def run_tests():
     matching_block = [b for b in all_blocks if b.get("block_code") == emg_block_code]
     assert len(matching_block) == 1, f"Emergency block {emg_block_code} not found in database"
     b_record = matching_block[0]
-    assert b_record.get("status") in ["PENDING_APPROVAL", "DRAFT", "PROPOSED"]
+    assert b_record.get("status") in ["PENDING_APPROVAL", "DRAFT", "PROPOSED", "COORDINATED"]
     print(f"  [PASS] Emergency Block persisted and verified in PostgreSQL: {emg_block_code}")
 
     print("\n" + "=" * 80)

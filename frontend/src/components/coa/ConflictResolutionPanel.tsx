@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ConflictItem, Block } from '../../types';
+import { useBlockStore } from '../../stores/blockStore';
 import {
   Sparkles,
   AlertTriangle,
@@ -20,6 +21,45 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+export interface DynamicConflict {
+  id: string;
+  blockId: string;
+  blockCode: string;
+  departmentCode: string;
+  conflictType: string;
+  title: string;
+  description: string;
+  startKm: number;
+  endKm: number;
+  severity: 'CRITICAL' | 'MAJOR' | 'MODERATE' | 'OPPORTUNITY';
+  conflictingEntity: string;
+  estimatedDelayMinutes: number;
+  recommendedShiftMinutes: number;
+  recommendedAction: string;
+  isShadow: boolean;
+  status: 'PENDING' | 'RESOLVED';
+}
+
+type DepartmentCode = 'ENG' | 'TRD' | 'SNT' | 'ALL';
+
+const TRAIN_PATHS = [
+  { number: '12424', name: 'Dibrugarh Rajdhani Express', startKm: 14.0, endKm: 15.5, speedKmh: 130 },
+  { number: '12004', name: 'Lucknow Swarna Shatabdi Express', startKm: 18.0, endKm: 21.5, speedKmh: 130 },
+];
+
+const STORAGE_RESOLVED_CONFLICTS_KEY = 'railway_resolved_conflicts_v3';
+
+const getStoredResolvedIds = (): string[] => {
+  try {
+    const cached = localStorage.getItem(STORAGE_RESOLVED_CONFLICTS_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+};
+
 interface ConflictResolutionPanelProps {
   block?: Block | null;
   onApplyResolution?: (conflictId: string, shiftMinutes: number) => void;
@@ -29,7 +69,7 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
   block,
   onApplyResolution,
 }) => {
-  const [resolvedIds, setResolvedIds] = useState<string[]>([]);
+  const [resolvedIds, setResolvedIds] = useState<string[]>(getStoredResolvedIds);
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
   const [deptFilter, setDeptFilter] = useState<'ALL' | 'ENG' | 'TRD' | 'SNT'>('ALL');
 
@@ -54,22 +94,8 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
     };
   });
 
-const STORAGE_RESOLVED_CONFLICTS_KEY = 'railway_resolved_conflicts_v3';
-
-const getStoredResolvedIds = (): string[] => {
-  try {
-    const cached = localStorage.getItem(STORAGE_RESOLVED_CONFLICTS_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch {}
-  return [];
-};
-
-export const ConflictResolutionPanel: React.FC = () => {
+  // Merged Sweep-Line Variables
   const { blocks, applyTimeShiftAndDeconflict } = useBlockStore();
-  const [resolvedIds, setResolvedIds] = useState<string[]>(getStoredResolvedIds);
   const [selectedDept, setSelectedDept] = useState<'ALL' | 'ENG' | 'TRD' | 'SNT' | 'SHADOW'>('ALL');
   const [expandedConflictId, setExpandedConflictId] = useState<string | null>(null);
   const [showResolvedArchive, setShowResolvedArchive] = useState(false);
@@ -263,6 +289,20 @@ export const ConflictResolutionPanel: React.FC = () => {
         conflict.blockId,
         conflict.recommendedShiftMinutes,
         `Shifted +${conflict.recommendedShiftMinutes}m to deconflict from ${conflict.conflictingEntity}.`
+      );
+    }
+  };
+
+  const handleResolve = async (cnf: ConflictItem) => {
+    markConflictResolved(cnf.id);
+    if (onApplyResolution) {
+      onApplyResolution(cnf.id, cnf.recommended_shift_minutes);
+    }
+    if (block?.id) {
+      await applyTimeShiftAndDeconflict(
+        block.id,
+        cnf.recommended_shift_minutes,
+        `Shifted +${cnf.recommended_shift_minutes}m to deconflict from ${cnf.conflicting_train_name || 'train'}.`
       );
     }
   };

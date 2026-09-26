@@ -23,8 +23,6 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SanctionAcknowledgementModal } from './components/common/SanctionAcknowledgementModal';
 import { ToastContainer } from './components/common/ToastContainer';
 import { DemoControllerToolbar } from './components/common/DemoControllerToolbar';
-import { AutomatedTestRunnerModal } from './components/common/AutomatedTestRunnerModal';
-import { ScenarioPlayerModal } from './components/common/ScenarioPlayerModal';
 
 function RealTimeCorridorSubscriber() {
   useCorridorSocket({ corridorCode: 'NDLS-GZB' });
@@ -35,8 +33,6 @@ function RealTimeCorridorSubscriber() {
     <>
       <ToastContainer />
       {isAdminOrChief && <DemoControllerToolbar />}
-      {isAdminOrChief && <ScenarioPlayerModal />}
-      {isAdminOrChief && <AutomatedTestRunnerModal />}
       <EmergencyBanner />
       <EmergencyModal />
       <AudioChime />

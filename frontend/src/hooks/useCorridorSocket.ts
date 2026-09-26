@@ -60,6 +60,7 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
         }
         if (domain === 'BLOCKS' || resource === 'blocks') {
           queryClient.invalidateQueries({ queryKey: ['blocks'] });
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
           queryClient.invalidateQueries({ queryKey: ['corridor_telemetry'] });
         }
         if (domain === 'TRAINS' || resource === 'trains') {
@@ -86,11 +87,22 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
         msgType === 'BLOCK_COMPLETED' ||
         msgType === 'BLOCK_CANCELLED' ||
         msgType === 'BLOCK_REJECTED' ||
-        msgType === 'BLOCK_RESCHEDULED'
+        msgType === 'BLOCK_RESCHEDULED' ||
+        data.action?.includes('BLOCK') ||
+        data.action === 'PROPOSED' ||
+        data.action === 'SANCTIONED' ||
+        data.action === 'ACTIVATED'
       ) {
         queryClient.invalidateQueries({ queryKey: ['blocks'] });
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
         queryClient.invalidateQueries({ queryKey: ['corridor_telemetry'] });
         window.dispatchEvent(new CustomEvent('corridor_block_updated', { detail: data }));
+      }
+
+      // 3a. Notification push events
+      if (msgType === 'notification' || msgType === 'NOTIFICATION') {
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        window.dispatchEvent(new CustomEvent('notification_received', { detail: data }));
       }
 
 

@@ -7,21 +7,35 @@ class ResourceValidator:
     def validate(self, block, master_data, existing_blocks=None):
         from . import CoherenceViolation
 
+        from datetime import datetime, timezone as dt_timezone
+
+        def to_dt(val):
+            if not val:
+                return None
+            if isinstance(val, str):
+                try:
+                    val = datetime.fromisoformat(val.replace('Z', '+00:00'))
+                except Exception:
+                    return None
+            if getattr(val, 'tzinfo', None) is None:
+                val = val.replace(tzinfo=dt_timezone.utc)
+            return val
+
         gang_id = block.get('gang_id') or block.get('assigned_gang_id')
         equipment_id = block.get('equipment_id') or block.get('assigned_equipment_id')
-        start_time = block.get('scheduled_start_time')
-        end_time = block.get('scheduled_end_time')
+        start_time = to_dt(block.get('scheduled_start_time'))
+        end_time = to_dt(block.get('scheduled_end_time'))
         start_km = float(block.get('start_km', 0.0))
         end_km = float(block.get('end_km', 0.0))
 
-        if not existing_blocks or (not gang_id and not equipment_id):
+        if not existing_blocks or (not gang_id and not equipment_id) or not start_time or not end_time:
             return
 
         for ex in existing_blocks:
             ex_gang = ex.get('gang_id') or ex.get('assigned_gang_id')
             ex_eq = ex.get('equipment_id') or ex.get('assigned_equipment_id')
-            ex_start = ex.get('scheduled_start_time')
-            ex_end = ex.get('scheduled_end_time')
+            ex_start = to_dt(ex.get('scheduled_start_time'))
+            ex_end = to_dt(ex.get('scheduled_end_time'))
             ex_start_km = float(ex.get('start_km', 0.0))
             ex_end_km = float(ex.get('end_km', 0.0))
 

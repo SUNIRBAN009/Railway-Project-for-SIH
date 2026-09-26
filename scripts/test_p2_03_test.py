@@ -198,6 +198,14 @@ assert status_fe == 200, f"Frontend server unresponsive on port 3000: {html_body
 assert "<!doctype html>" in html_body.lower() or "<html" in html_body.lower()
 print("[OK] Frontend SPA server is healthy, live, and responsive on http://localhost:3000.")
 
+# ----------------------------------------------------------------------
+# 8. Clean up Test Blocks to Maintain Clean Test State
+# ----------------------------------------------------------------------
+log_step("8. Cleaning up Scenario B Test Blocks via Frontend Proxy")
+for bid, bcode in [(eng_id, eng_code), (trd_id, trd_code)]:
+    http_request(f"{FRONTEND_URL}/api/v1/blocks/{bid}/cancel/", method="POST", headers={"Authorization": f"Bearer {eng_token}"})
+print("[OK] Test blocks cancelled to maintain clean test state.")
+
 print("\n" + "=" * 80)
 print("ALL TSK-P2-03-TEST VERIFICATION CHECKS PASSED (100%)")
 print("=" * 80)

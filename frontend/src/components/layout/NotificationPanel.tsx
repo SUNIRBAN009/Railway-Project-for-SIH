@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { X, CheckCheck, AlertTriangle, Flame, AlertCircle, Info, Clock } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { X, CheckCheck, AlertTriangle, Flame, AlertCircle, Info, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useUIStore } from '../../stores/uiStore';
+import { notificationService, BackendNotification } from '../../services/api';
+import { queryClient } from '../../services/queryClient';
 import { formatDistanceToNow } from 'date-fns';
 
 export interface OperationalNotification {
@@ -14,14 +17,14 @@ export interface OperationalNotification {
   isRead: boolean;
 }
 
-// Master demonstration notifications for Indian Railways block planning presentation
+// Fallback baseline demonstration notifications
 const INITIAL_DEMO_NOTIFICATIONS: OperationalNotification[] = [
   {
     id: 'notif-001',
     title: 'USFD Rail Flaw Detected (Emergency Containment)',
     message: 'Ultrasonic trolley USFD-NR-03 detected 4.8mm transverse rail crack at KM 14.8 (NDLS-GZB Up Line). Automated emergency possession proposal generated.',
     severity: 'EMERGENCY',
-    timestamp: new Date(Date.now() - 4 * 60 * 1000), // 4 mins ago
+    timestamp: new Date(Date.now() - 4 * 60 * 1000),
     department: 'ENG',
     corridor: 'NDLS-GZB-UP',
     isRead: false,
@@ -31,7 +34,7 @@ const INITIAL_DEMO_NOTIFICATIONS: OperationalNotification[] = [
     title: 'Sweep-Line Conflict Detected (Rajdhani Express)',
     message: 'Proposed TRD OHE possession BLK-DEMO-TRD-001 intersects 12424 Dibrugarh Rajdhani at KM 15.2. Time-shift recommendation: 02:45 - 04:15.',
     severity: 'CRITICAL',
-    timestamp: new Date(Date.now() - 18 * 60 * 1000), // 18 mins ago
+    timestamp: new Date(Date.now() - 18 * 60 * 1000),
     department: 'OPERATIONS',
     corridor: 'NDLS-GZB-UP',
     isRead: false,
@@ -41,7 +44,7 @@ const INITIAL_DEMO_NOTIFICATIONS: OperationalNotification[] = [
     title: 'Weather Advisory: Dense Fog Warning',
     message: 'Northern Railway Meteorological Cell issued dense fog warning between Ghaziabad and Aligarh. Automatic speed restriction cap: 60 km/h applied.',
     severity: 'WARNING',
-    timestamp: new Date(Date.now() - 45 * 60 * 1000), // 45 mins ago
+    timestamp: new Date(Date.now() - 45 * 60 * 1000),
     department: 'OPERATIONS',
     corridor: 'GZB-ALJN-DN',
     isRead: false,
@@ -51,7 +54,7 @@ const INITIAL_DEMO_NOTIFICATIONS: OperationalNotification[] = [
     title: 'Shadow Block Opportunity Bundled',
     message: 'Signal & Telecom point machine possession BLK-DEMO-SNT-001 successfully bundled with ENG Track Tamping at Sahibabad (Efficiency +42.5%).',
     severity: 'INFO',
-    timestamp: new Date(Date.now() - 90 * 60 * 1000), // 1.5 hours ago
+    timestamp: new Date(Date.now() - 90 * 60 * 1000),
     department: 'SNT',
     corridor: 'NDLS-GZB-UP',
     isRead: true,
@@ -61,7 +64,7 @@ const INITIAL_DEMO_NOTIFICATIONS: OperationalNotification[] = [
     title: 'Night Corridor Block Possession Sanctioned',
     message: 'Chief Controller sanctioned possession BLK-DEMO-ENG-001 for CSM-092 Tamper machine between KM 12.0 and 16.0 (01:30 - 04:30 IST).',
     severity: 'INFO',
-    timestamp: new Date(Date.now() - 180 * 60 * 1000), // 3 hours ago
+    timestamp: new Date(Date.now() - 180 * 60 * 1000),
     department: 'ENG',
     corridor: 'NDLS-GZB-UP',
     isRead: true,
@@ -70,18 +73,78 @@ const INITIAL_DEMO_NOTIFICATIONS: OperationalNotification[] = [
 
 export const NotificationPanel: React.FC = () => {
   const { notificationsOpen, setNotificationsOpen } = useUIStore();
-  const [notifications, setNotifications] = useState<OperationalNotification[]>(INITIAL_DEMO_NOTIFICATIONS);
+
+  const {
+    data: serverNotifications = [],
+    isLoading,
+    refetch,
+  } = useQuery<BackendNotification[]>({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      try {
+        return await notificationService.getNotifications();
+      } catch (err) {
+        console.warn('Failed to fetch live notifications from backend:', err);
+        return [];
+      }
+    },
+    refetchInterval: 5000,
+    enabled: notificationsOpen,
+  });
+
+  // Re-fetch when live WebSocket broadcast is received
+  useEffect(() => {
+    const handleUpdate = () => {
+      refetch();
+    };
+    window.addEventListener('notification_received', handleUpdate);
+    window.addEventListener('corridor_block_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('notification_received', handleUpdate);
+      window.removeEventListener('corridor_block_updated', handleUpdate);
+    };
+  }, [refetch]);
 
   if (!notificationsOpen) return null;
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  // Map backend notifications to UI format, falling back to demo notifications if server list is empty
+  const notifications: OperationalNotification[] =
+    serverNotifications.length > 0
+      ? serverNotifications.map((sn) => {
+          let sev: OperationalNotification['severity'] = 'INFO';
+          if (sn.priority === 'CRITICAL_ALARM') sev = 'EMERGENCY';
+          else if (sn.priority === 'OPERATIONAL_ALERT') sev = 'CRITICAL';
+          else if (sn.priority === 'SAFETY_WARNING') sev = 'WARNING';
+
+          return {
+            id: sn.id,
+            title: sn.title,
+            message: sn.message_body,
+            severity: sev,
+            timestamp: new Date(sn.created_at),
+            department: sn.category_display || sn.category || 'OPERATIONS',
+            corridor: sn.corridor_code || 'NDLS-CNB-MAIN',
+            isRead: sn.is_read,
+          };
+        })
+      : INITIAL_DEMO_NOTIFICATIONS;
+
+  const markAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+    } catch {}
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+    refetch();
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+  const markAsRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+    } catch {}
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+    refetch();
   };
 
   const getSeverityBadge = (severity: OperationalNotification['severity']) => {

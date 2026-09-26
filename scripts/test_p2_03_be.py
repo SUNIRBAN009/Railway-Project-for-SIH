@@ -284,6 +284,14 @@ assert "combined_recommendation" in detail_data, "combined_recommendation field 
 assert detail_data["combined_recommendation"]["is_combined_candidate"] is True
 print("[OK] BlockDetailSerializer correctly embeds AI combined recommendation payload.")
 
+# ----------------------------------------------------------------------
+# 10. Clean up Test Blocks to Maintain Clean Test State
+# ----------------------------------------------------------------------
+log_step("10. Cleaning up Test Blocks via POST /api/v1/blocks/<id>/cancel/")
+for bid, bcode in [(eng_id, eng_code), (trd_id, trd_code)]:
+    http_request(f"{BASE_URL}/api/v1/blocks/{bid}/cancel/", method="POST", headers={"Authorization": f"Bearer {eng_token}"})
+print("[OK] Test blocks cancelled to maintain clean test state.")
+
 print("\n" + "=" * 80)
 print("ALL TSK-P2-03-BE TESTS COMPLETED SUCCESSFULLY! (100% PASS)")
 print("=" * 80)

@@ -14,7 +14,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = useAuthStore.getState().accessToken;
-    if (token && config.headers) {
+    if (token && !token.startsWith('mock-') && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -207,6 +207,44 @@ export const blockService = {
       payload
     );
     return response.data.data;
+  },
+};
+
+// Notification Service API Wrappers (SVC-NOTIF)
+export interface BackendNotification {
+  id: string;
+  recipient_username?: string | null;
+  recipient_role?: string;
+  priority: 'CRITICAL_ALARM' | 'OPERATIONAL_ALERT' | 'SAFETY_WARNING' | 'ROUTINE_INFO';
+  priority_display?: string;
+  category: string;
+  category_display?: string;
+  title: string;
+  message_body: string;
+  target_entity_type?: string;
+  target_entity_id?: string;
+  is_read: boolean;
+  read_at?: string | null;
+  created_at: string;
+  corridor_code?: string;
+}
+
+export const notificationService = {
+  getNotifications: async (params?: { is_read?: boolean; limit?: number }): Promise<BackendNotification[]> => {
+    const response = await apiClient.get<{ success: boolean; data: BackendNotification[] }>('/notifications/', { params });
+    return response.data.data || [];
+  },
+  getUnreadCount: async (): Promise<number> => {
+    const response = await apiClient.get<{ success: boolean; data: { unread_count: number } }>('/notifications/unread-count/');
+    return response.data.data?.unread_count || 0;
+  },
+  markAsRead: async (id: string): Promise<any> => {
+    const response = await apiClient.post(`/notifications/${id}/mark-read/`);
+    return response.data;
+  },
+  markAllAsRead: async (): Promise<any> => {
+    const response = await apiClient.post('/notifications/mark-all-read/');
+    return response.data;
   },
 };
 

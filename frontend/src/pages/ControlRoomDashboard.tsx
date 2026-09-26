@@ -36,7 +36,7 @@ export const ControlRoomDashboard: React.FC = () => {
   const { user } = useAuthStore();
   const { blocks: liveBlocks, setBlocks, refetch } = useLiveBlocks();
   const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks;
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>('blk-004');
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   const activeSelectedId = selectedBlockId || (blocks.length > 0 ? blocks[0].id : null);
   const selectedBlock = blocks.find((b) => b.id === activeSelectedId) || (blocks.length > 0 ? blocks[0] : null);
@@ -85,6 +85,9 @@ export const ControlRoomDashboard: React.FC = () => {
       remarks,
       user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)'
     );
+    setTimeout(() => {
+      refetch();
+    }, 400);
   };
 
   const handleConditionalSanction = (blockId: string, cautionSpeed: number, remarks: string) => {
@@ -94,6 +97,9 @@ export const ControlRoomDashboard: React.FC = () => {
       user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)',
       cautionSpeed
     );
+    setTimeout(() => {
+      refetch();
+    }, 400);
   };
 
   const handleRevise = (blockId: string, reason: string) => {
@@ -102,6 +108,9 @@ export const ControlRoomDashboard: React.FC = () => {
       reason,
       user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)'
     );
+    setTimeout(() => {
+      refetch();
+    }, 400);
   };
 
   const handleDeclareEmergency = (corridor: string, kmLocation: number, reason: string) => {
@@ -225,7 +234,7 @@ export const ControlRoomDashboard: React.FC = () => {
             <div>
               <span className="text-[11px] text-control-muted uppercase font-mono">Queued For Sanction</span>
               <p className="text-2xl font-extrabold text-cyan-400 mt-1 font-mono">
-                {blocks.filter((b) => ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL'].includes(b.status)).length}
+                {blocks.filter((b) => ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL', 'CONFLICT_DETECTED', 'PROPOSED'].includes(b.status)).length}
               </p>
               <span className="text-[10px] text-cyan-300 font-mono mt-0.5 block">
                 Awaiting COA Decision

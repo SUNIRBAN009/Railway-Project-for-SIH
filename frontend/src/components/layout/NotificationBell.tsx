@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../services/api';
+import { notificationService } from '../../services/api';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -10,20 +10,30 @@ export const NotificationBell: React.FC = () => {
 
   const { isAuthenticated } = useAuthStore();
 
-  const { data: unreadCount = 4 } = useQuery<number>({
+  const { data: unreadCount = 0, refetch } = useQuery<number>({
     queryKey: ['notifications', 'unread-count'],
     queryFn: async () => {
       try {
-        const response = await apiClient.get<{ count: number }>('/notifications/unread-count/');
-        return response.data?.count ?? 4;
+        return await notificationService.getUnreadCount();
       } catch {
-        // Fallback for demo display if backend endpoint in container is waking
-        return 4;
+        return 0;
       }
     },
-    refetchInterval: 15000,
+    refetchInterval: 5000,
     enabled: isAuthenticated,
   });
+
+  React.useEffect(() => {
+    const handleUpdate = () => {
+      refetch();
+    };
+    window.addEventListener('notification_received', handleUpdate);
+    window.addEventListener('corridor_block_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('notification_received', handleUpdate);
+      window.removeEventListener('corridor_block_updated', handleUpdate);
+    };
+  }, [refetch]);
 
   return (
     <button

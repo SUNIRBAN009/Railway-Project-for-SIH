@@ -145,10 +145,13 @@ def api_health_check_view(request):
         health['status'] = 'unhealthy'
         status_code = 503
 
-    # 2. Redis check
+    # 2. Redis check (using shared connection pool to minimize latency)
     try:
-        redis_url = getattr(settings, 'CELERY_BROKER_URL', 'redis://redis:6379/0')
-        r = redis.Redis.from_url(redis_url, socket_timeout=2)
+        global _redis_pool
+        if '_redis_pool' not in globals() or _redis_pool is None:
+            redis_url = getattr(settings, 'CELERY_BROKER_URL', 'redis://redis:6379/0')
+            _redis_pool = redis.ConnectionPool.from_url(redis_url, socket_timeout=1, max_connections=10)
+        r = redis.Redis(connection_pool=_redis_pool)
         if r.ping():
             health['services']['redis'] = 'connected'
         else:

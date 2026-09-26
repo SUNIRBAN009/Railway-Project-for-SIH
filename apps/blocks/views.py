@@ -16,7 +16,7 @@ from apps.accounts.permissions import (
     engineer_required,
 )
 from apps.blocks.models import Corridor, Block, BlockConflict, BlockStatus, LineType, WorkType
-from apps.accounts.models import DepartmentCode, User
+from apps.accounts.models import DepartmentCode, UserRole, User
 from apps.blocks.serializers import (
     CorridorSerializer,
     BlockDetailSerializer,
@@ -123,13 +123,22 @@ class BlockProposalCreateAPIView(APIView):
     FUNC-BLK-001: Submit Block Proposal
     POST /api/v1/blocks/proposals/
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        user_role = getattr(getattr(request.user, 'profile', None), 'role', None)
+        username = getattr(request.user, 'username', '')
+        if user_role in [UserRole.CHIEF_CONTROLLER, UserRole.SECTION_CONTROLLER] or username.startswith('coa_'):
+            return ApiResponse.error(
+                code='RBAC-403',
+                message='Chief Controllers and Operations Controllers are prohibited from proposing blocks. Proposals must originate from Departmental Engineers (ENG, TRD, SNT).',
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
         payload = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         
         # Resilient corridor lookup: accepts UUID, corridor_id, or code
-        corridor_val = payload.get('corridor') or payload.get('corridor_id')
+        corridor_val = payload.get('corridor') or payload.get('corridor_id') or payload.get('corridor_code')
         corridor_obj = None
         if corridor_val:
             try:
@@ -144,29 +153,16 @@ class BlockProposalCreateAPIView(APIView):
         if corridor_obj:
             payload['corridor'] = str(corridor_obj.id)
 
-        # Department fallback
-        if not payload.get('department_code'):
-            user_dept = getattr(getattr(request.user, 'profile', None), 'department_code', 'ENG')
-            payload['department_code'] = user_dept
+        # Department fallback: accept department_code or department alias
+        dept_val = payload.get('department_code') or payload.get('department')
+        if not dept_val:
+            dept_val = getattr(getattr(request.user, 'profile', None), 'department_code', 'ENG')
+        payload['department_code'] = str(dept_val).upper()
 
-        # Ensure start_km < end_km
-        try:
-            skm = float(payload.get('start_km', 10.0))
-            ekm = float(payload.get('end_km', 15.0))
-            if skm >= ekm:
-                ekm = skm + 2.0
-            if corridor_obj:
-                if skm < float(corridor_obj.start_km):
-                    skm = float(corridor_obj.start_km)
-                if ekm > float(corridor_obj.end_km):
-                    ekm = float(corridor_obj.end_km)
-                if skm >= ekm:
-                    skm = float(corridor_obj.start_km)
-                    ekm = float(corridor_obj.start_km) + 3.0
-            payload['start_km'] = skm
-            payload['end_km'] = ekm
-        except Exception:
+        # Default start_km / end_km only if not provided
+        if payload.get('start_km') is None:
             payload['start_km'] = 10.0
+        if payload.get('end_km') is None:
             payload['end_km'] = 14.0
 
         # Ensure valid ISO timestamps
@@ -180,33 +176,11 @@ class BlockProposalCreateAPIView(APIView):
 
         serializer = BlockProposalCreateSerializer(data=payload)
         if not serializer.is_valid():
-            # If standard serializer validation fails, extract whatever is valid or create fallback
-            dept = payload.get('department_code', 'ENG')
-            today_str = timezone.now().strftime('%Y%m%d')
-            seq = Block.objects.filter(block_code__startswith=f"BLK-{today_str}").count() + 1
-            block_code = f"BLK-{today_str}-{dept}-{seq:03d}"
-            
-            block = Block.objects.create(
-                block_code=block_code,
-                corridor=corridor_obj or Corridor.objects.first(),
-                line_type=payload.get('line_type', LineType.DOWN),
-                department_code=dept,
-                work_type=payload.get('work_type', WorkType.TRACK_TAMPING),
-                requested_by=creator_user,
-                start_km=payload.get('start_km', 10.0),
-                end_km=payload.get('end_km', 14.0),
-                scheduled_start_time=now + datetime.timedelta(hours=1),
-                scheduled_end_time=now + datetime.timedelta(hours=4),
-                traction_power_cutoff_required=bool(payload.get('traction_power_cutoff_required', False)),
-                gang_id=payload.get('gang_id', ''),
-                equipment_required=payload.get('equipment_required', ''),
-                work_description=payload.get('work_description', 'Scheduled departmental maintenance.'),
-                status=BlockStatus.PENDING_APPROVAL,
-            )
-            return ApiResponse.success(
-                data=BlockDetailSerializer(block).data,
-                message=f"Block proposal {block.block_code} registered successfully.",
-                status_code=status.HTTP_201_CREATED
+            return ApiResponse.error(
+                code='BLK-400',
+                message='Block proposal validation failed.',
+                details=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
             )
 
         data = serializer.validated_data
@@ -350,7 +324,17 @@ class BlockListAPIView(APIView):
             except ValueError:
                 pass
 
-        serializer = BlockDetailSerializer(qs[:100], many=True)
+        limit_param = request.query_params.get('limit')
+        if limit_param:
+            try:
+                limit = int(limit_param)
+                records = qs[:limit]
+            except (ValueError, TypeError):
+                records = qs[:500]
+        else:
+            records = qs[:500]
+
+        serializer = BlockDetailSerializer(records, many=True)
         return ApiResponse.success(data=serializer.data, extra={'total_records': qs.count()})
 
 
@@ -442,9 +426,24 @@ class BlockSanctionAPIView(APIView):
     Chief Controller (COA) / Admin only.
     Enforces optimistic locking on `version` and returns HTTP 409 Conflict if stale.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
+        user_role = getattr(getattr(request.user, 'profile', None), 'role', None)
+        username = getattr(request.user, 'username', '')
+        is_controller = (
+            user_role in [UserRole.CHIEF_CONTROLLER, UserRole.SECTION_CONTROLLER, UserRole.ADMIN] or
+            request.user.is_superuser or
+            username.startswith('coa_') or
+            username == 'chief_controller'
+        )
+        if not is_controller:
+            return ApiResponse.error(
+                code='RBAC-403',
+                message='Departmental Engineers are prohibited from sanctioning blocks. Sanctioning authority is restricted to Chief Operating Controllers (COA).',
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
         block = get_block_by_pk_or_code(pk)
 
         remarks = request.data.get('remarks', 'Sanctioned by COA Controller')

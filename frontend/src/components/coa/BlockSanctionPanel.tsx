@@ -617,14 +617,14 @@ export const BlockSanctionPanel: React.FC<BlockSanctionPanelProps> = ({
               <>
                 <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
                 <span className="text-rose-300">
-                  DL Safety Check: <strong className="text-rose-400">HAZARD ({criticalViolations.length})</strong>
+                  HermiT DL Safety Check: <strong className="text-rose-400">HAZARD DETECTED ({criticalViolations.length})</strong>
                 </span>
               </>
             ) : (
               <>
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span className="text-control-muted">
-                  DL Safety Check: <strong className="text-emerald-400">PASSED</strong>
+                  HermiT DL Safety Check: <strong className="text-emerald-400">PASSED</strong>
                 </span>
               </>
             )}
@@ -704,6 +704,36 @@ export const BlockSanctionPanel: React.FC<BlockSanctionPanelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Official Block Sanction Order PDF Export */}
+      {block.status === 'SANCTIONED' && (
+        <div className="pt-3 border-t border-control-border flex flex-col sm:flex-row items-center justify-between gap-3 bg-cyan-950/30 p-3 rounded-xl border border-cyan-500/30 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <FileCheck className="w-5 h-5 text-cyan-400" />
+            <div>
+              <span className="text-xs font-bold font-mono text-cyan-200 block">
+                Official Block Sanction Order Generated
+              </span>
+              <span className="text-[10px] text-control-muted font-mono">
+                SHA-256 tamper-proof token sealed by Senior DOM
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isDownloadingPDF}
+            onClick={handleDownloadSanctionPDF}
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
+          >
+            {isDownloadingPDF ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FileDown className="w-3.5 h-3.5" />
+            )}
+            <span>SANCTION ORDER (PDF)</span>
+          </button>
+        </div>
+      )}
 
 
       {/* Conditional Sanction Modal */}

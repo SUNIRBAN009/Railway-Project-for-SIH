@@ -15,9 +15,9 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
 }) => {
   const [deptFilter, setDeptFilter] = useState<string>('ALL');
 
-  // Pending items awaiting COA action (SUBMITTED, COORDINATED, PENDING_APPROVAL)
+  // Pending items awaiting COA action (SUBMITTED, COORDINATED, PENDING_APPROVAL, CONFLICT_DETECTED, PROPOSED)
   const pendingBlocks = blocks
-    .filter((b) => ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL'].includes(b.status))
+    .filter((b) => ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL', 'CONFLICT_DETECTED', 'PROPOSED'].includes(b.status))
     .filter((b) => deptFilter === 'ALL' || b.department_code === deptFilter);
 
   const getPriorityBadge = (block: Block) => {

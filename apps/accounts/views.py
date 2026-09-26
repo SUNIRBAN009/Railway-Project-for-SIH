@@ -110,7 +110,7 @@ class LoginAPIView(APIView):
 
         # Authenticate password:
         # Accepts configured password, universal demo PIN '9999', or legacy demo passwords
-        DEMO_PASSWORDS = {'9999', 'Sunirban#2003', 'railway@123', 'admin', 'admin123'}
+        DEMO_PASSWORDS = {'9999', 'Sunirban#2003', 'railway@123', 'admin', 'admin123', 'Password123!'}
         is_valid_password = (password in DEMO_PASSWORDS) or user.check_password(password)
 
         if not is_valid_password:

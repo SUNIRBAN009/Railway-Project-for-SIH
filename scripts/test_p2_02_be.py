@@ -190,6 +190,18 @@ assert retrieved["block_code"] == created_block["block_code"]
 assert retrieved["status"] in ["PENDING_APPROVAL", "COORDINATED", "CONFLICT_DETECTED"]
 print(f"[OK] Block retrieved from database matching block_code: {retrieved['block_code']}")
 
+# ----------------------------------------------------------------------
+# 7. Clean up Test Block to Maintain Test Idempotency
+# ----------------------------------------------------------------------
+log_step("7. Cleaning up Test Block via POST /api/v1/blocks/<id>/cancel/")
+status_cancel, _ = http_request(
+    f"{BASE_URL}/api/v1/blocks/{block_id}/cancel/",
+    method="POST",
+    headers={"Authorization": f"Bearer {eng_token}"}
+)
+assert status_cancel == 200, f"Expected 200, got {status_cancel}"
+print(f"[OK] Test block {retrieved['block_code']} cancelled to maintain clean test state.")
+
 print("\n" + "=" * 80)
 print("ALL TSK-P2-02-BE VERIFICATION CHECKS PASSED (100%)")
 print("=" * 80)

@@ -172,6 +172,18 @@ assert status_dur_err == 400, f"Expected 400, got {status_dur_err}"
 assert res_dur_err.get("success") is False
 print(f"[OK] Rule 2 violation error details propagated: {res_dur_err.get('error', {}).get('details')}")
 
+# ----------------------------------------------------------------------
+# 6. Clean up Created Test Block to Maintain Test Idempotency
+# ----------------------------------------------------------------------
+log_step("6. Cleaning up Test Block via Frontend Proxy POST /api/v1/blocks/<id>/cancel/")
+status_cancel, _ = http_request(
+    f"{FRONTEND_URL}/api/v1/blocks/{block_id}/cancel/",
+    method="POST",
+    headers={"Authorization": f"Bearer {token}"}
+)
+assert status_cancel == 200, f"Expected 200, got {status_cancel}"
+print(f"[OK] Test block {block_code} cancelled to maintain clean test state.")
+
 print("\n" + "=" * 80)
 print("ALL TSK-P2-02-TEST VERIFICATION CHECKS PASSED (100%)")
 print("=" * 80)

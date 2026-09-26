@@ -112,6 +112,8 @@ export interface Block {
   combined_recommendation?: CombinedRecommendation;
   is_shadow?: boolean;
   parent_block?: string | Block | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 

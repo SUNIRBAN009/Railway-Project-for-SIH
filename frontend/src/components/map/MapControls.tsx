@@ -62,7 +62,7 @@ export const MapControls: React.FC<MapControlsProps> = ({
           className="w-52 py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(147,51,234,0.4)] border border-purple-400/50 transition animate-pulse"
         >
           <Sparkles className="w-4 h-4 fill-cyan-200 text-cyan-200" />
-          <span className="tracking-tight text-[11px]">AI কনফ্লিক্ট সিমুলেটর</span>
+          <span className="tracking-tight text-[11px]">AI Scenario Simulator</span>
         </button>
       )}
 
@@ -102,7 +102,7 @@ export const MapControls: React.FC<MapControlsProps> = ({
             <button
               type="button"
               onClick={onToggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen / বড় করুন'}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               className={`p-1.5 rounded-lg border transition flex items-center justify-center ${
                 isFullscreen
                   ? 'bg-cyan-950 border-cyan-400 text-cyan-300 shadow-sm'

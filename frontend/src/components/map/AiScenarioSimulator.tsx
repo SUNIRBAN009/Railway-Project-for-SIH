@@ -61,10 +61,10 @@ export const DEMO_SCENARIOS: SimulationScenario[] = [
   {
     id: 'sc-1',
     title: 'High-Density Passenger Train vs P-Way Rail Renewal',
-    titleBn: 'উচ্চগতির রাজধানী এক্সপ্রেস বনাম রেলওয়ে ট্র্যাক সংস্কার দ্বন্দ্ব',
+    titleBn: 'High-Speed Rajdhani Express vs P-Way Track Renewal Conflict',
     category: 'PASSENGER_CONFLICT',
     description: 'Track Engineering requests a 120-minute possession right as 12424 Dibrugarh Rajdhani approaches on the UP Main Line.',
-    descriptionBn: 'আনন্দ বিহার ও সাহিবাবাদের মাঝে ট্র্যাক ইঞ্জিনিয়ারিং ১২০ মিনিটের ব্লক চেয়েছে, কিন্তু সেই সময়ই ডিব্রুগড় রাজধানী এক্সপ্রেস আসছে।',
+    descriptionBn: 'Between Anand Vihar and Sahibabad, Track Engineering requested a 120-minute possession window directly clashing with Rajdhani Express.',
     kmPost: 'KM 12.0 – 15.0 (UP Main)',
     involvedDepts: ['ENG'],
     incomingProblem: {
@@ -95,7 +95,7 @@ export const DEMO_SCENARIOS: SimulationScenario[] = [
     },
     aiResolution: {
       summary: 'Sweep-Line Dynamic Temporal Shift & Platform Crossover Divert',
-      summaryBn: 'এআই সুইপ-লাইন ইঞ্জিন: ব্লক ২৫ মিনিট পিছিয়ে দিল এবং শতাব্দী এক্সপ্রেসকে লুপ লাইন দিয়ে পাস করালো।',
+      summaryBn: 'AI Sweep-Line Engine: Shifted block by +25m and routed Shatabdi Express via loop line crossover.',
       steps: [
         'Sweep-Line algorithm identified 28-minute natural timetable gap post-Rajdhani clearance.',
         'AI shifted BLK-ENG-901 start time by +25 minutes (New Window: 16:55 – 18:55 hrs).',
@@ -118,10 +118,10 @@ export const DEMO_SCENARIOS: SimulationScenario[] = [
   {
     id: 'sc-2',
     title: 'Triple Department Coordinated Shadow Bundling',
-    titleBn: '৩টি বিভাগের যৌথ শ্যাডো বান্ডলিং (ENG + TRD + SNT)',
+    titleBn: 'Triple-Department Coordinated Shadow Bundling (ENG + TRD + SNT)',
     category: 'SHADOW_BUNDLING',
     description: 'Track, OHE Power, and Signaling departments request independent blocks at Sahibabad. AI merges them into a single window.',
-    descriptionBn: 'সাহিবাবাদে ৩টি বিভাগ আলাদা আলাদা ব্লক চেয়েছিল (মোট ৬.৫ ঘণ্টা)। এআই সেগুলোকে একত্রিত করে মাত্র ১১০ মিনিটে সমাধান করল।',
+    descriptionBn: 'At Sahibabad, 3 departments requested separate possessions (total 6.5 hours). AI merged them into a single synchronized 110-minute slot.',
     kmPost: 'KM 14.5 – 18.0 (UP & DOWN)',
     involvedDepts: ['ENG', 'TRD', 'SNT'],
     incomingProblem: {
@@ -176,7 +176,7 @@ export const DEMO_SCENARIOS: SimulationScenario[] = [
     },
     aiResolution: {
       summary: 'Automated Multi-Department Shadow Bundling Matrix (110 Min Window)',
-      summaryBn: 'এআই শ্যাডো বান্ডলিং: ৩টি কাজকে এক সাথে সাজিয়ে ৪ ঘণ্টা ১০ মিনিট লাইন বন্ধের সময় বাঁচিয়ে দিল!',
+      summaryBn: 'AI Shadow Bundling: Unified 3 possessions, saving 4 hours 10 minutes of track closure time.',
       steps: [
         'Detected spatial colocation overlap across KM 15.0 – 17.5.',
         'Sequenced machinery entry: TRD de-energizes 25kV line (0-15m) → ENG tamps under dead catenary (15-95m) → SNT performs sensor calibration concurrently (20-90m) → TRD re-energizes & tests (95-110m).',
@@ -211,10 +211,10 @@ export const DEMO_SCENARIOS: SimulationScenario[] = [
   {
     id: 'sc-3',
     title: 'Emergency USFD Rail Flaw Detection & Rapid Recovery',
-    titleBn: 'জরুরি আল্ট্রাসনিক রেলওয়ে ক্র্যাক শনাক্তকরণ ও তাৎক্ষণিক সমাধান',
+    titleBn: 'Emergency USFD Rail Flaw Detection & Rapid Recovery',
     category: 'EMERGENCY_DEFECT',
     description: 'Track Ultrasonic testing flags a severe flaw at KM 14.8. AI dynamically generates an emergency speed restriction and a 45-min repair slot.',
-    descriptionBn: '১৪.৮ কিমিতে ফাটল ধরা পড়ায় গতিবেগ ২০ কিমি/ঘণ্টা হয়ে ট্রেন আটকে যাচ্ছিল। এআই গতিপথ পরিবর্তন করে জরুরি মেরামত স্লট তৈরি করে দিল।',
+    descriptionBn: 'At KM 14.8, rail flaw triggered 20 km/h PSR causing cascading delays. AI carved out a 45-minute repair slot and restored 130 km/h line speed.',
     kmPost: 'KM 14.8 (Sahibabad – Ghaziabad)',
     involvedDepts: ['ENG', 'SNT'],
     incomingProblem: {
@@ -245,7 +245,7 @@ export const DEMO_SCENARIOS: SimulationScenario[] = [
     },
     aiResolution: {
       summary: 'Dynamic Traffic Throttling + 45-Min Emergency Surgical Slot',
-      summaryBn: 'এআই সমাধান: ট্রাফিক নিয়ন্ত্রণের মাঝে ৪৫ মিনিটের ইমার্জেন্সি স্লট বের করে গতিবেগ পুনরায় ১৩০ কিমি করা হলো।',
+      summaryBn: 'AI Solution: Carved out a 45-minute surgical repair slot during traffic lull and restored line speed to 130 km/h.',
       steps: [
         'AI detected low-density gap between Vande Bharat (KM 38) and Howrah Rajdhani (KM 24).',
         'Carved out a 45-minute surgical emergency possession window (17:15 – 18:00 hrs).',
@@ -388,7 +388,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                 </h2>
               </div>
               <p className="text-[11px] text-cyan-400 font-sans">
-                লাইভ এআই কনফ্লিক্ট শনাক্তকরণ ও সমাধান সিমুলেটর • Real-Life Railway Incident Resolver
+                Live AI Conflict Identification &amp; Resolution Suite • Real-Life Incident Resolver
               </p>
             </div>
           </div>
@@ -400,7 +400,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold flex items-center gap-2 shadow-lg transition disabled:opacity-50"
             >
               <Play className="w-3.5 h-3.5 fill-white" />
-              <span>{isAutoPlaying ? 'Running Simulation...' : '▶ এক ক্লিকে সম্পূর্ণ ডেমো চালান'}</span>
+              <span>{isAutoPlaying ? 'Running Simulation...' : '▶ Run Complete Interactive Demo'}</span>
             </button>
 
             <button
@@ -420,7 +420,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-[11px] font-bold text-control-muted uppercase tracking-wider flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Select Conflict Scenario (সমস্যা নির্বাচন করুন):</span>
+                <span>Select Incident Scenario:</span>
               </span>
               <span className="text-[10px] text-slate-400">3 Real-Life Incident Scenarios</span>
             </div>
@@ -475,7 +475,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               currentStep === 'IDLE' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400' : 'text-slate-400'
             }`}>
               <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs">1</span>
-              <span>প্রস্তুতি (Idle)</span>
+              <span>1. Idle Setup</span>
             </div>
 
             <ChevronRight className="w-4 h-4 text-slate-700 shrink-0" />
@@ -484,7 +484,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               currentStep === 'PROBLEM' ? 'bg-rose-500/20 text-rose-300 border border-rose-500 animate-pulse' : 'text-slate-400'
             }`}>
               <span className="w-5 h-5 rounded-full bg-rose-950 flex items-center justify-center font-bold text-xs text-rose-400">2</span>
-              <span>সমস্যা তৈরি (Conflict Injected)</span>
+              <span>2. Conflict Injected</span>
             </div>
 
             <ChevronRight className="w-4 h-4 text-slate-700 shrink-0" />
@@ -493,7 +493,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               currentStep === 'AI_THINKING' ? 'bg-purple-500/20 text-purple-300 border border-purple-400 animate-pulse' : 'text-slate-400'
             }`}>
               <span className="w-5 h-5 rounded-full bg-purple-950 flex items-center justify-center font-bold text-xs text-purple-400">3</span>
-              <span>এআই প্রসেসিং (AI Optimization)</span>
+              <span>3. AI Optimization</span>
             </div>
 
             <ChevronRight className="w-4 h-4 text-slate-700 shrink-0" />
@@ -502,7 +502,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               currentStep === 'SOLUTION' || currentStep === 'APPLIED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400' : 'text-slate-400'
             }`}>
               <span className="w-5 h-5 rounded-full bg-emerald-950 flex items-center justify-center font-bold text-xs text-emerald-400">4</span>
-              <span>ম্যাপে প্রয়োগ (Applied to Twin)</span>
+              <span>4. Applied to Twin</span>
             </div>
           </div>
 
@@ -518,7 +518,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className={`w-4 h-4 ${currentStep === 'PROBLEM' ? 'text-rose-400 animate-bounce' : 'text-amber-400'}`} />
-                  <span className="font-bold text-white text-xs">ধাপ ১: তৈরি হওয়া সংকট (The Conflict)</span>
+                  <span className="font-bold text-white text-xs">Phase 1: Active Conflict Incident</span>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-950 text-rose-300 border border-rose-500/40">
                   {selectedScenario.incomingProblem.conflictSeverity} SEVERITY
@@ -572,7 +572,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                   }`}
                 >
                   <AlertTriangle className="w-4 h-4" />
-                  <span>{currentStep === 'IDLE' ? '১. এই সমস্যাটি তৈরি করুন ও ম্যাপে পাঠান' : 'সমস্যা ম্যাপে পাঠানো হয়েছে ✓'}</span>
+                  <span>{currentStep === 'IDLE' ? '1. Inject Conflict & Dispatch to Corridor' : 'Conflict Dispatched to Corridor ✓'}</span>
                 </button>
               </div>
             </div>
@@ -586,7 +586,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-purple-400" />
-                  <span className="font-bold text-white text-xs">ধাপ ২: এআই বিশ্লেষণ ও সমাধান (AI Engine)</span>
+                  <span className="font-bold text-white text-xs">Phase 2: AI Sweep-Line Engine &amp; Resolution</span>
                 </div>
                 {currentStep === 'SOLUTION' || currentStep === 'APPLIED' ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 font-bold">
@@ -594,7 +594,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                     SOLVED
                   </span>
                 ) : (
-                  <span className="text-[10px] text-control-muted font-sans">অপেক্ষমান...</span>
+                  <span className="text-[10px] text-control-muted font-sans">Awaiting input...</span>
                 )}
               </div>
 
@@ -603,7 +603,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                 <div className="p-6 text-center space-y-3 bg-black/40 rounded-xl border border-purple-500/40">
                   <div className="flex items-center justify-center gap-2 text-purple-300 font-bold">
                     <Cpu className="w-5 h-5 animate-spin text-cyan-400" />
-                    <span>AI Sweep-Line & Shadow Bundling Running...</span>
+                    <span>AI Sweep-Line &amp; Shadow Bundling Running...</span>
                   </div>
                   <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
                     <div
@@ -612,7 +612,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                     />
                   </div>
                   <p className="text-[11px] text-slate-400 font-sans">
-                    করিডোরের ট্রেনের গতিবেগ, ট্রানজিট পয়েন্ট ও ডিপার্টমেন্ট ব্লক ক্যালকুলেট করা হচ্ছে...
+                    Evaluating train speeds, sectional headway margin &amp; departmental block slots...
                   </p>
                 </div>
               )}
@@ -662,7 +662,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                       <p className="text-cyan-300 font-extrabold text-sm mt-0.5">
                         {selectedScenario.aiResolution.safetyScore}%
                       </p>
-                      <span className="text-[9px] text-cyan-400 font-bold">G&SR Compliant</span>
+                      <span className="text-[9px] text-cyan-400 font-bold">G&amp;SR Compliant</span>
                     </div>
                   </div>
                 </div>
@@ -672,7 +672,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
               {currentStep !== 'AI_THINKING' && currentStep !== 'SOLUTION' && currentStep !== 'APPLIED' && (
                 <div className="p-8 text-center text-control-muted border border-dashed border-slate-800 rounded-xl">
                   <Cpu className="w-8 h-8 mx-auto text-slate-700 mb-2" />
-                  <p>প্রথমে বাম পাশের বোতামে ক্লিক করে সমস্যা তৈরি করুন। তারপর এআই সমাধান চালু হবে।</p>
+                  <p>Click the button on the left to inject an incident scenario into the corridor.</p>
                 </div>
               )}
 
@@ -684,7 +684,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                     className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg transition"
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>২. AI ইঞ্জিনকে এই সংকট সমাধান করতে বলুন</span>
+                    <span>2. Execute AI Deconfliction &amp; Optimization</span>
                   </button>
                 )}
 
@@ -694,14 +694,14 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
                     className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/60 transition animate-pulse"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>৩. ম্যাপে সমাধানটি প্রয়োগ করুন ও লাইভ দেখুন</span>
+                    <span>3. Apply Resolution to Corridor &amp; Digital Twin</span>
                   </button>
                 )}
 
                 {currentStep === 'APPLIED' && (
                   <div className="w-full py-2 px-4 rounded-xl bg-emerald-950/60 border border-emerald-500 text-emerald-300 font-bold flex items-center justify-center gap-2">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>ম্যাপে সফলভাবে প্রয়োগ করা হয়েছে! ম্যাপটি পর্যবেক্ষণ করুন।</span>
+                    <span>Successfully applied to corridor! Live track updated.</span>
                   </div>
                 )}
               </div>
@@ -724,7 +724,7 @@ export const AiScenarioSimulator: React.FC<AiScenarioSimulatorProps> = ({
             className="flex items-center gap-1 text-slate-400 hover:text-white transition"
           >
             <RotateCcw className="w-3 h-3" />
-            <span>Reset Demo (রিসেট)</span>
+            <span>Reset Demo Scenario</span>
           </button>
         </div>
       </div>

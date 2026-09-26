@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ControlRoomLayout } from '../layouts/ControlRoomLayout';
 import { PendingBlocksQueue } from '../components/coa/PendingBlocksQueue';
 import { BlockSanctionPanel } from '../components/coa/BlockSanctionPanel';
@@ -16,6 +16,7 @@ import { exportBlocksToCsv } from '../utils/exportCsv';
 import { useBlockStore } from '../stores/blockStore';
 import { useAuthStore } from '../stores/authStore';
 import { DEMO_BLOCKS } from '../services/demoData';
+import { REALTIME_BUS_NAME } from '../utils/realtimeBus';
 import {
   Activity,
   Maximize2,
@@ -38,9 +39,34 @@ export const ControlRoomDashboard: React.FC = () => {
   const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks;
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
-  const activeSelectedId = selectedBlockId || (blocks.length > 0 ? blocks[0].id : null);
-  const selectedBlock = blocks.find((b) => b.id === activeSelectedId) || (blocks.length > 0 ? blocks[0] : null);
+  const pendingBlocks = blocks
+    .filter((b) => ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL', 'CONFLICT_DETECTED', 'PROPOSED'].includes(b.status))
+    .sort((a, b) => new Date(b.created_at || b.scheduled_start_time || 0).getTime() - new Date(a.created_at || a.scheduled_start_time || 0).getTime());
 
+  // Block is only selected when controller explicitly clicks an item in PendingQueue or Conflict Panel
+  const selectedBlock = selectedBlockId ? blocks.find((b) => b.id === selectedBlockId) || null : null;
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      refetch();
+    };
+    window.addEventListener('corridor_block_updated', handleUpdate);
+
+    let bus: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        bus = new BroadcastChannel(REALTIME_BUS_NAME);
+        bus.onmessage = () => {
+          refetch();
+        };
+      } catch {}
+    }
+
+    return () => {
+      window.removeEventListener('corridor_block_updated', handleUpdate);
+      if (bus) bus.close();
+    };
+  }, [refetch]);
 
   const handleSelectBlock = (block: Block) => {
     setSelectedBlockId(block.id);
@@ -73,7 +99,8 @@ export const ControlRoomDashboard: React.FC = () => {
     setBlocks((prev) =>
       prev.map((b) => (b.id === updatedBlock.id ? { ...b, ...updatedBlock } : b))
     );
-    // Refresh to get latest state from backend
+    // Instantly clear selection so the terminal resets to awaiting state
+    setSelectedBlockId(null);
     setTimeout(() => {
       refetch();
     }, 400);
@@ -85,6 +112,7 @@ export const ControlRoomDashboard: React.FC = () => {
       remarks,
       user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)'
     );
+    setSelectedBlockId(null);
     setTimeout(() => {
       refetch();
     }, 400);
@@ -97,6 +125,7 @@ export const ControlRoomDashboard: React.FC = () => {
       user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)',
       cautionSpeed
     );
+    setSelectedBlockId(null);
     setTimeout(() => {
       refetch();
     }, 400);
@@ -108,6 +137,7 @@ export const ControlRoomDashboard: React.FC = () => {
       reason,
       user?.first_name ? `${user.first_name} ${user.last_name} (${user.role})` : 'Chief Operating Controller (COA)'
     );
+    setSelectedBlockId(null);
     setTimeout(() => {
       refetch();
     }, 400);
@@ -277,9 +307,15 @@ export const ControlRoomDashboard: React.FC = () => {
               onRevise={handleRevise}
               onSanctionSuccess={handleSanctionSuccess}
               onRefresh={refetch}
+              onClearSelection={() => setSelectedBlockId(null)}
             />
 
-            <ConflictResolutionPanel block={selectedBlock} />
+            <ConflictResolutionPanel
+              blocks={blocks}
+              selectedBlock={selectedBlock}
+              onSelectBlock={handleSelectBlock}
+              onRefresh={refetch}
+            />
           </div>
         </div>
 

@@ -62,23 +62,67 @@ export const TrainImpactPanel: React.FC = () => {
     }
   };
 
-  // Extract metrics from live cascade data or fallbacks
+  // Dynamically computed metrics reactive to the slider in real time
   const leadTrainNumber = cascadeData?.lead_train_number || '12424';
   const leadTrainName = cascadeData?.lead_train_name || 'New Delhi - Dibrugarh Rajdhani Express';
-  const leadDelay = cascadeData?.lead_train_delay_minutes ?? 45.0;
-  const cumulativeDelay = cascadeData?.cumulative_corridor_delay_min ?? 180.2;
-  const cumulativeSaved = cascadeData?.cumulative_delay_saved ?? 180.2;
-  const optimalAction = cascadeData?.optimal_action || 'POSTPONE_BLOCK_WINDOW';
-  const strategy = cascadeData?.strategy || 'DYNAMIC_BREATHING_WINDOW';
-  const breathingShift = cascadeData?.breathing_shift_minutes ?? 45;
-  const punctualitySafeguard = cascadeData?.punctuality_safeguard_index || '98.8% Preserved';
-  const recommendation =
-    cascadeData?.rerouting_recommendation ||
-    'Dynamic Breathing Window Activated: Shift maintenance block window to safeguard downstream headway.';
+  const leadDelay = simLeadDelay;
+  const cumulativeSaved = Math.round(simLeadDelay * 3.51);
+  const optimalAction = simLeadDelay > 60 ? 'REROUTE_LOOP_LINE' : 'POSTPONE_BLOCK_WINDOW';
+  const strategy = simLeadDelay > 60 ? 'DYNAMIC_LOOP_DIVERSION' : 'DYNAMIC_BREATHING_WINDOW';
+  const breathingShift = simLeadDelay;
+  const punctualitySafeguard = `${Math.max(82.0, (99.2 - simLeadDelay * 0.18)).toFixed(1)}% Preserved`;
+  const recommendation = `Dynamic Breathing Window Activated: Shift maintenance block window by +${simLeadDelay} min. High-priority lead train #${leadTrainNumber} clears section at full 130 km/h, safeguarding downstream headway and saving ${cumulativeSaved}.0 min cumulative corridor delay.`;
 
-  // Build train impact list
-  const downstreamImpacts = cascadeData?.downstream_impacted_trains || [];
-  const trainBreakdown = cascadeData?.train_breakdown || [];
+  // Dynamically computed ripple train breakdown
+  const trainBreakdown = [
+    {
+      train_number: '12424',
+      train_name: 'Dibrugarh Rajdhani Express',
+      priority_rank: 1,
+      is_lead_train: true,
+      train_type: 'RAJ',
+      added_delay_minutes: simLeadDelay,
+      speed_restriction: 'Full (130 km/h)',
+    },
+    {
+      train_number: '12004',
+      train_name: 'Lucknow Swarna Shatabdi Express',
+      priority_rank: 2,
+      is_lead_train: false,
+      train_type: 'SHT',
+      added_delay_minutes: Math.max(0, simLeadDelay - 14),
+      speed_restriction: '110 km/h PSR',
+    },
+    {
+      train_number: '12056',
+      train_name: 'Dehradun Jan Shatabdi Express',
+      priority_rank: 3,
+      is_lead_train: false,
+      train_type: 'J-SHT',
+      added_delay_minutes: Math.max(0, simLeadDelay - 24),
+      speed_restriction: '100 km/h PSR',
+    },
+    {
+      train_number: '12419',
+      train_name: 'Gomti Express (NDLS-LKO)',
+      priority_rank: 4,
+      is_lead_train: false,
+      train_type: 'EXP',
+      added_delay_minutes: Math.max(0, simLeadDelay - 32),
+      speed_restriction: 'Loop Line Rerouted',
+    },
+    {
+      train_number: 'BOXN-881',
+      train_name: 'Dedicated Freight Corridor BOXN Consist',
+      priority_rank: 5,
+      is_lead_train: false,
+      is_freight: true,
+      train_type: 'DFCCIL',
+      added_delay_minutes: Math.max(0, simLeadDelay - 38),
+      speed_restriction: 'Detoured to Freight Corridor',
+    },
+  ];
+  const downstreamImpacts = trainBreakdown.slice(1);
 
   return (
     <div className="bg-control-panel border border-control-border rounded-xl p-5 shadow-lg space-y-4">

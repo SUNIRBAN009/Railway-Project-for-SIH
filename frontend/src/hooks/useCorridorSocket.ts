@@ -3,6 +3,7 @@ import { useSocketStore } from '../stores/socketStore';
 import { useAuthStore } from '../stores/authStore';
 import { useMapStore } from '../stores/mapStore';
 import { queryClient } from '../services/queryClient';
+import { playPendingProposalChime, playNotificationChime } from '../services/soundService';
 
 interface UseCorridorSocketOptions {
   corridorCode?: string;
@@ -103,6 +104,16 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
       if (msgType === 'notification' || msgType === 'NOTIFICATION') {
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
         window.dispatchEvent(new CustomEvent('notification_received', { detail: data }));
+        try {
+          playNotificationChime(data.priority || data.severity, data.department_code || data.department);
+        } catch {}
+      }
+
+      // Proposal arrival chime
+      if (msgType === 'block.proposed' || msgType === 'BLOCK_PROPOSED' || data.action === 'PROPOSED') {
+        try {
+          playPendingProposalChime(data.department_code || data.department);
+        } catch {}
       }
 
 

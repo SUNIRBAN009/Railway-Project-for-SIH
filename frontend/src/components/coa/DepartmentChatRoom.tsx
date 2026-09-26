@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, Send, User, Shield, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
+import { playPendingProposalChime, playNotificationChime } from '../../services/soundService';
 
 interface ChatMessage {
   id: string;
@@ -11,44 +12,63 @@ interface ChatMessage {
   timestamp: string;
 }
 
+const STORAGE_CHAT_KEY = 'railway_division_dispatch_chat_v2';
+
+const INITIAL_MESSAGES: ChatMessage[] = [
+  {
+    id: 'msg-1',
+    sender: 'Rajesh Kumar',
+    department: 'ENG',
+    role: 'SSE / Permanent Way',
+    text: 'CSM-092 tamper stationed at Sahibabad yard. All gang safety briefings completed. Awaiting COA block authority.',
+    timestamp: '01:15 IST',
+  },
+  {
+    id: 'msg-2',
+    sender: 'M. S. Raghavan',
+    department: 'TRD',
+    role: 'SSE / Traction Power',
+    text: 'PTW-TRD-441 issued. Discharge rods placed at KM 14.0 and 15.5. 25kV catenary is completely earthed.',
+    timestamp: '01:25 IST',
+  },
+  {
+    id: 'msg-3',
+    sender: 'Chief Controller DLI',
+    department: 'OPERATIONS',
+    role: 'COA Central Command',
+    text: 'Possession authority granted for BLK-ENG-NDLS-01. Window active until 04:30 IST. Dibrugarh Rajdhani cleared via down line.',
+    timestamp: '01:30 IST',
+  },
+  {
+    id: 'msg-4',
+    sender: 'Pooja Verma',
+    department: 'SNT',
+    role: 'SSE / Signals',
+    text: 'Point 104A/B detection overhaul commenced. S&T shadow possession synchronized.',
+    timestamp: '02:15 IST',
+  },
+];
+
 export const DepartmentChatRoom: React.FC = () => {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'msg-1',
-      sender: 'Rajesh Kumar',
-      department: 'ENG',
-      role: 'SSE / Permanent Way',
-      text: 'CSM-092 tamper stationed at Sahibabad yard. All gang safety briefings completed. Awaiting COA block authority.',
-      timestamp: '01:15 IST',
-    },
-    {
-      id: 'msg-2',
-      sender: 'M. S. Raghavan',
-      department: 'TRD',
-      role: 'SSE / Traction Power',
-      text: 'PTW-TRD-441 issued. Discharge rods placed at KM 14.0 and 15.5. 25kV catenary is completely earthed.',
-      timestamp: '01:25 IST',
-    },
-    {
-      id: 'msg-3',
-      sender: 'Chief Controller DLI',
-      department: 'OPERATIONS',
-      role: 'COA Central Command',
-      text: 'Possession authority granted for BLK-ENG-NDLS-01. Window active until 04:30 IST. Dibrugarh Rajdhani cleared via down line.',
-      timestamp: '01:30 IST',
-    },
-    {
-      id: 'msg-4',
-      sender: 'Pooja Verma',
-      department: 'SNT',
-      role: 'SSE / Signals',
-      text: 'Point 104A/B detection overhaul commenced. S&T shadow possession synchronized.',
-      timestamp: '02:15 IST',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_CHAT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_MESSAGES;
+  });
 
   const [inputText, setInputText] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(messages));
+    } catch {}
+  }, [messages]);
 
   const quickDispatches = [
     '25kV Power Cutoff Enacted',
@@ -63,7 +83,7 @@ export const DepartmentChatRoom: React.FC = () => {
 
     const newMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
-      sender: user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username || 'Controller',
+      sender: user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username || 'Chief Controller',
       department: user?.department_code || 'OPERATIONS',
       role: user?.role || 'CHIEF_CONTROLLER',
       text: text.trim(),
@@ -72,6 +92,31 @@ export const DepartmentChatRoom: React.FC = () => {
 
     setMessages((prev) => [...prev, newMsg]);
     if (!textToSend) setInputText('');
+
+    try {
+      playPendingProposalChime('OPERATIONS');
+    } catch {}
+
+    // Automated Field Dispatch Acknowledgment simulation after 1.4s
+    setTimeout(() => {
+      const fieldDept = text.includes('Power') ? 'TRD' : text.includes('Clear') ? 'ENG' : 'SNT';
+      const fieldSender = fieldDept === 'TRD' ? 'M. S. Raghavan' : fieldDept === 'ENG' ? 'Rajesh Kumar' : 'Pooja Verma';
+      const fieldRole = fieldDept === 'TRD' ? 'SSE / Traction Power' : fieldDept === 'ENG' ? 'SSE / P-Way' : 'SSE / Signals';
+
+      const replyMsg: ChatMessage = {
+        id: `msg-reply-${Date.now()}`,
+        sender: fieldSender,
+        department: fieldDept,
+        role: fieldRole,
+        text: `Acknowledging: "${text.trim()}". Field safety checklist verified and logged to terminal.`,
+        timestamp: 'Just now',
+      };
+
+      setMessages((prev) => [...prev, replyMsg]);
+      try {
+        playPendingProposalChime(fieldDept);
+      } catch {}
+    }, 1400);
   };
 
   const getDeptColor = (dept: string) => {

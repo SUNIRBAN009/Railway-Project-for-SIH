@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Block, BlockStatus, DepartmentCode } from '../types';
 import { DEMO_BLOCKS } from '../services/demoData';
 import { apiClient } from '../services/api';
+import { playPendingProposalChime } from '../services/soundService';
 
 export interface SanctionAcknowledgement {
   id: string;
@@ -139,6 +140,11 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
     set({ blocks: updatedBlocks, selectedBlockId: newBlock.id, isSubmitting: false });
     try {
       localStorage.setItem(STORAGE_BLOCKS_KEY, JSON.stringify(updatedBlocks));
+    } catch {}
+
+    // Audio Chime: synthesized department-specific incoming proposal chime
+    try {
+      playPendingProposalChime(newBlock.department_code);
     } catch {}
 
     // Try posting to backend API in parallel (non-blocking)

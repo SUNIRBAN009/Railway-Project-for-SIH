@@ -38,6 +38,9 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.api",
     "apps.demo",
+    "apps.emergency",
+    "apps.grievances",
+    "apps.maintenance",
 ]
 
 # Conditionally load GIS app if PostGIS & GDAL are active

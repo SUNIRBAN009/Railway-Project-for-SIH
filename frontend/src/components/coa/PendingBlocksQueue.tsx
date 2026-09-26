@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Block, BlockStatus } from '../../types';
-import { Clock, AlertTriangle, ShieldCheck, Zap, ChevronRight, ArrowUpRight } from 'lucide-react';
+import { Block } from '../../types';
+import { Clock, ShieldCheck, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface PendingBlocksQueueProps {
   blocks: Block[];
@@ -13,12 +13,30 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
   selectedBlockId,
   onSelectBlock,
 }) => {
+  const [queueTab, setQueueTab] = useState<'AWAITING' | 'COORDINATED'>('AWAITING');
   const [deptFilter, setDeptFilter] = useState<string>('ALL');
 
-  // Pending items awaiting COA action (SUBMITTED, COORDINATED, PENDING_APPROVAL, CONFLICT_DETECTED, PROPOSED)
-  const pendingBlocks = blocks
-    .filter((b) => ['SUBMITTED', 'COORDINATED', 'PENDING_APPROVAL', 'CONFLICT_DETECTED', 'PROPOSED'].includes(b.status))
-    .filter((b) => deptFilter === 'ALL' || b.department_code === deptFilter);
+  // Filter blocks based on active tab
+  const filteredBlocks = blocks
+    .filter((b) => {
+      if (queueTab === 'AWAITING') {
+        return ['SUBMITTED', 'PENDING_APPROVAL', 'CONFLICT_DETECTED', 'PROPOSED'].includes(b.status);
+      } else {
+        return b.status === 'COORDINATED';
+      }
+    })
+    .filter((b) => deptFilter === 'ALL' || b.department_code === deptFilter)
+    .sort((a, b) => {
+      const timeA = new Date(a.created_at || a.scheduled_start_time || 0).getTime();
+      const timeB = new Date(b.created_at || b.scheduled_start_time || 0).getTime();
+      return timeB - timeA;
+    });
+
+  const awaitingCount = blocks.filter((b) =>
+    ['SUBMITTED', 'PENDING_APPROVAL', 'CONFLICT_DETECTED', 'PROPOSED'].includes(b.status)
+  ).length;
+
+  const coordinatedCount = blocks.filter((b) => b.status === 'COORDINATED').length;
 
   const getPriorityBadge = (block: Block) => {
     if (block.work_type.toLowerCase().includes('emergency') || block.work_type.toLowerCase().includes('usfd')) {
@@ -48,30 +66,30 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
 
   return (
     <div className="bg-control-panel border border-control-border rounded-xl p-5 shadow-lg space-y-4">
-      <div className="flex items-center justify-between border-b border-control-border pb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-            <h3 className="text-sm font-extrabold font-mono text-white">
-              Pending Possession Queue (COA Authority)
-            </h3>
+      {/* Header and Queue Tabs */}
+      <div className="border-b border-control-border pb-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${awaitingCount > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+              <h3 className="text-sm font-extrabold font-mono text-white">
+                Pending Possession Queue
+              </h3>
+            </div>
+            <p className="text-xs text-control-muted mt-0.5 font-mono">
+              Chief Operating Controller (COA) Sanction Authority
+            </p>
           </div>
-          <p className="text-xs text-control-muted mt-0.5 font-mono">
-            Awaiting Chief Operating Controller sanction or revision
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-950/70 border border-amber-500/50 text-amber-300">
-            {pendingBlocks.length} QUEUED
-          </span>
+
+          {/* Department Filter Buttons */}
           <div className="flex bg-control-bg rounded-lg border border-control-border overflow-hidden text-[10px] font-mono font-bold">
             {['ALL', 'ENG', 'TRD', 'SNT'].map((dept) => (
               <button
                 key={dept}
                 onClick={() => setDeptFilter(dept)}
-                className={`px-2.5 py-1 transition-colors ${
-                  deptFilter === dept 
-                    ? 'bg-cyan-900/60 text-cyan-300 border-b-2 border-cyan-400' 
+                className={`px-2 py-1 transition-colors ${
+                  deptFilter === dept
+                    ? 'bg-cyan-900/60 text-cyan-300 border-b-2 border-cyan-400'
                     : 'text-control-muted hover:text-slate-300'
                 }`}
               >
@@ -80,15 +98,53 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Dual Mode Switcher: Awaiting Action vs Deconflicted */}
+        <div className="flex bg-control-bg/80 p-1 rounded-lg border border-control-border text-xs font-mono">
+          <button
+            onClick={() => setQueueTab('AWAITING')}
+            className={`flex-1 py-1.5 px-3 rounded-md font-bold transition flex items-center justify-center gap-1.5 ${
+              queueTab === 'AWAITING'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-control-muted hover:text-white'
+            }`}
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>Awaiting Action ({awaitingCount})</span>
+          </button>
+
+          <button
+            onClick={() => setQueueTab('COORDINATED')}
+            className={`flex-1 py-1.5 px-3 rounded-md font-bold transition flex items-center justify-center gap-1.5 ${
+              queueTab === 'COORDINATED'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                : 'text-control-muted hover:text-white'
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Deconflicted ({coordinatedCount})</span>
+          </button>
+        </div>
       </div>
 
-      {pendingBlocks.length === 0 ? (
+      {/* Queue Items List */}
+      {filteredBlocks.length === 0 ? (
         <div className="p-8 text-center text-control-muted font-mono text-xs border border-dashed border-control-border rounded-xl">
-          ✓ All proposed track possessions have been sanctioned or cleared.
+          {queueTab === 'AWAITING' ? (
+            <div className="space-y-1">
+              <span className="text-emerald-400 font-bold block text-sm">✓ Queue Clear</span>
+              <span>All proposed track possessions have been sanctioned or deconflicted.</span>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <span className="text-cyan-400 font-bold block text-sm">No Coordinated Blocks Yet</span>
+              <span>Apply conflict solutions in the AI Sweep-Line engine below to deconflict blocks.</span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {pendingBlocks.map((b) => {
+          {filteredBlocks.map((b) => {
             const isSelected = selectedBlockId === b.id;
             const priority = getPriorityBadge(b);
 
@@ -116,6 +172,11 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
                     >
                       v{b.version ?? 1}
                     </span>
+                    {b.status === 'COORDINATED' && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-950 border border-emerald-500/50 text-emerald-300">
+                        DECONFLICTED
+                      </span>
+                    )}
                   </div>
 
                   <span className={`px-2 py-0.2 rounded text-[10px] font-mono font-bold border ${getDepartmentColor(b.department_code)}`}>
@@ -133,23 +194,17 @@ export const PendingBlocksQueue: React.FC<PendingBlocksQueueProps> = ({
                       KM {Number(b.start_km).toFixed(1)}–{Number(b.end_km).toFixed(1)}
                     </span>
                     <span>•</span>
-                    <span className="text-slate-300">{b.line_type} LINE</span>
-                  </div>
-
-                  <div className="flex items-center gap-1 text-slate-300">
-                    <Clock className="w-3 h-3 text-cyan-400" />
-                    <span>
-                      {b.scheduled_start_time.split('T')[1]?.substring(0, 5)}–{b.scheduled_end_time.split('T')[1]?.substring(0, 5)} IST
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      {new Date(b.scheduled_start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                </div>
 
-                {b.traction_power_cutoff_required && (
-                  <div className="mt-2 flex items-center gap-1 text-[10px] font-mono text-amber-400 font-bold">
-                    <Zap className="w-3 h-3" />
-                    <span>Requires 25kV OHE Isolation Permit</span>
-                  </div>
-                )}
+                  <span className="flex items-center gap-1 text-cyan-400 font-semibold group-hover:translate-x-0.5 transition">
+                    <span>{isSelected ? 'Selected' : 'Open'}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
               </div>
             );
           })}

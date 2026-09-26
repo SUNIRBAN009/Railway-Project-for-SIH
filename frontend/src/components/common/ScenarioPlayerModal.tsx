@@ -153,7 +153,7 @@ export const ScenarioPlayerModal: React.FC = () => {
           title="Open Interactive Scenario Presentation Player (SIH PS 26027)"
         >
           <Film className="w-4 h-4 text-amber-200 animate-spin" style={{ animationDuration: '6s' }} />
-          <span className="tracking-wide uppercase drop-shadow">🎬 চিত্রনাট্য প্লেয়ার (SCENARIOS)</span>
+          <span className="tracking-wide uppercase drop-shadow">🎬 SCENARIO PLAYBOOK (INTERACTIVE)</span>
           <span className="w-2 h-2 rounded-full bg-yellow-300 animate-ping absolute -top-1 -right-1" />
         </button>
       </div>
@@ -314,7 +314,7 @@ export const ScenarioPlayerModal: React.FC = () => {
                     <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
                         <Volume2 className="w-4 h-4 text-amber-400 animate-pulse" />
-                        <span>PRESENTATION NARRATIVE (বিচারকদের সামনে উপস্থাপনার বিবরণ):</span>
+                        <span>PRESENTATION NARRATIVE (EVALUATION BRIEF):</span>
                       </div>
                       <p className="text-sm text-slate-200 leading-relaxed font-sans font-medium">
                         "{currentStep.narrative}"

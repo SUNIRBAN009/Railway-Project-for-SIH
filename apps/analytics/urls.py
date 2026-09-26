@@ -18,6 +18,6 @@ urlpatterns = [
     path('block-efficiency/', views.BlockEfficiencyListView.as_view(), name='block_efficiency'),
     path('reports/export/', views.ReportExportView.as_view(), name='report_export'),
     path('reports/sanction-order/', views.BlockSanctionOrderPDFView.as_view(), name='sanction_order_report'),
-    path('reports/sanction-order/<uuid:block_id>/', views.BlockSanctionOrderPDFView.as_view(), name='sanction_order_report_detail'),
+    path('reports/sanction-order/<str:block_id>/', views.BlockSanctionOrderPDFView.as_view(), name='sanction_order_report_detail'),
     path('', include(router.urls)),
 ]

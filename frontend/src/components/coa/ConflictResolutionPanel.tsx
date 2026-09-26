@@ -191,7 +191,7 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
   onApplyResolution,
   onRefresh,
 }) => {
-  const { blocks: storeBlocks, applyTimeShiftAndDeconflict, submitBlockProposal } = useBlockStore();
+  const { blocks: storeBlocks, sanctionBlock, submitBlockProposal } = useBlockStore();
   const allCorridorBlocks = propBlocks && propBlocks.length > 0 ? propBlocks : storeBlocks;
 
   const [resolvedIds, setResolvedIds] = useState<string[]>(getStoredResolvedIds);
@@ -272,15 +272,25 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
     }
   }, [streamIndex, submitBlockProposal, onRefresh]);
 
-  // Automated Ingestion Loop: runs every 18 seconds when isAutoStreaming is true
+  // Automated Ingestion Loop: runs randomly at 5, 8, or 10 minutes when isAutoStreaming is true
   useEffect(() => {
     if (!isAutoStreaming) return;
 
-    const streamInterval = setInterval(() => {
-      injectNextStreamEvent();
-    }, 18000);
+    let timeoutId: NodeJS.Timeout;
 
-    return () => clearInterval(streamInterval);
+    const scheduleNext = () => {
+      const intervals = [5 * 60 * 1000, 8 * 60 * 1000, 10 * 60 * 1000]; // 5, 8, or 10 mins
+      const nextDelay = intervals[Math.floor(Math.random() * intervals.length)];
+      
+      timeoutId = setTimeout(() => {
+        injectNextStreamEvent();
+        scheduleNext();
+      }, nextDelay);
+    };
+
+    scheduleNext();
+
+    return () => clearTimeout(timeoutId);
   }, [isAutoStreaming, injectNextStreamEvent]);
 
   const handleManualSweep = () => {
@@ -681,24 +691,21 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
   const handleApplySolution = async (conflict: DynamicConflict, solution: ConflictSolution) => {
     markConflictResolved(conflict.id);
 
-    // Apply the deconfliction in local store / backend
+    // Apply the deconfliction in local store / backend directly to SANCTIONED (history)
     if (solution.type === 'TIME_SHIFT') {
       const mins = solution.shiftMinutes || 30;
-      await applyTimeShiftAndDeconflict(
+      await sanctionBlock(
         conflict.blockId,
-        mins,
         `Resolved via ${solution.title}: Start shifted by +${mins}m.`
       );
     } else if (solution.type === 'SHADOW_BUNDLE') {
-      await applyTimeShiftAndDeconflict(
+      await sanctionBlock(
         conflict.blockId,
-        0,
         `Resolved via ${solution.title}: Bundled into coordinated shadow possession window with ${conflict.conflictingEntity}.`
       );
     } else {
-      await applyTimeShiftAndDeconflict(
+      await sanctionBlock(
         conflict.blockId,
-        0,
         `Resolved via ${solution.title}: ${solution.description}`
       );
     }

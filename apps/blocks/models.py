@@ -15,6 +15,7 @@ class BlockStatus(models.TextChoices):
     COMPLETED = 'COMPLETED', 'Cleared & Safety Handback'
     CANCELLED = 'CANCELLED', 'Cancelled by Department'
     REJECTED = 'REJECTED', 'Rejected by COA'
+    SUPERSEDED_BY_BUNDLE = 'SUPERSEDED_BY_BUNDLE', 'Superseded by Combined Block'
 
 
 class LineType(models.TextChoices):
@@ -182,14 +183,15 @@ class Block(models.Model):
         """State machine transition verification."""
         allowed_transitions = {
             BlockStatus.DRAFT: [BlockStatus.PENDING_APPROVAL, BlockStatus.CANCELLED],
-            BlockStatus.PENDING_APPROVAL: [BlockStatus.COORDINATED, BlockStatus.CONFLICT_DETECTED, BlockStatus.SANCTIONED, BlockStatus.REJECTED, BlockStatus.CANCELLED],
-            BlockStatus.COORDINATED: [BlockStatus.SANCTIONED, BlockStatus.REJECTED, BlockStatus.CANCELLED],
-            BlockStatus.CONFLICT_DETECTED: [BlockStatus.PENDING_APPROVAL, BlockStatus.COORDINATED, BlockStatus.SANCTIONED, BlockStatus.REJECTED, BlockStatus.CANCELLED],
-            BlockStatus.SANCTIONED: [BlockStatus.ACTIVE, BlockStatus.CANCELLED],
+            BlockStatus.PENDING_APPROVAL: [BlockStatus.COORDINATED, BlockStatus.CONFLICT_DETECTED, BlockStatus.SANCTIONED, BlockStatus.REJECTED, BlockStatus.CANCELLED, BlockStatus.SUPERSEDED_BY_BUNDLE],
+            BlockStatus.COORDINATED: [BlockStatus.SANCTIONED, BlockStatus.REJECTED, BlockStatus.CANCELLED, BlockStatus.SUPERSEDED_BY_BUNDLE],
+            BlockStatus.CONFLICT_DETECTED: [BlockStatus.PENDING_APPROVAL, BlockStatus.COORDINATED, BlockStatus.SANCTIONED, BlockStatus.REJECTED, BlockStatus.CANCELLED, BlockStatus.SUPERSEDED_BY_BUNDLE],
+            BlockStatus.SANCTIONED: [BlockStatus.ACTIVE, BlockStatus.CANCELLED, BlockStatus.SUPERSEDED_BY_BUNDLE],
             BlockStatus.ACTIVE: [BlockStatus.COMPLETED],
             BlockStatus.COMPLETED: [],
             BlockStatus.CANCELLED: [],
             BlockStatus.REJECTED: [],
+            BlockStatus.SUPERSEDED_BY_BUNDLE: [],
         }
         return new_status in allowed_transitions.get(self.status, [])
 

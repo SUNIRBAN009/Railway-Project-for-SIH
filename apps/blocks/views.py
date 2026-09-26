@@ -841,146 +841,91 @@ class CorridorGeoJSONAPIView(APIView):
                 *station_features
             ]
         }
+
         return ApiResponse.success(data=geojson)
 
 
-# ============================================================================
-# Server-Side Rendered Views (HTMX + Alpine.js + Leaflet.js)
-# ============================================================================
-
-@login_required
-def corridor_map_view(request):
+class BlockBundleAPIView(APIView):
     """
-    TSK-P2-022: Interactive Corridor GIS Map View (Leaflet.js + OSM).
-    Displays real-time track geometry, station waypoints, and block possession overlays.
+    POST /api/v1/blocks/bundle/
+    Creates a Combined Shadow Block from multiple candidate blocks and marks the originals as SUPERSEDED_BY_BUNDLE.
     """
-    corridors = Corridor.objects.all()
-    active_blocks = Block.objects.filter(status__in=[BlockStatus.SANCTIONED, BlockStatus.ACTIVE, BlockStatus.PENDING_APPROVAL, BlockStatus.CONFLICT_DETECTED])
-    
-    return render(request, 'blocks/corridor_map.html', {
-        'corridors': corridors,
-        'active_blocks': active_blocks,
-    })
+    permission_classes = [permissions.IsAuthenticated]
 
-
-@login_required
-def timeline_gantt_view(request):
-    """
-    TSK-P2-023: 24-Hour Gantt / Timeline View of Maintenance Blocks.
-    Visualizes parallel department windows and shadow-block co-possessions.
-    """
-    blocks = Block.objects.select_related('corridor').order_by('scheduled_start_time')[:30]
-    return render(request, 'blocks/timeline_gantt.html', {
-        'blocks': blocks,
-    })
-
-
-@login_required
-@controller_required
-def sanction_dashboard_view(request):
-    """
-    TSK-P2-024: Chief Controller Block Sanction Console.
-    Allows 1-click HTMX approval, conflict review, and shadow optimization.
-    """
-    pending_blocks = Block.objects.filter(status__in=[
-        BlockStatus.PENDING_APPROVAL,
-        BlockStatus.COORDINATED,
-        BlockStatus.CONFLICT_DETECTED
-    ]).select_related('corridor').prefetch_related('conflicts')
-
-    sanctioned_blocks = Block.objects.filter(status=BlockStatus.SANCTIONED).select_related('corridor')[:10]
-
-    return render(request, 'blocks/sanction_dashboard.html', {
-        'pending_blocks': pending_blocks,
-        'sanctioned_blocks': sanctioned_blocks,
-    })
-
-
-@login_required
-@engineer_required
-def proposal_form_view(request):
-    """
-    Departmental Block Proposal Submission Form with HTMX live pre-check.
-    """
-    corridors = Corridor.objects.all()
-    
-    if request.method == 'POST':
-        corridor_id = request.POST.get('corridor')
-        corridor = get_object_or_404(Corridor, id=corridor_id)
-        
-        dept = request.POST.get('department_code', DepartmentCode.ENG)
-        start_km = float(request.POST.get('start_km', 0.0))
-        end_km = float(request.POST.get('end_km', 5.0))
-        start_time_str = request.POST.get('start_time')
-        end_time_str = request.POST.get('end_time')
-        work_type = request.POST.get('work_type', WorkType.TRACK_TAMPING)
-        traction_cut = bool(request.POST.get('traction_cutoff'))
-        description = request.POST.get('description', '')
-
-        t_start = timezone.datetime.fromisoformat(start_time_str)
-        t_end = timezone.datetime.fromisoformat(end_time_str)
-
-        today_str = timezone.now().strftime('%Y%m%d')
-        seq = Block.objects.filter(block_code__startswith=f"BLK-{today_str}").count() + 1
-        block_code = f"BLK-{today_str}-{dept}-{seq:03d}"
-
-        block = Block.objects.create(
-            block_code=block_code,
-            corridor=corridor,
-            line_type=LineType.DOWN,
-            department_code=dept,
-            work_type=work_type,
-            requested_by=request.user,
-            start_km=start_km,
-            end_km=end_km,
-            scheduled_start_time=t_start,
-            scheduled_end_time=t_end,
-            traction_power_cutoff_required=traction_cut,
-            work_description=description,
-            status=BlockStatus.PENDING_APPROVAL,
+    def post(self, request):
+        user_role = getattr(getattr(request.user, 'profile', None), 'role', None)
+        username = getattr(request.user, 'username', '')
+        is_controller = (
+            user_role in [UserRole.CHIEF_CONTROLLER, UserRole.SECTION_CONTROLLER, UserRole.ADMIN] or
+            request.user.is_superuser or
+            username.startswith('coa_') or
+            username == 'chief_controller'
         )
+        if not is_controller:
+            return ApiResponse.error(
+                code='RBAC-403',
+                message='Only COA Controllers can bundle blocks.',
+                status_code=status.HTTP_403_FORBIDDEN
+            )
 
-        # Run sweep
-        detector = ConflictDetector(block)
-        detector.run_sweep()
+        primary_id = request.data.get('primary_block_id')
+        secondary_ids = request.data.get('secondary_block_ids', [])
+        if not primary_id or not secondary_ids:
+            return ApiResponse.error(code='BLK-400', message='Primary and secondary block IDs required.')
 
-        messages.success(request, f"Block proposal {block.block_code} submitted. Conflict sweep completed.")
-        return redirect('blocks:timeline')
+        with transaction.atomic():
+            primary = Block.objects.select_for_update().filter(id=primary_id).first()
+            if not primary:
+                return ApiResponse.error(code='BLK-404', message='Primary block not found.')
+            
+            secondaries = list(Block.objects.select_for_update().filter(id__in=secondary_ids))
+            if not secondaries:
+                return ApiResponse.error(code='BLK-404', message='Secondary blocks not found.')
 
-    return render(request, 'blocks/proposal_form.html', {
-        'corridors': corridors,
-        'departments': DepartmentCode.choices,
-        'work_types': WorkType.choices,
-    })
+            all_blocks = [primary] + secondaries
+            
+            # Verify they are all still in a valid state
+            for b in all_blocks:
+                if b.status in [BlockStatus.SUPERSEDED_BY_BUNDLE, BlockStatus.CANCELLED, BlockStatus.COMPLETED]:
+                    return ApiResponse.error(code='BLK-409', message=f'Block {b.block_code} is in invalid state {b.status} for bundling.')
 
+            start_km = min(float(b.start_km) for b in all_blocks)
+            end_km = max(float(b.end_km) for b in all_blocks)
+            start_time = min(b.scheduled_start_time for b in all_blocks)
+            end_time = max(b.scheduled_end_time for b in all_blocks)
 
-@login_required
-def block_precheck_htmx(request):
-    """
-    HTMX Live Conflict Pre-Check Partial View.
-    Evaluates potential overlaps as the user types coordinates into the proposal form.
-    """
-    start_km = float(request.POST.get('start_km', 0.0) or 0.0)
-    end_km = float(request.POST.get('end_km', 0.0) or 0.0)
-    corridor_id = request.POST.get('corridor')
-    dept = request.POST.get('department_code', 'ENG')
+            today_str = timezone.now().strftime('%Y%m%d')
+            seq = Block.objects.filter(block_code__startswith=f"BLK-{today_str}").count() + 1
+            combined_code = f"BLK-{today_str}-CMB-{seq:03d}"
 
-    conflicts = []
-    if corridor_id and end_km > start_km:
-        # Check against existing blocks
-        overlapping = Block.objects.filter(
-            corridor_id=corridor_id,
-            status__in=[BlockStatus.SANCTIONED, BlockStatus.PENDING_APPROVAL, BlockStatus.ACTIVE]
-        ).exclude(end_km__lt=start_km).exclude(start_km__gt=end_km)
+            desc = f"AI Combined Block: Concurrent possessions for {', '.join(b.block_code for b in all_blocks)}. [USP #98 Synergy]"
 
-        for b in overlapping:
-            is_shadow = (dept == 'ENG' and b.department_code == 'TRD') or (dept == 'TRD' and b.department_code == 'ENG')
-            conflicts.append({
-                'entity': f"Block {b.block_code} ({b.get_department_code_display()})",
-                'is_shadow': is_shadow,
-                'msg': "Shadow-Block Opportunity: Can coordinate joint possession!" if is_shadow else "Temporal/Spatial overlap requires COA review."
-            })
+            combined_block = Block.objects.create(
+                block_code=combined_code,
+                corridor=primary.corridor,
+                line_type=primary.line_type,
+                department_code=primary.department_code,
+                work_type=primary.work_type,
+                requested_by=request.user if request.user.is_authenticated else None,
+                start_km=start_km,
+                end_km=end_km,
+                scheduled_start_time=start_time,
+                scheduled_end_time=end_time,
+                traction_power_cutoff_required=any(b.traction_power_cutoff_required for b in all_blocks),
+                work_description=desc,
+                status=BlockStatus.SANCTIONED,
+                is_shadow=True,
+                sanctioned_by=request.user if request.user.is_authenticated else None,
+                sanctioned_at=timezone.now()
+            )
 
-    return render(request, 'blocks/conflict_preview_partial.html', {
-        'conflicts': conflicts,
-    })
+            for b in all_blocks:
+                b.status = BlockStatus.SUPERSEDED_BY_BUNDLE
+                b.parent_block = combined_block
+                b.version += 1
+                b.save()
+                broadcast_block_event('BLOCK_CANCELLED', b)
+
+            broadcast_block_event('BLOCK_SANCTIONED', combined_block)
+
+        return ApiResponse.success(data=BlockDetailSerializer(combined_block).data, message='Blocks bundled successfully.')

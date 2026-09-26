@@ -10,36 +10,59 @@ interface CoPossessionOptimizerProps {
 
 export const CoPossessionOptimizer: React.FC<CoPossessionOptimizerProps> = ({ block }) => {
   const [bundled, setBundled] = useState(false);
-  const { blocks, applyTimeShiftAndDeconflict } = useBlockStore();
+  const { blocks, sanctionBlock } = useBlockStore();
 
-  const handleBundleExecution = async (b1Id: string, b2Id?: string) => {
+  const pendingStatuses = ['SUBMITTED', 'PENDING_APPROVAL', 'PROPOSED', 'CONFLICT_DETECTED', 'DRAFT'];
+  const pendingBlocks = blocks.filter(b => pendingStatuses.includes(b.status));
+
+  // Find candidate blocks from store
+  const anchorBlock = block || (pendingBlocks.length > 0 ? pendingBlocks[0] : null);
+
+  // Dynamically find overlapping blocks (Shadow Bundling Opportunities)
+  const candidateBlocks = anchorBlock
+    ? pendingBlocks.filter((b) => {
+        if (b.id === anchorBlock.id) return false;
+        if (b.department_code === anchorBlock.department_code) return false; // Usually bundle different departments
+        
+        const aStart = Number(anchorBlock.start_km) || 0;
+        const aEnd = Number(anchorBlock.end_km) || 0;
+        const bStart = Number(b.start_km) || 0;
+        const bEnd = Number(b.end_km) || 0;
+
+        // Spatial overlap check
+        return Math.max(aStart, bStart) <= Math.min(aEnd, bEnd) + 0.5; // Added 0.5km buffer for adjacent matches
+      })
+    : [];
+
+  const handleBundleExecution = async () => {
+    if (!anchorBlock) return;
     setBundled(true);
     try {
       playPendingProposalChime('TRD');
     } catch {}
 
-    if (b1Id) {
-      await applyTimeShiftAndDeconflict(
-        b1Id,
-        0,
-        '[SHADOW BUNDLED]: Joint possession window synchronized (+42.5% track efficiency gain).'
-      );
-    }
-    if (b2Id) {
-      await applyTimeShiftAndDeconflict(
-        b2Id,
-        0,
-        '[SHADOW BUNDLED]: Merged into joint possession window.'
-      );
+    const secondaryIds = candidateBlocks.map(c => c.id);
+    
+    try {
+      // Create true bundled block in the backend
+      const { apiClient } = await import('../../services/api');
+      await apiClient.post('/blocks/bundle/', {
+        primary_block_id: anchorBlock.id,
+        secondary_block_ids: secondaryIds
+      });
+      
+      // Update local store to remove the now-superseded blocks from active view
+      // This is a simplified local update; the websocket should handle the full invalidate
+      blocks.forEach(b => {
+        if (b.id === anchorBlock.id || secondaryIds.includes(b.id)) {
+          b.status = 'SUPERSEDED_BY_BUNDLE' as any;
+        }
+      });
+    } catch (err) {
+      console.error("Bundle execution failed:", err);
+      setBundled(false);
     }
   };
-
-  // Find candidate blocks from store
-  const trdBlock = blocks.find((b) => b.department_code === 'TRD') || blocks[0];
-  const engBlock = blocks.find((b) => b.department_code === 'ENG' && b.id !== trdBlock?.id) || blocks[1];
-  const sntBlock = blocks.find((b) => b.department_code === 'SNT');
-
-  const anchorBlock = block || trdBlock;
 
   return (
     <div className="bg-control-panel border border-control-border rounded-xl p-5 shadow-lg space-y-4">
@@ -80,52 +103,49 @@ export const CoPossessionOptimizer: React.FC<CoPossessionOptimizerProps> = ({ bl
             </div>
 
             <p className="text-xs text-slate-300 font-sans">
-              The AI Sweep-Line Optimizer identified 2 eligible departmental maintenance requests within this exact corridor spatial envelope. Co-allocating these works eliminates redundant track closures.
+              The AI Sweep-Line Optimizer identified {candidateBlocks.length} eligible departmental maintenance requests within this exact corridor spatial envelope. Co-allocating these works eliminates redundant track closures.
             </p>
 
             {/* Candidate Shadow Blocks */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-              {engBlock && (
-                <div className="p-3 rounded-lg border border-blue-500/40 bg-blue-950/20 space-y-1.5 text-xs font-mono">
-                  <div className="flex items-center justify-between">
-                    <span className="text-blue-400 font-bold flex items-center gap-1">
-                      <Wrench className="w-3.5 h-3.5" />
-                      <span>{engBlock.block_code} (ENG)</span>
-                    </span>
-                    <span className="text-[10px] text-blue-300 font-bold">100% SPATIAL FIT</span>
-                  </div>
-                  <p className="text-slate-300 text-[11px] font-sans">
-                    {engBlock.work_type}. Overlap KM {Number(engBlock.start_km).toFixed(1)} to {Number(engBlock.end_km).toFixed(1)}.
-                  </p>
-                </div>
-              )}
-
-              {sntBlock ? (
-                <div className="p-3 rounded-lg border border-emerald-500/40 bg-emerald-950/20 space-y-1.5 text-xs font-mono">
-                  <div className="flex items-center justify-between">
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <Radio className="w-3.5 h-3.5" />
-                      <span>{sntBlock.block_code} (SNT)</span>
-                    </span>
-                    <span className="text-[10px] text-emerald-300 font-bold">INTERLOCK FIT</span>
-                  </div>
-                  <p className="text-slate-300 text-[11px] font-sans">
-                    {sntBlock.work_type}. Overlap KM {Number(sntBlock.start_km).toFixed(1)} to {Number(sntBlock.end_km).toFixed(1)}.
-                  </p>
+              {candidateBlocks.length === 0 ? (
+                <div className="col-span-1 md:col-span-2 p-3 rounded-lg border border-dashed border-control-border text-center text-control-muted text-[11px] font-mono">
+                  No overlapping shadow block opportunities found for this possession.
                 </div>
               ) : (
-                <div className="p-3 rounded-lg border border-amber-500/40 bg-amber-950/20 space-y-1.5 text-xs font-mono">
-                  <div className="flex items-center justify-between">
-                    <span className="text-amber-400 font-bold flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>BLK-TRD-OHE-801 (TRD)</span>
-                    </span>
-                    <span className="text-[10px] text-amber-300 font-bold">POWER SYNC FIT</span>
-                  </div>
-                  <p className="text-slate-300 text-[11px] font-sans">
-                    25kV Catenary Periodic Inspection. Overlap KM 14.5 to 18.0.
-                  </p>
-                </div>
+                candidateBlocks.map((cb) => {
+                  let badgeColor = 'border-purple-500/40 bg-purple-950/20 text-purple-400';
+                  let Icon = Layers;
+                  let fitText = 'SPATIAL FIT';
+                  
+                  if (cb.department_code === 'ENG') {
+                    badgeColor = 'border-blue-500/40 bg-blue-950/20 text-blue-400';
+                    Icon = Wrench;
+                  } else if (cb.department_code === 'TRD') {
+                    badgeColor = 'border-amber-500/40 bg-amber-950/20 text-amber-400';
+                    Icon = Zap;
+                    fitText = 'POWER SYNC FIT';
+                  } else if (cb.department_code === 'SNT') {
+                    badgeColor = 'border-emerald-500/40 bg-emerald-950/20 text-emerald-400';
+                    Icon = Radio;
+                    fitText = 'INTERLOCK FIT';
+                  }
+
+                  return (
+                    <div key={cb.id} className={`p-3 rounded-lg border ${badgeColor} space-y-1.5 text-xs font-mono`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold flex items-center gap-1">
+                          <Icon className="w-3.5 h-3.5" />
+                          <span>{cb.block_code} ({cb.department_code})</span>
+                        </span>
+                        <span className="text-[10px] font-bold opacity-80">{fitText}</span>
+                      </div>
+                      <p className="text-slate-300 text-[11px] font-sans">
+                        {cb.work_type}. Overlap KM {Number(cb.start_km).toFixed(1)} to {Number(cb.end_km).toFixed(1)}.
+                      </p>
+                    </div>
+                  );
+                })
               )}
             </div>
 
@@ -144,8 +164,9 @@ export const CoPossessionOptimizer: React.FC<CoPossessionOptimizerProps> = ({ bl
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleBundleExecution(anchorBlock.id, engBlock?.id)}
-                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-cyan-900/40"
+                  onClick={handleBundleExecution}
+                  disabled={candidateBlocks.length === 0}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-cyan-900/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Bundle Joint Shadow Blocks</span>

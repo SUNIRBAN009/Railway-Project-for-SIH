@@ -219,24 +219,46 @@ class KPIAggregationService:
         co_possession_hours_saved = round(total_co_possessions * 2.5, 1)
         train_delay_hours_prevented = round((total_co_possessions * 45) / 60.0, 1)
 
-        # Build chronological trend series
-        trend_records = qs.order_by('metric_date')
+        # Build chronological trend series padding missing days
+        trend_records = list(qs.order_by('metric_date'))
+        record_map = {r.metric_date: r for r in trend_records}
         trend = []
-        for r in trend_records:
-            trend.append({
-                "date": str(r.metric_date),
-                "corridor_code": r.corridor_code,
-                "punctuality_pct": float(r.corridor_punctuality_percentage),
-                "possession_hours": float(r.total_possession_hours),
-                "blocks_requested": r.total_blocks_requested,
-                "blocks_sanctioned": r.total_blocks_sanctioned,
-                "blocks_executed": r.total_blocks_executed,
-                "co_possessions": r.co_possession_blocks_count,
-                "shadow_blocks": r.shadow_blocks_count,
-                "shadow_bundling_ratio_pct": float(r.shadow_bundling_ratio_pct),
-                "average_tqi_score": float(r.average_tqi_score),
-                "tqi_status": r.tqi_status,
-            })
+        
+        for i in range(days_range):
+            current_date = start_date + timedelta(days=i)
+            if current_date in record_map:
+                r = record_map[current_date]
+                trend.append({
+                    "date": str(r.metric_date),
+                    "corridor_code": r.corridor_code,
+                    "punctuality_pct": float(r.corridor_punctuality_percentage),
+                    "possession_hours": float(r.total_possession_hours),
+                    "sanctioned_hours": round(r.total_sanctioned_duration_minutes / 60.0, 1),
+                    "blocks_requested": r.total_blocks_requested,
+                    "blocks_sanctioned": r.total_blocks_sanctioned,
+                    "blocks_executed": r.total_blocks_executed,
+                    "co_possessions": r.co_possession_blocks_count,
+                    "shadow_blocks": r.shadow_blocks_count,
+                    "shadow_bundling_ratio_pct": float(r.shadow_bundling_ratio_pct),
+                    "average_tqi_score": float(r.average_tqi_score),
+                    "tqi_status": r.tqi_status,
+                })
+            else:
+                trend.append({
+                    "date": str(current_date),
+                    "corridor_code": corridor_code or "ALL",
+                    "punctuality_pct": 0.0,
+                    "possession_hours": 0.0,
+                    "sanctioned_hours": 0.0,
+                    "blocks_requested": 0,
+                    "blocks_sanctioned": 0,
+                    "blocks_executed": 0,
+                    "co_possessions": 0,
+                    "shadow_blocks": 0,
+                    "shadow_bundling_ratio_pct": 0.0,
+                    "average_tqi_score": 0.0,
+                    "tqi_status": 'NO_DATA',
+                })
 
         return {
             "division_code": division_code,

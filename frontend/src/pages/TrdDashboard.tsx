@@ -9,6 +9,9 @@ import { CalendarView } from '../components/blocks/CalendarView';
 import { Block } from '../types';
 import { useBlockStore } from '../stores/blockStore';
 import { useLiveBlocks } from '../hooks/useLiveBlocks';
+import { blockService } from '../services/api';
+import { useToastStore } from '../stores/toastStore';
+import { queryClient } from '../services/queryClient';
 import {
   Zap,
   Plus,
@@ -21,16 +24,69 @@ import {
   Activity,
   ShieldCheck,
   PowerOff,
+  Sparkles,
+  Sliders,
 } from 'lucide-react';
 
 export const TrdDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'BLOCKS' | 'PROPOSE' | 'TIMELINE' | 'CREW' | 'INVENTORY' | 'CALENDAR'>('BLOCKS');
-  const { blocks: storeBlocks, submitBlockProposal } = useBlockStore();
+  const [isFormulating, setIsFormulating] = useState(false);
+  const { addToast } = useToastStore();
+  const { blocks: storeBlocks } = useBlockStore();
   const { blocks: liveBlocks, setBlocks, refetch } = useLiveBlocks('TRD');
   const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks.filter((b) => b.department_code === 'TRD');
 
+  const handleQuickFormulateOheBlock = async () => {
+    setIsFormulating(true);
+    try {
+      const now = new Date();
+      const startTime = new Date(now.getTime() + 60 * 60 * 1000); // 1h from now
+      const endTime = new Date(startTime.getTime() + 180 * 60 * 1000); // 3h duration
+
+      const payload = {
+        corridor: 'NDLS-CNB-MAIN',
+        start_km: 14.0,
+        end_km: 18.5,
+        scheduled_start_time: startTime.toISOString(),
+        scheduled_end_time: endTime.toISOString(),
+        department: 'TRD',
+        department_code: 'TRD',
+        gang_id: 'GANG-TRD-01',
+        equipment_required: 'TW-104',
+        line_type: 'UP',
+        work_type: 'OHE_INSPECTION',
+        traction_power_cutoff_required: true,
+        work_description: '25kV AC Catenary Feeder Isolation & OHE Contact Wire Inspection via Tower Wagon TW-104',
+      };
+
+      const created = await blockService.createBlock(payload);
+      const conflictCount = created.sweep_report?.total_conflicts ?? (created.conflicts?.length || 0);
+
+      addToast({
+        type: 'success',
+        title: `OHE Power Block Formulated: ${created.block_code}`,
+        message: `Registered in PostgreSQL database (State: ${created.status_display || created.status}). 25kV power cutoff scheduled. ${conflictCount} sweep conflict(s) evaluated.`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['blocks'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      window.dispatchEvent(new CustomEvent('corridor_block_updated', { detail: created }));
+
+      setActiveTab('BLOCKS');
+      refetch();
+    } catch (err: any) {
+      console.error('Error formulating OHE block:', err);
+      addToast({
+        type: 'error',
+        title: 'Formulation Failed',
+        message: err.response?.data?.message || err.message || 'Failed to submit OHE block request to backend.',
+      });
+    } finally {
+      setIsFormulating(false);
+    }
+  };
+
   const handleBlockCreated = async (newBlock: Partial<Block>) => {
-    await submitBlockProposal(newBlock);
     setActiveTab('BLOCKS');
     refetch();
   };
@@ -171,13 +227,39 @@ export const TrdDashboard: React.FC = () => {
             </button>
           </div>
 
-          <button
-            onClick={() => setActiveTab('PROPOSE')}
-            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-mono text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-amber-950"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Formulate OHE Power Block</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleQuickFormulateOheBlock}
+              disabled={isFormulating}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:bg-amber-900 text-white font-mono text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-amber-950"
+              title="Immediately formulate & submit live 25kV OHE Power Block to backend PostgreSQL"
+            >
+              {isFormulating ? (
+                <>
+                  <Sparkles className="w-4 h-4 animate-spin text-amber-200" />
+                  <span>Formulating OHE Block...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 text-amber-300" />
+                  <span>Formulate OHE Power Block</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab(activeTab === 'PROPOSE' ? 'BLOCKS' : 'PROPOSE')}
+              className={`px-3 py-2 rounded-xl border font-mono text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === 'PROPOSE'
+                  ? 'bg-amber-900/60 border-amber-400 text-amber-200 ring-1 ring-amber-400'
+                  : 'border-amber-600/40 hover:bg-amber-900/30 text-amber-300'
+              }`}
+              title="Open multi-stage custom parameter proposal wizard"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>{activeTab === 'PROPOSE' ? 'Close Wizard' : 'Custom Wizard'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Dynamic Views */}

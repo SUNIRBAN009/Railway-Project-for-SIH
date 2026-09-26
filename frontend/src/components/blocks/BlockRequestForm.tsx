@@ -45,15 +45,44 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
   const [equipmentList, setEquipmentList] = useState<EquipmentRecord[]>([]);
   const [isLoadingLogistics, setIsLoadingLogistics] = useState(false);
 
+  // Dynamic initial department defaults
+  const getDefaultWorkType = (dept: DepartmentCode) => {
+    if (dept === 'TRD') return 'OHE_INSPECTION';
+    if (dept === 'SNT') return 'SIGNAL_INTERLOCKING_TEST';
+    return 'TRACK_TAMPING';
+  };
+
+  const getDefaultMachine = (dept: DepartmentCode) => {
+    if (dept === 'TRD') return 'TW-104';
+    if (dept === 'SNT') return 'EI-SIM-01';
+    return DEMO_MACHINERY[0].machine_code;
+  };
+
+  const getDefaultGang = (dept: DepartmentCode) => {
+    if (dept === 'TRD') return 'GANG-TRD-01';
+    if (dept === 'SNT') return 'GANG-SNT-01';
+    return DEMO_GANGS[0].id;
+  };
+
+  const getDefaultDescription = (dept: DepartmentCode) => {
+    if (dept === 'TRD') {
+      return '25kV AC Catenary Feeder Isolation, contact wire inspection & dropper renewal via Tower Wagon TW-104.';
+    }
+    if (dept === 'SNT') {
+      return 'Electronic Interlocking Point Overhaul & Signal Testing with simulated track circuit protection.';
+    }
+    return 'Scheduled mechanized track possession for continuous action tamping and track geometrical alignment.';
+  };
+
   // Form State
   const [corridorCode, setCorridorCode] = useState(DEMO_CORRIDORS[0].code);
   const [lineType, setLineType] = useState<LineType>('UP');
-  const [workType, setWorkType] = useState('TRACK_TAMPING');
+  const [workType, setWorkType] = useState(() => getDefaultWorkType(departmentCode));
   const [startKm, setStartKm] = useState(14.2);
   const [endKm, setEndKm] = useState(18.5);
 
-  const [selectedMachine, setSelectedMachine] = useState(DEMO_MACHINERY[0].machine_code);
-  const [selectedGang, setSelectedGang] = useState(DEMO_GANGS[0].id);
+  const [selectedMachine, setSelectedMachine] = useState(() => getDefaultMachine(departmentCode));
+  const [selectedGang, setSelectedGang] = useState(() => getDefaultGang(departmentCode));
 
   // Load live gangs and machinery from PostgreSQL
   useEffect(() => {
@@ -67,10 +96,20 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
       if (gangsData && gangsData.length > 0) {
         setGangsList(gangsData);
         setSelectedGang(gangsData[0].gang_number);
+      } else {
+        const deptGangs = DEMO_GANGS.filter((g) => g.department === departmentCode);
+        if (deptGangs.length > 0) {
+          setSelectedGang(deptGangs[0].id);
+        }
       }
       if (eqData && eqData.length > 0) {
         setEquipmentList(eqData);
         setSelectedMachine(eqData[0].equipment_code);
+      } else {
+        const deptMach = DEMO_MACHINERY.filter((m) => m.department === departmentCode);
+        if (deptMach.length > 0) {
+          setSelectedMachine(deptMach[0].machine_code);
+        }
       }
       setIsLoadingLogistics(false);
     });
@@ -79,17 +118,18 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
     };
   }, [departmentCode]);
 
-  const [requestDate, setRequestDate] = useState('2026-09-09');
-  const [startTime, setStartTime] = useState('02:00');
+  const [requestDate, setRequestDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [startTime, setStartTime] = useState(() => {
+    const nextH = (new Date().getHours() + 1) % 24;
+    return `${String(nextH).padStart(2, '0')}:00`;
+  });
   const [durationMinutes, setDurationMinutes] = useState(180);
   const [bufferMarginMinutes, setBufferMarginMinutes] = useState(15);
 
   const [powerCutoffRequired, setPowerCutoffRequired] = useState(departmentCode === 'TRD');
   const [cautionSpeedKmh, setCautionSpeedKmh] = useState(45);
   const [adjacentLineProtection, setAdjacentLineProtection] = useState(true);
-  const [workDescription, setWorkDescription] = useState(
-    'Scheduled mechanized track possession for continuous action tamping and track geometrical alignment.'
-  );
+  const [workDescription, setWorkDescription] = useState(() => getDefaultDescription(departmentCode));
 
   const [conflictSimulated, setConflictSimulated] = useState(false);
 
@@ -231,6 +271,7 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
       scheduled_start_time: `${requestDate}T${startTime}:00+05:30`,
       scheduled_end_time: endIso,
       department: departmentCode,
+      department_code: departmentCode,
       gang_id: selectedGang,
       equipment_required: selectedMachine,
       line_type: lineType,
@@ -349,7 +390,11 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
               Possession Proposal Protocol
             </span>
             <h2 className="text-lg font-extrabold text-white">
-              Formulate Track Block Proposal ({departmentCode})
+              {departmentCode === 'TRD'
+                ? 'Formulate 25kV OHE Power Block Proposal (TRD)'
+                : departmentCode === 'SNT'
+                ? 'Formulate S&T Shadow Block Proposal (S&T)'
+                : 'Formulate Track Block Proposal (ENG)'}
             </h2>
           </div>
           <span className="text-xs font-mono bg-control-bg px-3 py-1 rounded-full border border-control-border text-slate-300">
@@ -827,23 +872,44 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
             )}
 
             {currentStep < 4 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={Boolean((currentStep === 1 && geoError) || (currentStep === 3 && timeError))}
-                className={`px-5 py-2.5 rounded-xl font-mono text-xs font-bold transition flex items-center gap-2 shadow-lg ${
-                  (currentStep === 1 && geoError) || (currentStep === 3 && timeError)
-                    ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                    : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-900/50'
-                }`}
-              >
-                <span>
-                  {(currentStep === 1 && geoError) || (currentStep === 3 && timeError)
-                    ? 'Blocked by Coherence Engine'
-                    : 'Continue'}
-                </span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <>
+                <button
+                  type="submit"
+                  disabled={Boolean(isSubmitting || geoError || timeError)}
+                  className="px-4 py-2.5 rounded-xl font-mono text-xs font-bold transition flex items-center gap-1.5 border border-emerald-500/50 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 shadow-md"
+                  title="Immediately submit proposal with current parameters directly to backend PostgreSQL"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Sparkles className="w-4 h-4 animate-spin text-emerald-300" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Quick Submit to Backend</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={Boolean((currentStep === 1 && geoError) || (currentStep === 3 && timeError))}
+                  className={`px-5 py-2.5 rounded-xl font-mono text-xs font-bold transition flex items-center gap-2 shadow-lg ${
+                    (currentStep === 1 && geoError) || (currentStep === 3 && timeError)
+                      ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                      : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-900/50'
+                  }`}
+                >
+                  <span>
+                    {(currentStep === 1 && geoError) || (currentStep === 3 && timeError)
+                      ? 'Blocked by Coherence Engine'
+                      : 'Continue'}
+                  </span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </>
             ) : (
               <button
                 type="submit"

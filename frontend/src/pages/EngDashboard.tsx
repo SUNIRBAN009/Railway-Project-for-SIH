@@ -34,7 +34,6 @@ export const EngDashboard: React.FC = () => {
   const { riskMatrix, whyNumberOne } = useRiskMatrix('NDLS-CNB-MAIN');
 
   const handleBlockCreated = async (newBlock: Partial<Block>) => {
-    await submitBlockProposal(newBlock);
     setActiveTab('BLOCKS');
     refetch();
   };

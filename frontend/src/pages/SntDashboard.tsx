@@ -29,7 +29,6 @@ export const SntDashboard: React.FC = () => {
   const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks.filter((b) => b.department_code === 'SNT');
 
   const handleBlockCreated = async (newBlock: Partial<Block>) => {
-    await submitBlockProposal(newBlock);
     setActiveTab('BLOCKS');
     refetch();
   };

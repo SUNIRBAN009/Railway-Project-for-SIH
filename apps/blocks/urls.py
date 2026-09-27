@@ -5,11 +5,11 @@ app_name = 'blocks'
 
 urlpatterns = [
     # Server-Side Rendered (HTMX + Alpine.js + Leaflet) Views
-    path('map/', views.corridor_map_view, name='map'),
-    path('timeline/', views.timeline_gantt_view, name='timeline'),
-    path('sanction/', views.sanction_dashboard_view, name='sanction'),
-    path('propose/', views.proposal_form_view, name='propose'),
-    path('htmx/precheck/', views.block_precheck_htmx, name='htmx_precheck'),
+    # path('map/', views.corridor_map_view, name='map'),
+    # path('timeline/', views.timeline_gantt_view, name='timeline'),
+    # path('sanction/', views.sanction_dashboard_view, name='sanction'),
+    # path('propose/', views.proposal_form_view, name='propose'),
+    # path('htmx/precheck/', views.block_precheck_htmx, name='htmx_precheck'),
 
     # RESTful API Endpoints (SVC-BLK)
     path('corridors/', views.CorridorListAPIView.as_view(), name='api_corridor_list'),

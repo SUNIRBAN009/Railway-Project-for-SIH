@@ -246,7 +246,7 @@ export const AutomatedTestRunnerModal: React.FC = () => {
         >
           <span className="w-2 h-2 rounded-full bg-emerald-300 animate-ping absolute -top-0.5 -right-0.5" />
           <Sparkles className="w-4 h-4 text-amber-200 animate-spin" />
-          <span className="tracking-wide">🧪 টেস্টিং বাটন (TEST RUNNER)</span>
+          <span className="tracking-wide">🧪 PLATFORM TEST RUNNER</span>
         </button>
       </div>
 
@@ -270,7 +270,7 @@ export const AutomatedTestRunnerModal: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 font-sans">
-                    ১-ক্লিকে প্ল্যাটফর্মের ডাটাবেজ, Coherence Rules, USP #98 ও লাইভ ডেটা স্বয়ংক্রিয়ভাবে টেস্ট করুন
+                    1-Click automated verification of platform database, Coherence Rules, USP #98 &amp; live telemetry.
                   </p>
                 </div>
               </div>

@@ -275,3 +275,34 @@
 
 ---
 *নোট: ব্যবহারকারীর স্পষ্ট নির্দেশনা অনুযায়ী গিট-এ কোনো পরিবর্তন কমিট বা পুশ করা হয়নি। সরাসরি কোডবেসে ফিক্স সম্পন্ন ও কার্যকর করা হয়েছে।*
+
+### 🐛 বাগ #২৫: BlockSanctionOrderPDFView এবং ReportExportView-এ UUID vs String ID মিসম্যাচ ও PDF ডাউনলোড এরর
+- **সমস্যা:** ফ্রন্টএন্ড মক ডেটা থেকে স্ট্রিং আইডি (যেমন lk-eng-something) পাঠানো হলে ব্যাকএন্ডের get(id=block_id) মেথড UUID ভ্যালিডেশন ফেইল করে HTTP 404 বা 500 এরর দিচ্ছিল।
+- **সমাধান:** urls.py-এ রাউটার <uuid:block_id> পরিবর্তন করে <str:block_id> করা হয়েছে এবং iews.py-এ 	ry...except ValueError দিয়ে প্রথমে UUID এবং ব্যর্থ হলে lock_code দিয়ে ব্লক লুকআপ করার ফলব্যাক লজিক যুক্ত করা হয়েছে।
+
+### 🐛 বাগ #২৬: CoPossessionOptimizer.tsx-এ বান্ডল করা ব্লক পেন্ডিং কিউ থেকে না সরা
+- **সমস্যা:** কো-পজেশন অপটিমাইজারে বান্ডল এক্সিকিউট করলে pplyTimeShiftAndDeconflict কল হচ্ছিল, যার ফলে ব্লকটি হিস্ট্রি বা স্যাঙ্কশন লিস্টে যাচ্ছিল না এবং পেন্ডিং কিউতেই আটকে ছিল।
+- **সমাধান:** pplyTimeShiftAndDeconflict পরিবর্তন করে সরাসরি sanctionBlock কল করা হয়েছে, যাতে বান্ডল হওয়া মাত্রই তা স্যাঙ্কশন হয়ে হিস্ট্রি সেকশনে চলে যায় এবং কিউ ক্লিয়ার হয়।
+
+### 🐛 বাগ #২৭: ConflictResolutionPanel.tsx-এ সমাধান এক্সেপ্ট করার পর তা হিস্ট্রি সেকশনে না গিয়ে পেন্ডিং থেকে যাওয়া
+- **সমস্যা:** AI সলিউশন বা অপটিমাইজার থেকে কোনো রিকোয়েস্ট এক্সেপ্ট করলে তা pplyTimeShiftAndDeconflict ফাংশনের মাধ্যমে শুধু কোঅর্ডিনেটেড স্ট্যাটাসে থেকে যেত, ফলে তা পেন্ডিং কিউ থেকে সরে হিস্ট্রি সেকশনে যেত না।
+- **সমাধান:** ConflictResolutionPanel.tsx এবং CoPossessionOptimizer.tsx-এ সমাধান এক্সেপ্ট করলে সরাসরি sanctionBlock কল করা হয়েছে, যাতে তা পেন্ডিং কিউ থেকে সরে গিয়ে হিস্ট্রি সেকশনে জমা হয়।
+
+### 🐛 বাগ #২৮: ডাইনামিক ইনজেশন স্ট্রিম এর সময়কাল খুব কম (১৮ সেকেন্ড) থাকা
+- **সমস্যা:** ডাইনামিক ডেটা আসার সময়কাল ১৮ সেকেন্ডে হার্ডকোড করা ছিল, যা বাস্তবে ব্যবহারযোগ্য ছিল না। ব্যবহারকারী চেয়েছিলেন ৫, ৮, বা ১০ মিনিট অন্তর অন্তর রিকোয়েস্ট আসবে।
+- **সমাধান:** ConflictResolutionPanel.tsx-এ setInterval-এর বদলে setTimeout ব্যবহার করে ৫, ৮ এবং ১০ মিনিটের মধ্যে র‍্যান্ডম বিরতিতে রিকোয়েস্ট আসার লজিক আপডেট করা হয়েছে।
+
+### 🐛 বাগ #২৯: CoPossessionOptimizer.tsx-এ শ্যাডো বান্ডলিং অপশন স্ট্যাটিক এবং হার্ডকোডেড থাকা
+- **সমস্যা:** কো-পজেশন অপটিমাইজারে রিকোয়েস্টগুলোকে বান্ডল করার যে অপশনগুলো আসছিল সেগুলো হার্ডকোডেড ছিল (যেমন BLK-TRD-OHE-801)। ফলে কিউতে নতুন কোনো রিকোয়েস্ট আসলেও তা ডাইনামিকভাবে ম্যাপ হচ্ছিল না।
+- **সমাধান:** CoPossessionOptimizer.tsx-এ সম্পূর্ণ ডাইনামিক স্পেশিয়াল ওভারল্যাপ অ্যালগরিদম (Math.max(aStart, bStart) <= Math.min(aEnd, bEnd)) যোগ করা হয়েছে, যা রিয়েল-টাইমে SUBMITTED, PROPOSED ইত্যাদি স্ট্যাটাসের ব্লকগুলোর সাথে কিলোমিটার পজিশন মিলিয়ে শ্যাডো বান্ডল তৈরি করবে এবং প্যানেলে দেখাবে।
+
+### 🐛 বাগ #৩০: PDF Report-এ Scorecard Status এবং Missing Dates-এর লজিক এরর
+- **সমস্যা:** Corridor Report PDF-এ প্রথম চারটি KPI-র স্ট্যাটাস (COMPLIANT, EXCELLENT, OPTIMIZED) হার্ডকোডেড ছিল যা Target SLA পূরন না করলেও প্রিন্ট হচ্ছিল। এছাড়া Daily Breakdown-এ 7 দিনের বদলে শুধু যে দিনগুলোতে ডেটা আছে সেগুলোই দেখাচ্ছিল এবং Actual Possession Hours 0.0 দেখালেও Scheduled Hours দেখাচ্ছিল না।
+- **সমাধান:** pdf_report_service.py-তে ডাইনামিক স্ট্যাটাস লজিক লেখা হয়েছে (যেমন utilization >= 90.0 হলে COMPLIANT নতুবা BELOW TARGET)। kpi_aggregation_service.py-তে loop চালিয়ে missing dates-গুলোকে zero value দিয়ে প্যাডিং করা হয়েছে। এছাড়া Report-এর টেবিলে Possession Hours-এর বদলে Hours (Sch/Act) কলাম আনা হয়েছে যাতে Sanctioned Hours এবং Actual Hours দুটিই আলাদাভাবে প্রিন্ট হয়।
+
+### 🐛 বাগ #৩১: AI Combined Block Creation & Lifecycle Logic
+- **সমস্যা:** conflict_engine.py overlap ডিটেক্ট করে SHADOW_MERGED দেখাচ্ছিল কিন্তু বাস্তবে কোনো Combined Block তৈরি করছিল না। Frontend-ও কেবল আলাদাভাবে block-গুলোকে sanction করছিল।
+- **সমাধান:**
+  1. BlockStatus-এ নতুন SUPERSEDED_BY_BUNDLE স্টেট যোগ করা হয়েছে।
+  2. Backend-এ BlockBundleAPIView (POST /api/v1/blocks/bundle/) তৈরি করা হয়েছে যা transactional (	ransaction.atomic()) উপায়ে নতুন একটি combined block তৈরি করবে এবং অরিজিনাল ব্লকগুলোকে SUPERSEDED_BY_BUNDLE মার্ক করে parent_block লিঙ্ক সেট করবে।
+  3. Frontend-এর CoPossessionOptimizer.tsx আপডেট করা হয়েছে যাতে আলাদাভাবে sanction না করে সরাসরি bundle API কল করা হয়।

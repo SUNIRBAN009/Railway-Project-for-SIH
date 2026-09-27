@@ -160,10 +160,15 @@ class BlockSanctionOrderPDFView(APIView):
 
         try:
             if target_id or block_code:
-                if target_id:
-                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=target_id)
-                else:
-                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_code)
+                import uuid
+                try:
+                    if target_id:
+                        uuid_obj = uuid.UUID(target_id)
+                        block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=uuid_obj)
+                    else:
+                        block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_code)
+                except ValueError:
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=target_id)
 
                 pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(block, division_code=division)
                 filename = f"IR_Sanction_Order_{block.block_code}.pdf"
@@ -219,10 +224,15 @@ class BlockSanctionOrderPDFView(APIView):
 
         try:
             if block_id or block_code:
-                if block_id:
-                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=block_id)
-                else:
-                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_code)
+                import uuid
+                try:
+                    if block_id:
+                        uuid_obj = uuid.UUID(block_id)
+                        block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=uuid_obj)
+                    else:
+                        block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_code)
+                except ValueError:
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_id)
 
                 pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(block, division_code=division)
                 filename = f"IR_Sanction_Order_{block.block_code}.pdf"
@@ -290,7 +300,12 @@ class ReportExportView(APIView):
 
         try:
             if report_type == 'SANCTION_ORDER' and block_id:
-                block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=block_id)
+                import uuid
+                try:
+                    uuid_obj = uuid.UUID(block_id)
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(id=uuid_obj)
+                except ValueError:
+                    block = Block.objects.select_related('corridor', 'requested_by', 'sanctioned_by').get(block_code=block_id)
                 pdf_bytes = BlockSanctionOrderPDFGenerator.generate_sanction_order_pdf(block, division_code=division)
                 filename = f"IR_Sanction_Order_{block.block_code}.pdf"
             elif report_type in ['SANCTION_BULLETIN', 'BULLETIN']:

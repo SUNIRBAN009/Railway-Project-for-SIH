@@ -10,17 +10,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Control Room Foundations
-        'control-bg': '#0a0e1a',
-        'control-panel': '#111827',
-        'control-border': '#1f2937',
-        'control-text': '#e5e7eb',
-        'control-muted': '#6b7280',
+        // Control Room Foundations (Responsive to Dark / Light Daylight Mode)
+        'control-bg': 'var(--control-bg, #0a0e1a)',
+        'control-panel': 'var(--control-panel, #111827)',
+        'control-border': 'var(--control-border, #1f2937)',
+        'control-text': 'var(--control-text, #e5e7eb)',
+        'control-muted': 'var(--control-muted, #6b7280)',
 
         // Railway Operational Theme Palette
-        'railway-navy': '#0b1120',
-        'railway-slate': '#1e293b',
-        'railway-panel': '#0f172a',
+        'railway-navy': 'var(--railway-navy, #0b1120)',
+        'railway-slate': 'var(--railway-slate, #1e293b)',
+        'railway-panel': 'var(--railway-panel, #0f172a)',
 
         // Operational Status Tokens
         'status-free': '#00ff88',

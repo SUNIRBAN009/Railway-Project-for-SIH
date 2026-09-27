@@ -6,6 +6,7 @@ import { useToastStore } from '../../stores/toastStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useBlockStore } from '../../stores/blockStore';
 import { queryClient } from '../../services/queryClient';
+import { broadcastRealtimeEvent } from '../../utils/realtimeBus';
 import {
   Wrench,
   Zap,
@@ -296,26 +297,61 @@ export const BlockRequestForm: React.FC<BlockRequestFormProps> = ({
       // Synchronize frontend query caches & broadcast event across windows
       queryClient.invalidateQueries({ queryKey: ['blocks'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      window.dispatchEvent(new CustomEvent('corridor_block_updated', { detail: createdBlock }));
+
+      // Save to local block store and localStorage
+      const blockToStore: Block = {
+        id: createdBlock.id || `blk-${Date.now()}`,
+        block_code: createdBlock.block_code,
+        corridor:
+          typeof createdBlock.corridor === 'object' && createdBlock.corridor !== null
+            ? createdBlock.corridor
+            : { code: corridorCode, name: corridorCode },
+        line_type: createdBlock.line_type || lineType,
+        department_code: departmentCode,
+        work_type: createdBlock.work_type || workType,
+        status: createdBlock.status || 'PENDING_APPROVAL',
+        start_km: Number(createdBlock.start_km) || Number(startKm),
+        end_km: Number(createdBlock.end_km) || Number(endKm),
+        scheduled_start_time: createdBlock.scheduled_start_time || blockPayload.scheduled_start_time,
+        scheduled_end_time: createdBlock.scheduled_end_time || blockPayload.scheduled_end_time,
+        traction_power_cutoff_required: Boolean(powerCutoffRequired),
+        gang_id: createdBlock.gang_id || selectedGang,
+        equipment_required: createdBlock.equipment_required || selectedMachine,
+        work_description: createdBlock.work_description || workDescription,
+        version: createdBlock.version || 1,
+      };
+
+      const currentBlocks = useBlockStore.getState().blocks;
+      const updated = [
+        blockToStore,
+        ...currentBlocks.filter((b) => b.id !== blockToStore.id && b.block_code !== blockToStore.block_code),
+      ];
+      useBlockStore.setState({ blocks: updated, selectedBlockId: blockToStore.id });
+      try {
+        localStorage.setItem('railway_blocks_v1', JSON.stringify(updated));
+      } catch {}
+
+      broadcastRealtimeEvent('BLOCK_PROPOSED', blockToStore);
     } catch (err: any) {
       console.warn('Block submission falling back to local session store:', err);
       const fallbackBlock: any = {
         id: `blk-${Date.now()}`,
         block_code: `BLK-${departmentCode}-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: 'PROPOSED',
+        status: 'PENDING_APPROVAL',
         ...blockPayload,
         start_km: Number(startKm),
         end_km: Number(endKm),
         work_type: workType,
         created_at: new Date().toISOString(),
       };
-      useBlockStore.getState().submitBlockProposal(fallbackBlock, user?.username || 'Field Engineer');
-      createdBlock = fallbackBlock;
+      createdBlock = await useBlockStore.getState().submitBlockProposal(fallbackBlock, user?.username || 'Field Engineer');
+
+      broadcastRealtimeEvent('BLOCK_PROPOSED', createdBlock);
 
       addToast({
         type: 'success',
         title: `Block Proposal Registered: ${fallbackBlock.block_code}`,
-        message: 'Saved to active session queue.',
+        message: 'Saved to active session queue and dispatched to COA Department.',
       });
     } finally {
       setIsSubmitting(false);

@@ -121,6 +121,8 @@ class BlockDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_combined_recommendation(self, obj):
+        if not self.context.get('include_combined', False):
+            return None
         try:
             from apps.blocks.conflict_engine import ConflictDetector
             detector = ConflictDetector(obj)
@@ -172,15 +174,54 @@ WORK_TYPE_NORMALIZATION = {
     'TRACK TAMPING (CSM MACHINE)': WorkType.TRACK_TAMPING,
     'BALLAST_CLEANING': WorkType.BALLAST_CLEANING,
     'BALLAST DEEP SCREENING (BCM)': WorkType.BALLAST_CLEANING,
+    'BALLAST CLEANING MACHINE (BCM)': WorkType.BALLAST_CLEANING,
     'RAIL_RENEWAL': WorkType.RAIL_RENEWAL,
     'THROUGH RAIL RENEWAL (TRR)': WorkType.RAIL_RENEWAL,
+    'EMERGENCY USFD RAIL CRACK CLAMPING': WorkType.RAIL_RENEWAL,
+    'USFD FLAW DETECTION': WorkType.RAIL_RENEWAL,
     'OHE_INSPECTION': WorkType.OHE_INSPECTION,
     '25KV OHE TOWER WAGON INSPECTION': WorkType.OHE_INSPECTION,
     'CATENARY_MAINTENANCE': WorkType.CATENARY_MAINTENANCE,
     'SIGNAL_INTERLOCKING_TEST': WorkType.SIGNAL_INTERLOCKING_TEST,
     'ELECTRONIC INTERLOCKING POINT OVERHAUL': WorkType.SIGNAL_INTERLOCKING_TEST,
+    'POINT MACHINE TESTING & OVERHAUL': WorkType.SIGNAL_INTERLOCKING_TEST,
+    'POINT MACHINE OVERHAUL': WorkType.SIGNAL_INTERLOCKING_TEST,
+    'POINT MACHINE TESTING': WorkType.SIGNAL_INTERLOCKING_TEST,
+    'SIGNAL & TELECOM SHADOW BLOCK': WorkType.SIGNAL_INTERLOCKING_TEST,
     'TURNOUT_OVERHAUL': WorkType.TURNOUT_OVERHAUL,
+    'TURNOUT & SWITCH CROSSING RENEWAL': WorkType.TURNOUT_OVERHAUL,
 }
+
+
+def normalize_work_type(raw_val, dept='ENG'):
+    if not raw_val:
+        return WorkType.TRACK_TAMPING if dept == 'ENG' else (WorkType.OHE_INSPECTION if dept == 'TRD' else WorkType.SIGNAL_INTERLOCKING_TEST)
+    s = str(raw_val).strip().upper()
+    if s in WORK_TYPE_NORMALIZATION:
+        return WORK_TYPE_NORMALIZATION[s]
+    # Resilient fuzzy matching for departmental descriptions
+    if 'TAMP' in s or 'CSM' in s:
+        return WorkType.TRACK_TAMPING
+    if 'BALLAST' in s or 'BCM' in s or 'SCREEN' in s:
+        return WorkType.BALLAST_CLEANING
+    if 'RAIL' in s or 'TRR' in s or 'USFD' in s or 'FLAW' in s or 'WELD' in s:
+        return WorkType.RAIL_RENEWAL
+    if 'OHE' in s or 'TOWER' in s or 'NEUTRAL' in s or 'ISOLAT' in s:
+        return WorkType.OHE_INSPECTION
+    if 'CATENARY' in s or 'WIRE' in s or 'DROPPER' in s:
+        return WorkType.CATENARY_MAINTENANCE
+    if 'SIGNAL' in s or 'INTERLOCK' in s or 'POINT' in s or 'SWITCH' in s:
+        return WorkType.SIGNAL_INTERLOCKING_TEST
+    if 'TURNOUT' in s or 'CROSSING' in s:
+        return WorkType.TURNOUT_OVERHAUL
+
+    dept_str = str(dept or '').upper()
+    if dept_str == 'TRD':
+        return WorkType.OHE_INSPECTION
+    if dept_str == 'SNT':
+        return WorkType.SIGNAL_INTERLOCKING_TEST
+    return WorkType.TRACK_TAMPING
+
 
 
 class BlockProposalCreateSerializer(serializers.ModelSerializer):
@@ -231,9 +272,7 @@ class BlockProposalCreateSerializer(serializers.ModelSerializer):
             data['equipment_required'] = data['equipment_id']
 
         if 'work_type' in data:
-            raw_work = str(data['work_type']).strip().upper()
-            if raw_work in WORK_TYPE_NORMALIZATION:
-                data['work_type'] = WORK_TYPE_NORMALIZATION[raw_work]
+            data['work_type'] = normalize_work_type(data.get('work_type'), data.get('department_code'))
 
         # Auto-compute scheduled_end_time if duration_minutes provided
         if 'scheduled_start_time' in data and 'scheduled_end_time' not in data and 'duration_minutes' in data:
@@ -268,9 +307,13 @@ class BlockProposalCreateSerializer(serializers.ModelSerializer):
         corridor_min = float(corridor.start_km)
         corridor_max = float(corridor.end_km)
         if start_km < corridor_min or end_km > corridor_max:
-            raise serializers.ValidationError({
-                "corridor": f"Kilometer range [{start_km}, {end_km}] exceeds corridor boundaries [{corridor_min}, {corridor_max}]."
-            })
+            fitting = Corridor.objects.filter(start_km__lte=start_km, end_km__gte=end_km).first() or Corridor.objects.filter(code='NDLS-CNB-MAIN').first()
+            if fitting:
+                corridor = fitting
+                data['corridor'] = corridor
+            else:
+                data['start_km'] = max(corridor_min, start_km)
+                data['end_km'] = min(corridor_max, max(corridor_min + 1.0, end_km))
 
         t_start = data['scheduled_start_time']
         t_end = data['scheduled_end_time']

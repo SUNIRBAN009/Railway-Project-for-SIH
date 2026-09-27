@@ -3,6 +3,7 @@ Django settings for railway_sih project.
 Indian Railways AI Block Planning Platform (PS 26027).
 Authoritative Architecture: docs/01-tech-infra/
 """
+# pyrefly: ignore [missing-import]
 from decouple import config
 import os
 from pathlib import Path
@@ -25,6 +26,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "channels",
+    "drf_yasg",
     # Platform Bounded Context Services (PS 26027)
     "apps.core",
     "apps.accounts",
@@ -37,6 +39,9 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.api",
     "apps.demo",
+    "apps.emergency",
+    "apps.grievances",
+    "apps.maintenance",
 ]
 
 # Conditionally load GIS app if PostGIS & GDAL are active
@@ -224,9 +229,63 @@ CELERY_BEAT_SCHEDULE = {
 JWT_ACCESS_TOKEN_LIFETIME_MINUTES = 60 * 24 * 7
 JWT_REFRESH_TOKEN_LIFETIME_DAYS = 7
 
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOGS_DIR, exist_ok=True)
+
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
-    "root": {"handlers": ["console"], "level": "INFO"},
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file_django': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'django.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'file_error': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(LOGS_DIR, 'error.log'),
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file_django', 'file_error'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file_error', 'console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'apps': {
+            'handlers': ['console', 'file_django', 'file_error'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file_error'],
+        'level': 'INFO'
+    },
 }

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useToastStore } from '../../stores/toastStore';
+import { useBlockStore } from '../../stores/blockStore';
+import { DEMO_BLOCKS } from '../../services/demoData';
+import { Block, BlockStatus } from '../../types';
+import { playPendingProposalChime } from '../../services/soundService';
 import {
   Sparkles,
   Zap,
@@ -66,66 +70,294 @@ export const DemoControllerToolbar: React.FC = () => {
     });
   };
 
-  // Conflict Injector Trigger
+  // Conflict Injector Trigger - Directly updates store and UI
   const handleInjectConflict = async (conflictType: 'COMBINED_BLOCK' | 'TRAIN_PRECEDENCE' | 'RESOURCE_PHYSICS') => {
     setIsLoading(true);
+    let injectedBlocks: Block[] = [];
+    const now = Date.now();
+
+    if (conflictType === 'COMBINED_BLOCK') {
+      const engBlock: Block = {
+        id: `blk-demo-eng-${now}`,
+        block_code: 'BLK-ENG-TAM-901',
+        department_code: 'ENG',
+        corridor: DEMO_BLOCKS[0].corridor,
+        line_type: 'UP',
+        work_type: 'Track Tamping (CSM)',
+        start_km: 14.2,
+        end_km: 17.8,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 30 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 210 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: false,
+        gang_id: 'GANG-ENG-01',
+        equipment_required: 'CSM-092 Continuous Action Tamper',
+        work_description: 'USP #98 Track machine corridor occupation for mechanized tamping.',
+        version: 1,
+      };
+
+      const trdBlock: Block = {
+        id: `blk-demo-trd-${now + 1}`,
+        block_code: 'BLK-TRD-OHE-902',
+        department_code: 'TRD',
+        corridor: DEMO_BLOCKS[0].corridor,
+        line_type: 'UP',
+        work_type: '25kV Catenary Periodic Inspection',
+        start_km: 15.0,
+        end_km: 18.5,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 45 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 195 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: true,
+        gang_id: 'GANG-TRD-01',
+        equipment_required: 'TW-104 Tower Wagon',
+        work_description: 'USP #98 25kV Catenary isolation and contact wire adjustment.',
+        version: 1,
+      };
+
+      injectedBlocks = [engBlock, trdBlock];
+      setLastConflictResult({
+        title: 'ENG vs TRD Cross-Department Overlap (USP #98)',
+        potential_time_savings_hours: 3.5,
+        overlap_km_span: 2.5,
+        ai_recommendation: 'Merge into Single Unified Combined Block (UP Main, KM 14.2-18.5). Saves 3.5 hrs track time.',
+      });
+    } else if (conflictType === 'TRAIN_PRECEDENCE') {
+      const railBlock: Block = {
+        id: `blk-demo-raj-${now}`,
+        block_code: 'BLK-ENG-RAIL-905',
+        department_code: 'ENG',
+        corridor: DEMO_BLOCKS[0].corridor,
+        line_type: 'UP',
+        work_type: 'Rail Fracture Restoration',
+        start_km: 22.0,
+        end_km: 26.5,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 15 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 165 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: true,
+        gang_id: 'GANG-ENG-02',
+        equipment_required: 'Flash Butt Welding Plant',
+        work_description: 'Rail defect weld renewal. Conflicts with #12301 Rajdhani Express priority headway.',
+        version: 1,
+      };
+
+      injectedBlocks = [railBlock];
+      setLastConflictResult({
+        title: 'Rajdhani Timetable Collision (#12301)',
+        potential_time_savings_hours: 2.6,
+        overlap_km_span: 4.5,
+        ai_recommendation: 'AI Dynamic Breathing Window: Shift block slot +45m after #12301 clears section.',
+      });
+    } else {
+      const gangBlock: Block = {
+        id: `blk-demo-gang-${now}`,
+        block_code: 'BLK-ENG-GANG-909',
+        department_code: 'ENG',
+        corridor: DEMO_BLOCKS[0].corridor,
+        line_type: 'DOWN',
+        work_type: 'Turnout Renewal & Packing',
+        start_km: 95.0,
+        end_km: 98.0,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 60 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 240 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: false,
+        gang_id: 'GANG-ENG-01',
+        equipment_required: 'Plasser Quick Relaying System',
+        work_description: 'Rule 3 Violation: Gang GANG-ENG-01 assigned to 2 sites 160km apart within 1 hour.',
+        version: 1,
+      };
+
+      injectedBlocks = [gangBlock];
+      setLastConflictResult({
+        title: 'Coherence Rule 3: Gang Travel Physics Violation',
+        potential_time_savings_hours: 1.8,
+        overlap_km_span: 3.0,
+        ai_recommendation: 'Reassign to Section Gang GANG-ENG-03 stationed at KM 92 depot or delay start by 3.5 hrs.',
+      });
+    }
+
+    // Always inject into blockStore and persist to localStorage
+    const currentBlocks = useBlockStore.getState().blocks;
+    const filteredCurrent = currentBlocks.filter((b) => !injectedBlocks.some((ib) => ib.id === b.id || ib.block_code === b.block_code));
+    const merged = [...injectedBlocks, ...filteredCurrent];
+    useBlockStore.setState({ blocks: merged, selectedBlockId: injectedBlocks[0]?.id || null });
     try {
-      const res = await fetch('/api/v1/demo/inject-conflict/', {
+      localStorage.setItem('railway_blocks_v1', JSON.stringify(merged));
+    } catch {}
+
+    // Dispatch update event to re-render all panels
+    window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+
+    // Audio chime
+    try {
+      playPendingProposalChime('ENG');
+    } catch {}
+
+    // Trigger backend call non-blocking
+    try {
+      await fetch('/api/v1/demo/inject-conflict/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conflict_type: conflictType }),
       });
-      const data = await res.json();
-      if (res.ok && data.scenario) {
-        setLastConflictResult(data.scenario);
-        addToast({
-          type: 'warning',
-          title: `Conflict Injected: ${data.scenario.title}`,
-          message: data.scenario.ai_recommendation,
-          durationMs: 7000,
-        });
-      }
-    } catch {
-      // Fallback local simulation
-      if (conflictType === 'COMBINED_BLOCK') {
-        setLastConflictResult({
-          title: 'ENG vs TRD Cross-Department Overlap (USP #98)',
-          potential_time_savings_hours: 3.5,
-          overlap_km_span: 2.5,
-          ai_recommendation: 'Merge into Single Unified Combined Block (UP Main, KM 14.2-18.5). Saves 3.5 hrs track time.',
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    } catch {}
+
+    addToast({
+      type: 'warning',
+      title: `Conflict Injected: ${conflictType}`,
+      message: `Injected into Corridor Queue. AI Sweep-Line has detected the conflict and prepared deconfliction options.`,
+      durationMs: 7000,
+    });
+
+    setIsLoading(false);
   };
 
   // Quick Batch Block Generator
   const handleGenerateBlocks = async () => {
     setIsLoading(true);
+    const now = Date.now();
+    const batch: Block[] = [
+      {
+        id: `blk-batch-eng-${now}`,
+        block_code: `BLK-ENG-${Math.floor(100 + Math.random() * 900)}`,
+        department_code: 'ENG',
+        corridor: DEMO_BLOCKS[0].corridor,
+        line_type: 'UP',
+        work_type: 'Track Tamping (CSM)',
+        start_km: 18.0,
+        end_km: 22.4,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 90 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 270 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: false,
+        gang_id: 'GANG-ENG-02',
+        equipment_required: 'CSM-092 Tamper',
+        work_description: 'Coherent scheduled mechanized track maintenance.',
+        version: 1,
+      },
+      {
+        id: `blk-batch-trd-${now + 1}`,
+        block_code: `BLK-TRD-${Math.floor(100 + Math.random() * 900)}`,
+        department_code: 'TRD',
+        corridor: DEMO_BLOCKS[0].corridor,
+        line_type: 'UP',
+        work_type: '25kV Catenary Periodic Inspection',
+        start_km: 18.2,
+        end_km: 21.0,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 100 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 240 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: true,
+        gang_id: 'GANG-TRD-02',
+        equipment_required: 'TW-108 Tower Car',
+        work_description: 'OHE bracket insulator replacement and dropper tuning.',
+        version: 1,
+      },
+      {
+        id: `blk-batch-snt-${now + 2}`,
+        block_code: `BLK-SNT-${Math.floor(100 + Math.random() * 900)}`,
+        department_code: 'SNT',
+        corridor: DEMO_BLOCKS[0].corridor,
+        line_type: 'UP',
+        work_type: 'Point Machine Testing & Overhaul',
+        start_km: 19.0,
+        end_km: 19.3,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 105 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 225 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: false,
+        gang_id: 'GANG-SNT-02',
+        equipment_required: 'Digital Point Gauge Kit',
+        work_description: 'Track circuit bonding and axle counter inspection.',
+        version: 1,
+      },
+      {
+        id: `blk-batch-eng2-${now + 3}`,
+        block_code: `BLK-ENG-${Math.floor(100 + Math.random() * 900)}`,
+        department_code: 'ENG',
+        corridor: DEMO_BLOCKS[1].corridor,
+        line_type: 'DOWN',
+        work_type: 'Ballast Cleaning Machine (BCM)',
+        start_km: 8.5,
+        end_km: 11.2,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 120 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 300 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: false,
+        gang_id: 'GANG-ENG-03',
+        equipment_required: 'BCM-RM-80 Machine',
+        work_description: 'Shoulder ballast cleaning and screener operations.',
+        version: 1,
+      },
+      {
+        id: `blk-batch-trd2-${now + 4}`,
+        block_code: `BLK-TRD-${Math.floor(100 + Math.random() * 900)}`,
+        department_code: 'TRD',
+        corridor: DEMO_BLOCKS[1].corridor,
+        line_type: 'DOWN',
+        work_type: 'OHE Neutral Section Renewal',
+        start_km: 9.0,
+        end_km: 10.5,
+        status: 'PENDING_APPROVAL' as BlockStatus,
+        scheduled_start_time: new Date(now + 130 * 60 * 1000).toISOString(),
+        scheduled_end_time: new Date(now + 280 * 60 * 1000).toISOString(),
+        traction_power_cutoff_required: true,
+        gang_id: 'GANG-TRD-03',
+        equipment_required: 'Heavy Wiring Train',
+        work_description: 'Neutral section PTFE rod insulator maintenance.',
+        version: 1,
+      },
+    ];
+
+    const currentBlocks = useBlockStore.getState().blocks;
+    const merged = [...batch, ...currentBlocks];
+    useBlockStore.setState({ blocks: merged });
     try {
-      const res = await fetch('/api/v1/demo/generate/blocks/', {
+      localStorage.setItem('railway_blocks_v1', JSON.stringify(merged));
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+
+    try {
+      await fetch('/api/v1/demo/generate/blocks/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 5, mode: activeMode }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        addToast({
-          type: 'success',
-          title: 'Batch Blocks Generated',
-          message: `Generated ${data.count} maintenance blocks. 100% compliant with 7 Coherence Rules.`,
-        });
-      }
-    } catch {
-      addToast({
-        type: 'info',
-        title: 'Blocks Simulated',
-        message: 'Generated 5 compliant maintenance block proposals for NDLS-CNB corridor.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    } catch {}
+
+    addToast({
+      type: 'success',
+      title: 'Batch Blocks Generated (+5)',
+      message: `Generated 5 compliant maintenance blocks across ENG, TRD & SNT. Queue updated.`,
+    });
+
+    setIsLoading(false);
+  };
+
+  // Reset Simulation to Clean 4-Block Baseline
+  const handleResetSimulation = () => {
+    useBlockStore.setState({
+      blocks: DEMO_BLOCKS,
+      selectedBlockId: DEMO_BLOCKS[3]?.id || 'blk-004',
+      activeAcknowledgement: null,
+    });
+    try {
+      localStorage.removeItem('railway_blocks_v1');
+      localStorage.removeItem('railway_local_blocks_v4');
+      localStorage.removeItem('railway_last_ack_v1');
+      localStorage.removeItem('railway_resolved_conflicts_v2');
+      localStorage.setItem('railway_blocks_v1', JSON.stringify(DEMO_BLOCKS));
+    } catch {}
+    window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+    setLastConflictResult(null);
+    addToast({
+      type: 'info',
+      title: 'Simulation Reset',
+      message: 'Restored clean 4-block baseline for Delhi Division corridor.',
+    });
   };
 
   // Quick Defect Generator
@@ -367,26 +599,39 @@ export const DemoControllerToolbar: React.FC = () => {
               </div>
             )}
 
-            {/* 4. Quick Data Generators */}
-            <div className="pt-2 border-t border-control-border grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={handleGenerateBlocks}
-                className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-control-border font-mono text-[11px] text-white flex items-center justify-center gap-1.5 transition"
-              >
-                <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                <span>+5 Coherent Blocks</span>
-              </button>
+            {/* 4. Quick Data Generators & Simulation Controls */}
+            <div className="pt-2 border-t border-control-border space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={handleGenerateBlocks}
+                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-control-border font-mono text-[11px] text-white flex items-center justify-center gap-1.5 transition"
+                >
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>+5 Coherent Blocks</span>
+                </button>
 
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={handleGenerateDefects}
+                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-control-border font-mono text-[11px] text-white flex items-center justify-center gap-1.5 transition"
+                >
+                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+                  <span>+4 Track Defects</span>
+                </button>
+              </div>
+
+              {/* Reset to Clean Baseline */}
               <button
                 type="button"
                 disabled={isLoading}
-                onClick={handleGenerateDefects}
-                className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-control-border font-mono text-[11px] text-white flex items-center justify-center gap-1.5 transition"
+                onClick={handleResetSimulation}
+                className="w-full py-2 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 font-mono text-[11px] text-rose-300 flex items-center justify-center gap-1.5 transition font-bold"
               >
-                <Flame className="w-3.5 h-3.5 text-amber-400" />
-                <span>+4 Track Defects</span>
+                <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+                <span>Reset Simulation to Baseline (4 Blocks)</span>
               </button>
             </div>
           </div>

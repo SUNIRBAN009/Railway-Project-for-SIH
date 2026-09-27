@@ -707,6 +707,27 @@ class ExecutivePDFReportGenerator:
         bundling_val = cards.get('shadow_bundling_ratio_pct', 0.0)
         tqi_val = cards.get('average_tqi_score', 24.5)
         tqi_stat = cards.get('tqi_status', 'GOOD')
+        
+        # Calculate Dynamic KPI Statuses
+        util_val = cards.get('possession_utilization_rate_pct', 0.0)
+        util_status = "COMPLIANT" if util_val >= 90.0 else "BELOW TARGET"
+        util_color = '#16a34a' if util_val >= 90.0 else '#dc2626'
+
+        punct_val = cards.get('average_corridor_punctuality_pct', 0.0)
+        punct_status = "COMPLIANT" if punct_val >= 92.0 else "BELOW TARGET"
+        punct_color = '#16a34a' if punct_val >= 92.0 else '#dc2626'
+
+        mitig_val = cards.get('conflict_mitigation_rate_pct', 0.0)
+        mitig_status = "EXCELLENT" if mitig_val >= 85.0 else "BELOW TARGET"
+        mitig_color = '#0284c7' if mitig_val >= 85.0 else '#dc2626'
+
+        bundling_status = "OPTIMIZED" if bundling_val >= 25.0 else "BELOW TARGET"
+        bundling_color = '#8b5cf6' if bundling_val >= 25.0 else '#dc2626'
+
+        incurred = cards.get('train_delay_minutes_incurred', 0)
+        prevented = cards.get('train_delay_hours_prevented', 0.0) * 60
+        delay_status = "OPTIMIZED" if prevented >= incurred and prevented > 0 else "REVIEW REQ"
+        delay_color = '#16a34a' if delay_status == "OPTIMIZED" else '#eab308'
 
         elements.append(Paragraph("1. Executive Operational Scorecard & RDSO Benchmarks", heading_style))
         scorecard_data = [
@@ -718,27 +739,27 @@ class ExecutivePDFReportGenerator:
             ],
             [
                 Paragraph("Track Possession Utilization Rate", body_style),
-                Paragraph(f"{cards.get('possession_utilization_rate_pct', 0.0)}%", bold_cell),
+                Paragraph(f"{util_val}%", bold_cell),
                 Paragraph("≥ 90.0%", body_style),
-                Paragraph("COMPLIANT", ParagraphStyle('C1', parent=bold_cell, textColor=colors.HexColor('#16a34a'))),
+                Paragraph(util_status, ParagraphStyle('C1', parent=bold_cell, textColor=colors.HexColor(util_color))),
             ],
             [
                 Paragraph("Corridor Train Punctuality Rate", body_style),
-                Paragraph(f"{cards.get('average_corridor_punctuality_pct', 0.0)}%", bold_cell),
+                Paragraph(f"{punct_val}%", bold_cell),
                 Paragraph("≥ 92.0%", body_style),
-                Paragraph("COMPLIANT", ParagraphStyle('C2', parent=bold_cell, textColor=colors.HexColor('#16a34a'))),
+                Paragraph(punct_status, ParagraphStyle('C2', parent=bold_cell, textColor=colors.HexColor(punct_color))),
             ],
             [
                 Paragraph("Safety Conflict Mitigation Ratio", body_style),
-                Paragraph(f"{cards.get('conflict_mitigation_rate_pct', 0.0)}%", bold_cell),
+                Paragraph(f"{mitig_val}%", bold_cell),
                 Paragraph("≥ 85.0%", body_style),
-                Paragraph("EXCELLENT", ParagraphStyle('C3', parent=bold_cell, textColor=colors.HexColor('#0284c7'))),
+                Paragraph(mitig_status, ParagraphStyle('C3', parent=bold_cell, textColor=colors.HexColor(mitig_color))),
             ],
             [
                 Paragraph("Shadow Block Bundling Ratio", body_style),
                 Paragraph(f"{bundling_val:.1f}%", bold_cell),
                 Paragraph("≥ 25.0%", body_style),
-                Paragraph("OPTIMIZED", ParagraphStyle('C4', parent=bold_cell, textColor=colors.HexColor('#8b5cf6'))),
+                Paragraph(bundling_status, ParagraphStyle('C4', parent=bold_cell, textColor=colors.HexColor(bundling_color))),
             ],
             [
                 Paragraph("Track Quality Index (RDSO TRC standard)", body_style),
@@ -754,9 +775,9 @@ class ExecutivePDFReportGenerator:
             ],
             [
                 Paragraph("Delays Incurred vs Prevented", body_style),
-                Paragraph(f"{cards.get('train_delay_minutes_incurred', 0)} mins lost", body_style),
+                Paragraph(f"{incurred} mins lost", body_style),
                 Paragraph(f"Saved: {cards.get('train_delay_hours_prevented', 0.0)} hrs", bold_cell),
-                Paragraph("OPTIMIZED", ParagraphStyle('C6', parent=bold_cell, textColor=colors.HexColor('#16a34a'))),
+                Paragraph(delay_status, ParagraphStyle('C6', parent=bold_cell, textColor=colors.HexColor(delay_color))),
             ],
         ]
         scorecard_table = Table(scorecard_data, colWidths=[175, 115, 115, 118])
@@ -776,7 +797,7 @@ class ExecutivePDFReportGenerator:
                 Paragraph("<b>Date</b>", bold_cell),
                 Paragraph("<b>Corridor</b>", bold_cell),
                 Paragraph("<b>Blocks Sanctioned</b>", bold_cell),
-                Paragraph("<b>Possession Hours</b>", bold_cell),
+                Paragraph("<b>Hours (Sch/Act)</b>", bold_cell),
                 Paragraph("<b>Co-Possessions</b>", bold_cell),
                 Paragraph("<b>Punctuality</b>", bold_cell),
             ]
@@ -786,7 +807,7 @@ class ExecutivePDFReportGenerator:
                 Paragraph(item['date'], body_style),
                 Paragraph(item['corridor_code'], body_style),
                 Paragraph(str(item['blocks_sanctioned']), body_style),
-                Paragraph(f"{item['possession_hours']}h", body_style),
+                Paragraph(f"{item.get('sanctioned_hours', 0.0)}h / {item['possession_hours']}h", body_style),
                 Paragraph(str(item['co_possessions']), body_style),
                 Paragraph(f"{item['punctuality_pct']}%", bold_cell),
             ])

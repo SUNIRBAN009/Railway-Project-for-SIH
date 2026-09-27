@@ -10,15 +10,23 @@
     --control-panel: #111827;
     --control-border: #1f2937;
     --control-text: #e5e7eb;
-    --control-muted: #6b7280;
+    --control-muted: #9ca3af;
+    --railway-navy: #0b1120;
+    --railway-slate: #1e293b;
+    --railway-panel: #0f172a;
+    color-scheme: dark;
   }
 
   html:not(.dark) {
-    --control-bg: #f8fafc;
+    --control-bg: #f1f5f9;
     --control-panel: #ffffff;
     --control-border: #cbd5e1;
     --control-text: #0f172a;
     --control-muted: #475569;
+    --railway-navy: #e2e8f0;
+    --railway-slate: #f8fafc;
+    --railway-panel: #ffffff;
+    color-scheme: light;
   }
 
   body {
@@ -52,4 +60,78 @@
   .status-indicator {
     @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold;
   }
+}
+
+/* =========================================================================
+   INDIAN RAILWAYS DAYLIGHT / LIGHT MODE OVERRIDES
+   Ensures crystal clear visibility in bright office environments
+   ========================================================================= */
+html:not(.dark) body {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html:not(.dark) .bg-slate-950,
+html:not(.dark) .bg-\[\#0a0e1a\],
+html:not(.dark) .bg-control-bg {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .bg-slate-900,
+html:not(.dark) .bg-slate-900\/90,
+html:not(.dark) .bg-slate-900\/80,
+html:not(.dark) .bg-control-panel {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .bg-slate-800,
+html:not(.dark) .bg-slate-800\/50,
+html:not(.dark) .bg-slate-800\/60,
+html:not(.dark) .bg-slate-800\/80 {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .border-slate-800,
+html:not(.dark) .border-slate-700,
+html:not(.dark) .border-control-border {
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .text-white {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-slate-100,
+html:not(.dark) .text-slate-200,
+html:not(.dark) .text-slate-300 {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .text-slate-400,
+html:not(.dark) .text-control-muted {
+  color: #475569 !important;
+}
+
+html:not(.dark) input,
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) table {
+  color: #0f172a !important;
+}
+
+html:not(.dark) th {
+  background-color: #e2e8f0 !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) td {
+  border-color: #e2e8f0 !important;
 }

@@ -2,7 +2,8 @@
 # Railway AI Platform - PowerShell One-Command Launcher
 # ============================================================
 
-$PSExec = if (Test-Path "$PSHOME\powershell.exe") { "$PSHOME\powershell.exe" } else { "powershell.exe" }
+$env:Path = "C:\Windows\System32;C:\Windows;C:\Windows\System32\WindowsPowerShell\v1.0;" + $env:Path
+$PSExec = if (Test-Path "$PSHOME\powershell.exe") { "$PSHOME\powershell.exe" } elseif (Test-Path "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe") { "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" } else { "powershell.exe" }
 $WorkDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 
 Write-Host "============================================================" -ForegroundColor Cyan

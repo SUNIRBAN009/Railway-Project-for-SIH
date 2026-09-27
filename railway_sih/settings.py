@@ -22,7 +22,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django.contrib.gis",
     "rest_framework",
     "corsheaders",
     "channels",
@@ -151,22 +150,42 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Redis Channel Layer for Django Channels + Daphne (TSK-P0-007, TSK-P3-01-BE)
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [
-                {
-                    "address": config("REDIS_URL", default="redis://redis:6379/0"),
-                    "socket_timeout": None,
-                    "health_check_interval": 30,
-                }
-            ],
-            "capacity": 1500,
-            "expiry": 30,
+redis_url_str = config("REDIS_URL", default="redis://redis:6379/0")
+def _redis_available(url_str):
+    try:
+        import socket
+        from urllib.parse import urlparse
+        parsed = urlparse(url_str)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 6379
+        socket.getaddrinfo(host, port)
+        return True
+    except Exception:
+        return False
+
+if _redis_available(redis_url_str):
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [
+                    {
+                        "address": redis_url_str,
+                        "socket_timeout": 5,
+                        "health_check_interval": 30,
+                    }
+                ],
+                "capacity": 1500,
+                "expiry": 30,
+            },
         },
-    },
-}
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
 
 
 # Celery 5.3 Task Broker & Multi-tier Queues (TSK-P0-006)

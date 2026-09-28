@@ -222,8 +222,9 @@ export function useCorridorSocket(options: UseCorridorSocketOptions = {}) {
 
     const host = window.location.hostname || '127.0.0.1';
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Daphne runs on port 8001; on port 3000 (Vite) or 80 (Nginx), route through proxy to avoid firewall port issues
-    const wsUrl = (window.location.port === '3000' || window.location.port === '80')
+    // Route through Nginx/Vite proxy on standard HTTP/HTTPS or dev ports to avoid firewall port 8001 issues
+    const isProxied = !window.location.port || window.location.port === '80' || window.location.port === '443' || window.location.port === '3000' || window.location.protocol === 'https:';
+    const wsUrl = isProxied
       ? `${protocol}//${window.location.host}/ws/corridor/${corridorCode}/${token ? `?token=${encodeURIComponent(token)}` : ''}`
       : `${protocol}//${host}:8001/ws/corridor/${corridorCode}/${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 

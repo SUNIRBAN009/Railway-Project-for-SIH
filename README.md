@@ -7,8 +7,8 @@ To set up this project on a brand new machine, you do not need to manually insta
 **Step 2:** Install [Git](https://git-scm.com/downloads) (if not already installed).
 **Step 3:** Open your terminal (or Command Prompt / PowerShell) and clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/railway-ai-block-platform.git
-cd railway-ai-block-platform
+git clone https://github.com/SUNIRBAN009/Railway-Project-for-SIH.git
+cd Railway-Project-for-SIH
 ```
 **Step 4:** Run the single startup script to build and configure the entire environment automatically.
 * **For Windows (PowerShell):**

@@ -18,9 +18,13 @@ export const getApiBaseUrl = (): string => {
 
 export const getWsBaseUrl = (corridorCode: string = 'NDLS-GZB'): string => {
   if (typeof window !== 'undefined') {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // If running through standard ports, empty port, or reverse proxy (Nginx port 80/443 or Vite dev 3000)
+    if (!window.location.port || window.location.port === '80' || window.location.port === '443' || window.location.port === '3000') {
+      return `${proto}//${window.location.host}/ws/corridor/${corridorCode}/`;
+    }
     const host = window.location.hostname || 'localhost';
-    // Daphne ASGI server runs on port 8001; or use port 8000/3000 proxy
-    return `ws://${host}:8001/ws/corridor/${corridorCode}/`;
+    return `${proto}//${host}:8001/ws/corridor/${corridorCode}/`;
   }
   return `ws://localhost:8001/ws/corridor/${corridorCode}/`;
 };

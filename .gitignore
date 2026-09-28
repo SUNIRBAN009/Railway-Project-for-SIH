@@ -32,7 +32,13 @@ htmlcov/
 
 # Logs
 *.log
+*.log.*
+logs/
 scratch/
+diff.txt
+Success
+temp_*.txt
+*.pdf
 
 # Node & Frontend Build Artifacts
 node_modules/

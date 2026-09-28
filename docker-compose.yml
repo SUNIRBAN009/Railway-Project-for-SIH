@@ -300,8 +300,6 @@ services:
       - frontend
     networks:
       - railway_network
-    profiles:
-      - production
 
   # ============================================
   # Prometheus Exporter & Grafana Observability

@@ -56,6 +56,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: railway_backend:latest
     container_name: railway_backend
     restart: unless-stopped
     command: >
@@ -86,9 +87,7 @@ services:
   # Daphne ASGI Server (Real-Time WebSockets)
   # ============================================
   channels:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: railway_backend:latest
     container_name: railway_channels
     restart: unless-stopped
     command: python -m daphne -b 0.0.0.0 -p 8001 railway_sih.asgi:application
@@ -109,6 +108,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     networks:
       - railway_network
 
@@ -116,9 +117,7 @@ services:
   # Celery Worker - High Priority (Conflict Detection)
   # ============================================
   celery-high:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: railway_backend:latest
     container_name: railway_celery_high
     restart: unless-stopped
     command: celery -A railway_sih worker -Q high -c 4 -l info -n worker_high@%h
@@ -137,6 +136,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     networks:
       - railway_network
 
@@ -144,9 +145,7 @@ services:
   # Celery Worker - Notifications (SMS & WebSockets)
   # ============================================
   celery-notify:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: railway_backend:latest
     container_name: railway_celery_notify
     restart: unless-stopped
     command: celery -A railway_sih worker -Q notify -c 4 -l info -n worker_notify@%h
@@ -163,6 +162,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     networks:
       - railway_network
 
@@ -170,9 +171,7 @@ services:
   # Celery Worker - Ontology (HermiT Reasoner)
   # ============================================
   celery-ontology:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: railway_backend:latest
     container_name: railway_celery_ontology
     restart: unless-stopped
     command: celery -A railway_sih worker -Q ontology -c 2 -l info -n worker_ontology@%h
@@ -192,6 +191,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     deploy:
       resources:
         limits:
@@ -203,9 +204,7 @@ services:
   # Celery Worker - Default & Low Priority
   # ============================================
   celery-default:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: railway_backend:latest
     container_name: railway_celery_default
     restart: unless-stopped
     command: celery -A railway_sih worker -Q default,low -c 4 -l info -n worker_default@%h
@@ -224,6 +223,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     networks:
       - railway_network
 
@@ -231,9 +232,7 @@ services:
   # Celery Beat (Scheduled Operational Rollups)
   # ============================================
   celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: railway_backend:latest
     container_name: railway_celery_beat
     restart: unless-stopped
     command: celery -A railway_sih beat -l info
@@ -249,6 +248,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     networks:
       - railway_network
 

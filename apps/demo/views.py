@@ -628,6 +628,30 @@ class GenerateBlocksAPIView(APIView):
                 'work_type': db_block.get_work_type_display()
             })
 
+        # Broadcast WebSocket event
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            for grp in ['corridor_ndls-cnb-main', 'corridor_ndls-gzb', 'corridor_all']:
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        grp,
+                        {
+                            "type": "corridor.event",
+                            "data": {
+                                "event_type": "BLOCK_CREATED",
+                                "payload": {
+                                    "source": "DEMO_GENERATOR",
+                                    "count": len(saved_blocks),
+                                    "mode": mode
+                                }
+                            }
+                        }
+                    )
+                except Exception:
+                    pass
+
         return Response({
             'status': 'success',
             'mode': mode,
@@ -692,10 +716,12 @@ class InjectConflictAPIView(APIView):
     def post(self, request):
         from apps.demo.generators import ConflictInjector
         from apps.blocks.models import Block, Corridor, LineType, WorkType, BlockStatus
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
         conflict_type = request.data.get('conflict_type', 'COMBINED_BLOCK')
         injector = ConflictInjector()
 
-        corridor = Corridor.objects.filter(code='NDLS-CNB-MAIN').first()
+        corridor = Corridor.objects.filter(code='NDLS-CNB-MAIN').first() or Corridor.objects.filter(code='NDLS-CNB').first()
         admin_user = User.objects.filter(is_staff=True).first()
 
         if conflict_type == 'COMBINED_BLOCK':
@@ -707,11 +733,13 @@ class InjectConflictAPIView(APIView):
         else:
             scenario = injector.inject_eng_vs_trd_combined_conflict()
 
-        # Persist conflict blocks into DB
+        # Persist conflict blocks into DB and return fully formatted UI block structures
+        saved_scenario_blocks = []
         for b in scenario.get('blocks', []):
             st = b['scheduled_start_time']
             et = b['scheduled_end_time']
-            dept = b.get('department_code', 'ENG')
+            dept = b.get('department_code') or b.get('department') or 'ENG'
+            work_type_val = WorkType.TRACK_TAMPING if dept == 'ENG' else (WorkType.CATENARY_MAINTENANCE if dept == 'TRD' else WorkType.SIGNAL_INTERLOCKING_TEST)
 
             db_b, _ = Block.objects.update_or_create(
                 block_code=b['block_code'],
@@ -719,24 +747,67 @@ class InjectConflictAPIView(APIView):
                     'corridor': corridor,
                     'line_type': b.get('line_type', LineType.UP),
                     'department_code': dept,
-                    'work_type': WorkType.TRACK_TAMPING if dept == 'ENG' else WorkType.CATENARY_MAINTENANCE,
+                    'work_type': work_type_val,
                     'requested_by': admin_user,
                     'start_km': Decimal(str(b['start_km'])),
                     'end_km': Decimal(str(b['end_km'])),
                     'scheduled_start_time': st,
                     'scheduled_end_time': et,
                     'status': BlockStatus.CONFLICT_DETECTED,
-                    'gang_id': b.get('gang_id', ''),
-                    'equipment_required': b.get('equipment_id', ''),
+                    'gang_id': b.get('gang_id', 'GANG-ENG-01'),
+                    'equipment_required': b.get('equipment_id', b.get('equipment_required', 'Track Maintenance Machinery')),
                     'work_description': b.get('description', 'Conflict Demonstration Block'),
                     'traction_power_cutoff_required': b.get('traction_power_cutoff_required', False)
                 }
             )
-            b['id'] = str(db_b.id)
-            if hasattr(st, 'isoformat'):
-                b['scheduled_start_time'] = st.isoformat()
-            if hasattr(et, 'isoformat'):
-                b['scheduled_end_time'] = et.isoformat()
+
+            block_dict = {
+                'id': str(db_b.id),
+                'block_code': db_b.block_code,
+                'department_code': db_b.department_code,
+                'line_type': db_b.line_type,
+                'work_type': db_b.get_work_type_display() or b.get('work_type', 'Track Maintenance'),
+                'start_km': float(db_b.start_km),
+                'end_km': float(db_b.end_km),
+                'scheduled_start_time': st.isoformat() if hasattr(st, 'isoformat') else str(st),
+                'scheduled_end_time': et.isoformat() if hasattr(et, 'isoformat') else str(et),
+                'status': db_b.status,
+                'gang_id': db_b.gang_id,
+                'equipment_required': db_b.equipment_required,
+                'traction_power_cutoff_required': db_b.traction_power_cutoff_required,
+                'work_description': db_b.work_description,
+                'corridor': {
+                    'id': str(corridor.id) if corridor else '',
+                    'code': corridor.code if corridor else 'NDLS-CNB-MAIN',
+                    'name': corridor.name if corridor else 'New Delhi - Kanpur Central'
+                },
+                'version': db_b.version
+            }
+            saved_scenario_blocks.append(block_dict)
+
+        scenario['blocks'] = saved_scenario_blocks
+
+        # Broadcast WebSocket event across channels
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            for grp in ['corridor_ndls-cnb-main', 'corridor_ndls-gzb', 'corridor_all']:
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        grp,
+                        {
+                            "type": "corridor.event",
+                            "data": {
+                                "event_type": "CONFLICT_DETECTED",
+                                "payload": {
+                                    "conflict_type": conflict_type,
+                                    "scenario": scenario,
+                                    "blocks_count": len(saved_scenario_blocks)
+                                }
+                            }
+                        }
+                    )
+                except Exception:
+                    pass
 
         return Response({
             'status': 'success',
@@ -845,9 +916,19 @@ class DemoBlockListAPIView(APIView):
         }, status=201)
 
 
+_CONTROLLER_STATE = {
+    'active_mode': 'SEED',
+    'fixed_seed': 26027,
+    'stream_speed': 1.0,
+    'is_paused': False,
+    'is_streaming': True,
+    'corridor': 'NDLS-CNB-MAIN (0.0 - 440.2 KM)',
+}
+
+
 class DemoControllerStatusAPIView(APIView):
     """
-    Returns the real-time operational state of the Demo Platform.
+    Returns and updates the real-time operational state of the Demo Platform.
     (TSK-P0.5-03-BE)
     """
     permission_classes = [AllowAny]
@@ -858,17 +939,68 @@ class DemoControllerStatusAPIView(APIView):
         from apps.assets.models import UnifiedAsset
 
         return Response({
-            'active_mode': 'SEED',
-            'fixed_seed': 26027,
-            'stream_speed': 1.0,
-            'is_streaming': True,
-            'corridor': 'NDLS-CNB-MAIN (0.0 - 440.2 KM)',
+            **_CONTROLLER_STATE,
             'counts': {
                 'trains': Train.objects.count() or 12,
                 'blocks': Block.objects.count(),
                 'assets': UnifiedAsset.objects.count() or 51
             }
         })
+
+    def post(self, request):
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        data = request.data
+        if 'active_mode' in data:
+            _CONTROLLER_STATE['active_mode'] = str(data['active_mode']).upper()
+        if 'stream_speed' in data:
+            _CONTROLLER_STATE['stream_speed'] = float(data['stream_speed'])
+        if 'speed_multiplier' in data:
+            _CONTROLLER_STATE['stream_speed'] = float(data['speed_multiplier'])
+        if 'is_paused' in data:
+            _CONTROLLER_STATE['is_paused'] = bool(data['is_paused'])
+            _CONTROLLER_STATE['is_streaming'] = not _CONTROLLER_STATE['is_paused']
+
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            for grp in ['corridor_ndls-cnb-main', 'corridor_ndls-gzb', 'corridor_all']:
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        grp,
+                        {
+                            "type": "corridor.event",
+                            "data": {
+                                "event_type": "CONTROLLER_STATUS_CHANGED",
+                                "payload": _CONTROLLER_STATE
+                            }
+                        }
+                    )
+                except Exception:
+                    pass
+
+        return self.get(request)
+
+
+class ResetDemoAPIView(APIView):
+    """
+    Resets the demo platform state back to the pristine master baseline (PS 26027).
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.management import call_command
+        from apps.blocks.models import Block
+        hard = request.data.get('hard', False)
+        seed = int(request.data.get('seed', 26027))
+        try:
+            call_command('reset_demo', hard=hard, seed=seed)
+            return Response({
+                'status': 'success',
+                'message': 'Railway Demo environment successfully reset to baseline.',
+                'blocks_count': Block.objects.count()
+            })
+        except Exception as e:
+            return Response({'status': 'error', 'message': str(e)}, status=500)
 
 
 class ScenarioListAPIView(APIView):

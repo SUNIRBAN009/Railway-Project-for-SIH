@@ -73,6 +73,15 @@ export const ScenarioPlayerModal: React.FC = () => {
       }
     };
     fetchScenarios();
+
+    const handleOpenEvent = (e: any) => {
+      setIsOpen(true);
+      const targetKey = e.detail?.key || 'eng_vs_trd_conflict';
+      setSelectedKey(targetKey);
+      loadScenario(targetKey);
+    };
+    window.addEventListener('open_scenario_player', handleOpenEvent);
+    return () => window.removeEventListener('open_scenario_player', handleOpenEvent);
   }, []);
 
   // Load and execute selected scenario
@@ -145,19 +154,6 @@ export const ScenarioPlayerModal: React.FC = () => {
 
   return (
     <>
-      {/* Golden Cinema Button on Top Right (next to Test Runner) */}
-      <div className="fixed top-3 right-56 z-50">
-        <button
-          onClick={handleOpen}
-          className="relative group px-4 py-2 rounded-xl font-mono font-bold text-xs shadow-2xl transition-all duration-300 flex items-center gap-2 border bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white border-amber-300/60 shadow-amber-950/60 hover:scale-105 active:scale-95"
-          title="Open Interactive Scenario Presentation Player (SIH PS 26027)"
-        >
-          <Film className="w-4 h-4 text-amber-200 animate-spin" style={{ animationDuration: '6s' }} />
-          <span className="tracking-wide uppercase drop-shadow">🎬 SCENARIO PLAYBOOK (INTERACTIVE)</span>
-          <span className="w-2 h-2 rounded-full bg-yellow-300 animate-ping absolute -top-1 -right-1" />
-        </button>
-      </div>
-
       {/* Modal Dialog */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 font-mono">

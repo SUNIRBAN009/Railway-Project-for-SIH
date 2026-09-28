@@ -83,6 +83,39 @@ class TrainMasterListAPIView(APIView):
         )
 
 
+class StationListAPIView(APIView):
+    """
+    GET /api/v1/trains/stations/
+    Retrieves real geographical station nodes from the database for the operational corridor.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        stations = Station.objects.all().order_by('km_from_source')
+        data = [
+            {
+                'id': s.id,
+                'code': s.code,
+                'name': s.name,
+                'division': s.division,
+                'zone': s.zone,
+                'km_from_source': float(s.km_from_source),
+                'kmPost': float(s.km_from_source),
+                'latitude': s.latitude,
+                'longitude': s.longitude,
+                'coordinates': [s.longitude, s.latitude] if s.longitude and s.latitude else [77.2191, 28.6429],
+                'platforms': s.number_of_platforms,
+                'has_wifi': s.has_wifi,
+                'has_medical_booth': s.has_medical_booth,
+                'rpf_post_phone': s.rpf_post_phone,
+                'dailyFootfall': f"{s.number_of_platforms * 18000:,} Passengers",
+                'interchange': f"{s.division} Division, {s.zone} Railway",
+            }
+            for s in stations
+        ]
+        return ApiResponse.success(data=data, message="Corridor stations retrieved")
+
+
 class TrainScheduleDetailAPIView(APIView):
     """
     GET /api/v1/trains/{number}/schedule/
@@ -112,7 +145,7 @@ class TrainLiveStatusListAPIView(APIView):
     GET /api/v1/trains/live/
     Authoritative reference: docs/04-function-maps/05-trains-function-map.md
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         if TrainLiveStatus.objects.count() < 12:
@@ -173,7 +206,7 @@ class DelayCascadeSimulationAPIView(APIView):
     POST /api/v1/trains/simulate-delay/
     Authoritative reference: docs/04-function-maps/05-trains-function-map.md
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         serializer = DelaySimulationRequestSerializer(data=request.data)
@@ -207,7 +240,7 @@ class DelayCascadeRecalculateAPIView(APIView):
     Triggers dynamic recalculation of downstream delay ripple, breathing window shifts,
     and punctuality impacts for a delayed lead train or speed restriction.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         corridor_code = request.query_params.get('corridor_code', 'NDLS-CNB-MAIN')

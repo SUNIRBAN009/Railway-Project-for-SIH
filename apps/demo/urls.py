@@ -15,6 +15,7 @@ urlpatterns = [
     path('generate/telemetry/', views.GenerateTelemetryAPIView.as_view(), name='generate_telemetry'),
     path('inject-conflict/', views.InjectConflictAPIView.as_view(), name='inject_conflict'),
     path('controller/status/', views.DemoControllerStatusAPIView.as_view(), name='controller_status'),
+    path('reset/', views.ResetDemoAPIView.as_view(), name='reset_demo'),
     path('scenarios/', views.ScenarioListAPIView.as_view(), name='scenario_list'),
     path('scenarios/run/', views.ScenarioRunAPIView.as_view(), name='scenario_run'),
 ]

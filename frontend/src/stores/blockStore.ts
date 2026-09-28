@@ -116,23 +116,117 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       proposalData.block_code ||
       `BLK-${proposalData.department_code || 'ENG'}-${Math.floor(100 + Math.random() * 900)}`;
 
+    const startKmNum = Number(proposalData.start_km) || 12.0;
+    const endKmNum = Number(proposalData.end_km) || 16.0;
+    const deptCode = proposalData.department_code || 'ENG';
+    const lineTypeVal = proposalData.line_type || 'UP';
+    const startTimeStr = proposalData.scheduled_start_time || new Date().toISOString();
+    const endTimeStr = proposalData.scheduled_end_time || new Date(Date.now() + 180 * 60 * 1000).toISOString();
+
+    // Issue 2 Fix: Check for exact duplicate proposals to prevent redundant records
+    const existing = get().blocks.find(
+      (b) =>
+        b.id !== newBlockId &&
+        b.department_code === deptCode &&
+        b.line_type === lineTypeVal &&
+        Math.abs(Number(b.start_km) - startKmNum) < 0.05 &&
+        Math.abs(Number(b.end_km) - endKmNum) < 0.05 &&
+        b.scheduled_start_time === startTimeStr &&
+        (b.status === 'PENDING_APPROVAL' || b.status === 'DRAFT')
+    );
+    if (existing) {
+      console.warn(`Duplicate proposal detected for ${existing.block_code}, skipping redundant submission.`);
+      set({ selectedBlockId: existing.id, isSubmitting: false });
+      return existing;
+    }
+
+    const isEmergency =
+      (proposalData.work_type || '').toLowerCase().includes('emergency') ||
+      (proposalData.work_description || '').toLowerCase().includes('emergency') ||
+      (proposalData.work_description || '').toLowerCase().includes('halt enforced') ||
+      newBlockId.startsWith('blk-emg');
+
+    // Issue 1 Fix: Under G&SR 15.08, Chief Controller emergency halts transition directly to ACTIVE
+    const initialStatus: BlockStatus = isEmergency
+      ? 'ACTIVE'
+      : ((proposalData.status || 'PENDING_APPROVAL') as BlockStatus);
+
+    // Issue 4 Fix: Departmental Gang & Machinery auto-fill if empty
+    let assignedGang = (proposalData.gang_id || '').trim();
+    if (!assignedGang) {
+      if (isEmergency) {
+        assignedGang = deptCode === 'TRD' ? 'GANG-TRD-EMG-01' : 'GANG-ENG-EMG-01';
+      } else if (deptCode === 'TRD') {
+        assignedGang = 'GANG-TRD-OHE-01';
+      } else if (deptCode === 'SNT') {
+        assignedGang = 'GANG-SNT-SIG-01';
+      } else {
+        assignedGang = 'GANG-ENG-PWAY-01';
+      }
+    }
+
+    let machinery = (proposalData.equipment_required || '').trim();
+    if (!machinery) {
+      if (isEmergency) {
+        machinery =
+          deptCode === 'TRD'
+            ? 'OHE Emergency Tower Wagon 4W-TW-EMG'
+            : 'Rail Fracture Rapid Restoration Unit & USFD Trolley';
+      } else if (deptCode === 'TRD') {
+        machinery = 'TW-104 Tower Wagon';
+      } else if (deptCode === 'SNT') {
+        machinery = 'Point Machine Testing Rig';
+      } else {
+        machinery = 'CSM-NR-092 Track Tamper';
+      }
+    }
+
+    // Power shutdown logic: TRD catenary works always require power shutdown
+    const powerCutoff =
+      Boolean(proposalData.traction_power_cutoff_required) ||
+      deptCode === 'TRD' ||
+      (proposalData.work_description || '').toLowerCase().includes('catenary') ||
+      (proposalData.work_description || '').toLowerCase().includes('25kv');
+
+    // Issue 1 & 4 Fix: Check if another emergency exists on this section and bundle them
+    let bundleGroupId = (proposalData as any).bundle_group_id;
+    let parentBlockRef = proposalData.parent_block;
+    if (isEmergency) {
+      const activeEmergency = get().blocks.find(
+        (b) =>
+          b.id !== newBlockId &&
+          (b.status === 'ACTIVE' || b.status === 'PENDING_APPROVAL') &&
+          b.line_type === lineTypeVal &&
+          Math.abs(Number(b.start_km) - startKmNum) < 2.0 &&
+          ((b.work_type || '').toLowerCase().includes('emergency') || b.id.startsWith('blk-emg'))
+      );
+      if (activeEmergency) {
+        bundleGroupId = 'EMG-BUNDLE-01';
+        parentBlockRef = activeEmergency.id;
+        (activeEmergency as any).bundle_group_id = 'EMG-BUNDLE-01';
+      }
+    }
+
     const newBlock: Block = {
       id: newBlockId,
       block_code: newBlockCode,
       corridor: proposalData.corridor || DEMO_BLOCKS[0].corridor,
-      line_type: proposalData.line_type || 'UP',
-      department_code: proposalData.department_code || 'ENG',
+      line_type: lineTypeVal,
+      department_code: deptCode,
       work_type: proposalData.work_type || 'Track Tamping (CSM)',
-      status: 'PENDING_APPROVAL' as BlockStatus,
-      start_km: Number(proposalData.start_km) || 12.0,
-      end_km: Number(proposalData.end_km) || 16.0,
-      scheduled_start_time: proposalData.scheduled_start_time || new Date().toISOString(),
-      scheduled_end_time: proposalData.scheduled_end_time || new Date(Date.now() + 180 * 60 * 1000).toISOString(),
-      traction_power_cutoff_required: Boolean(proposalData.traction_power_cutoff_required),
-      gang_id: proposalData.gang_id || '',
-      equipment_required: proposalData.equipment_required || '',
+      status: initialStatus,
+      start_km: startKmNum,
+      end_km: endKmNum,
+      scheduled_start_time: startTimeStr,
+      scheduled_end_time: endTimeStr,
+      actual_start_time: isEmergency ? startTimeStr : proposalData.actual_start_time,
+      traction_power_cutoff_required: powerCutoff,
+      gang_id: assignedGang,
+      equipment_required: machinery,
       work_description: proposalData.work_description || 'Departmental scheduled maintenance.',
       version: 1,
+      parent_block: parentBlockRef,
+      ...((bundleGroupId ? { bundle_group_id: bundleGroupId } : {}) as any),
     };
 
     // Update state & persist to localStorage immediately

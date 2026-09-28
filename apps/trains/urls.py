@@ -7,6 +7,7 @@ urlpatterns = [
     # REST API Endpoints (SVC-TRN)
     path('', views.TrainMasterListAPIView.as_view(), name='catalog_root'),
     path('catalog/', views.TrainMasterListAPIView.as_view(), name='catalog'),
+    path('stations/', views.StationListAPIView.as_view(), name='stations_list'),
     path('live/', views.TrainLiveStatusListAPIView.as_view(), name='live_positions'),
     path('simulate-delay/', views.DelayCascadeSimulationAPIView.as_view(), name='simulate_delay'),
     path('delay-cascade-recalculate/', views.DelayCascadeRecalculateAPIView.as_view(), name='delay_cascade_recalculate'),

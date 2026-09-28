@@ -25,3 +25,5 @@ pybreaker>=1.0.0
 structlog>=24.1.0
 reportlab>=4.0.0
 bandit>=1.7.0
+drf-yasg>=1.21.0
+debugpy>=1.8.0

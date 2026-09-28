@@ -642,20 +642,21 @@ def run_seeder():
         print(f"  [OK] {act} Track Asset: {tag} ({cat} - Health: {health})")
 
     # ------------------------------------------------------------------------
-    # 9. Seed Historical Analytics Mart (SVC-ANA)
+    # 9. Seed Historical Analytics Mart (SVC-ANA) - 60 Days (2 Months)
     # ------------------------------------------------------------------------
-    print("\n[9/10] Seeding 14-day historical OLAP KPI mart & block efficiency logs...")
+    print("\n[9/10] Seeding 60-day (2-month) historical OLAP KPI mart & block efficiency logs...")
     from apps.analytics.models import CorridorDailyKPI, BlockEfficiencyRecord
 
-    corridors_to_seed = ['NDLS-CNB', 'NDLS-AGC']
+    corridors_to_seed = ['NDLS-CNB', 'NDLS-AGC', 'NDLS-GZB-UP', 'NDLS-GZB-DN', 'NDLS-CNB-MAIN']
     for c_code in corridors_to_seed:
-        for i in range(14):
+        for i in range(60):
             day_date = (now - datetime.timedelta(days=i)).date()
             base_punctuality = Decimal('96.20') - Decimal(str(i % 3 * 0.8))
             blocks_sanctioned = 8 + (i % 4)
             actual_mins = blocks_sanctioned * 180 + (i * 12)
             sanctioned_mins = blocks_sanctioned * 190
             co_possessions = 2 + (i % 3)
+            bundling_ratio_pct = Decimal(str(round((co_possessions / blocks_sanctioned) * 100.0, 2)))
 
             CorridorDailyKPI.objects.update_or_create(
                 metric_date=day_date,
@@ -673,6 +674,7 @@ def run_seeder():
                     'corridor_punctuality_percentage': base_punctuality,
                     'conflict_mitigation_rate_pct': Decimal('91.50') + Decimal(str((i % 5) * 0.5)),
                     'shadow_blocks_count': co_possessions,
+                    'shadow_bundling_ratio_pct': bundling_ratio_pct,
                 }
             )
 

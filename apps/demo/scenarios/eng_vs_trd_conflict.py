@@ -42,6 +42,7 @@ class EngVsTrdConflictScenario(BaseScenario):
                 end_km=146.200,
                 scheduled_start_time=eng_start,
                 scheduled_end_time=eng_end,
+                gang_id="GANG-ENG-PWAY-01",
                 equipment_required="CSM-092 Tamper",
                 status=BlockStatus.PENDING_APPROVAL,
                 work_description="Track Tamping & ballast profiling on UP Main Line",
@@ -83,6 +84,7 @@ class EngVsTrdConflictScenario(BaseScenario):
                 end_km=145.500,
                 scheduled_start_time=trd_start,
                 scheduled_end_time=trd_end,
+                gang_id="GANG-TRD-OHE-01",
                 equipment_required="TW-104 Tower Wagon",
                 traction_power_cutoff_required=True,
                 status=BlockStatus.PENDING_APPROVAL,
@@ -181,6 +183,7 @@ class EngVsTrdConflictScenario(BaseScenario):
                 end_km=146.200,
                 scheduled_start_time=comb_start,
                 scheduled_end_time=comb_end,
+                gang_id="GANG-ENG-PWAY-01 + GANG-TRD-OHE-01",
                 equipment_required="CSM-092 Tamper + TW-104 Tower Wagon",
                 traction_power_cutoff_required=True,
                 status=BlockStatus.SANCTIONED,
@@ -191,7 +194,19 @@ class EngVsTrdConflictScenario(BaseScenario):
             )
         elif comb_block:
             comb_block.status = BlockStatus.SANCTIONED
-            comb_block.save(update_fields=['status'])
+            comb_block.gang_id = "GANG-ENG-PWAY-01 + GANG-TRD-OHE-01"
+            comb_block.save(update_fields=['status', 'gang_id'])
+
+        # Issue 3 & 4 Fix: Constituent blocks are linked to parent combined block as COORDINATED
+        if comb_block:
+            if eng_block:
+                eng_block.status = BlockStatus.COORDINATED
+                eng_block.parent_block = comb_block
+                eng_block.save(update_fields=['status', 'parent_block'])
+            if trd_block:
+                trd_block.status = BlockStatus.COORDINATED
+                trd_block.parent_block = comb_block
+                trd_block.save(update_fields=['status', 'parent_block'])
 
         # Dispatch official SMS and in-app notifications to ENG and TRD gangs
         try:

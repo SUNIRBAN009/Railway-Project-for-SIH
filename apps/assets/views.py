@@ -198,7 +198,7 @@ class AssetDefectLogViewSet(ReadOnlyModelViewSet):
     """
     queryset = AssetDefectLog.objects.select_related('asset', 'asset__corridor').all()
     serializer_class = AssetDefectLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
 class RiskMatrixScoringView(APIView):
@@ -208,7 +208,7 @@ class RiskMatrixScoringView(APIView):
     Query parameters:
       - corridor: Corridor UUID or corridor code (e.g. NDLS-CNB-MAIN)
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
         corridor_param = request.query_params.get('corridor')

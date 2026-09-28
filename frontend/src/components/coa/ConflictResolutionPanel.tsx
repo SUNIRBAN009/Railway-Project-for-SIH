@@ -655,6 +655,71 @@ export const ConflictResolutionPanel: React.FC<ConflictResolutionPanelProps> = (
             timestamp: 'Synergy Optimizer',
           });
         }
+
+        // =========================================================================
+        // CATEGORY 5: RULE 3 GANG & MACHINERY TRAVEL PHYSICS VIOLATION
+        // =========================================================================
+        const sameGang = b1.gang_id && b2.gang_id && b1.gang_id.trim() === b2.gang_id.trim();
+        const sameMachinery =
+          b1.equipment_required &&
+          b2.equipment_required &&
+          b1.equipment_required.trim().length > 3 &&
+          b1.equipment_required.trim() === b2.equipment_required.trim();
+
+        if (sameGang || sameMachinery) {
+          const distKm = Math.abs(b1Start - b2Start);
+          const t1End = new Date(b1.scheduled_end_time || Date.now()).getTime();
+          const t2Start = new Date(b2.scheduled_start_time || Date.now()).getTime();
+          const gapHours = Math.max(0.1, Math.abs(t2Start - t1End) / (1000 * 60 * 60));
+          const requiredSpeed = distKm / gapHours;
+
+          // If distance > 10 km and required transit speed exceeds Indian Railways <= 40 km/h limit
+          if (distKm > 10 && (requiredSpeed > 40 || gapHours < 1.5)) {
+            const physCnfId = `cnf-physics-${b1.id}-${b2.id}`;
+            const isPhysRes = resolvedIds.includes(physCnfId) || b1.status === 'COORDINATED' || b2.status === 'COORDINATED';
+
+            const physSolutions: ConflictSolution[] = [
+              {
+                id: `sol-${physCnfId}-reassign`,
+                type: 'TIME_SHIFT',
+                title: `Reallocate to Available Section Gang (GANG-ENG-02 / GANG-TRD-02)`,
+                description: `Rule 3 Violation (${requiredSpeed.toFixed(0)} km/h required > 40 km/h max). Reassign ${b2.block_code} to local depot gang stationed nearby.`,
+                badge: 'RESOURCE REALLOCATION',
+                actionText: 'Reassign Local Gang',
+                isRecommended: true,
+              },
+              {
+                id: `sol-${physCnfId}-delay`,
+                type: 'TIME_SHIFT',
+                title: `Delay Second Possession Start by +4.0 Hours`,
+                description: `Provide mandatory travel and resting window (${Math.ceil(distKm / 35)} hours at 35 km/h transit speed).`,
+                shiftMinutes: 240,
+                badge: 'TRAVEL PHYSICS DELAY (+4h)',
+                actionText: 'Enforce +4h Travel Buffer',
+              },
+            ];
+
+            list.push({
+              id: physCnfId,
+              blockId: b2.id,
+              blockCode: b2.block_code,
+              departmentCode: (b2.department_code || 'ENG') as 'ENG' | 'TRD' | 'SNT',
+              category: 'PARALLEL_BLOCK_COLLISION',
+              categoryLabel: 'Rule 3: Gang Travel Physics Violation',
+              title: `Gang Double-Booking Breach: ${sameGang ? b1.gang_id : b1.equipment_required} (${distKm.toFixed(0)} km apart)`,
+              description: `Gang/Plant assigned to ${b1.block_code} (KM ${b1Start.toFixed(1)}–${b1End.toFixed(1)}) and ${b2.block_code} (KM ${b2Start.toFixed(1)}–${b2End.toFixed(1)}) with only ${gapHours.toFixed(1)}h transit gap. Requires ${requiredSpeed.toFixed(0)} km/h travel (violates <= 40 km/h rule).`,
+              startKm: Math.min(b1Start, b2Start),
+              endKm: Math.max(b1End, b2End),
+              lineType: b2.line_type || 'UP',
+              severity: 'CRITICAL',
+              conflictingEntity: `${sameGang ? b1.gang_id : b1.equipment_required} at ${b1.block_code}`,
+              solutions: physSolutions,
+              isShadow: false,
+              status: isPhysRes ? 'RESOLVED' : 'PENDING',
+              timestamp: 'Rule 3 Physics Audit',
+            });
+          }
+        }
       }
     }
 

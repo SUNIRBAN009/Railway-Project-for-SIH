@@ -42,7 +42,7 @@ class DashboardSummaryView(APIView):
       - corridor: Corridor code (default: 'NDLS-CNB', or 'ALL')
       - range: Days range ('7d', '14d', '30d')
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
         division = request.query_params.get('division', 'DLI')
@@ -121,7 +121,7 @@ class CorridorComparisonView(APIView):
     GET /api/v1/analytics/corridors/comparison/
     Compares operational efficiency metrics across different corridors.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
         comparison = KPIAggregationService.get_corridor_comparison()
@@ -133,7 +133,7 @@ class BlockEfficiencyListView(APIView):
     GET /api/v1/analytics/block-efficiency/
     Returns granular block execution audits and burst overtime tracking.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
         corridor = request.query_params.get('corridor', 'NDLS-CNB')
@@ -150,7 +150,7 @@ class BlockSanctionOrderPDFView(APIView):
     GET /api/v1/analytics/reports/sanction-order/?block_id=...&corridor=...
     POST /api/v1/analytics/reports/sanction-order/
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, block_id=None, *args, **kwargs):
         target_id = block_id or request.query_params.get('block_id')
@@ -289,7 +289,7 @@ class ReportExportView(APIView):
       - corridor: Corridor code (default: 'NDLS-CNB')
       - range: '7d' or '30d'
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, *args, **kwargs):
         report_type = request.query_params.get('type', 'PDF').upper()

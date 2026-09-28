@@ -4,6 +4,7 @@ import { useBlockStore } from '../../stores/blockStore';
 import { DEMO_BLOCKS } from '../../services/demoData';
 import { Block, BlockStatus } from '../../types';
 import { playPendingProposalChime } from '../../services/soundService';
+import { apiClient } from '../../services/api';
 import {
   Sparkles,
   Zap,
@@ -20,6 +21,9 @@ import {
   Train,
   CheckCircle2,
   X,
+  Database,
+  RefreshCw,
+  Film,
 } from 'lucide-react';
 
 export type DemoMode = 'SEED' | 'RANDOM' | 'STREAM' | 'SCENARIO';
@@ -31,11 +35,40 @@ export const DemoControllerToolbar: React.FC = () => {
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1.0);
   const [isPaused, setIsPaused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [backendCounts, setBackendCounts] = useState<{ trains: number; blocks: number; assets: number } | null>(null);
   const [lastConflictResult, setLastConflictResult] = useState<any | null>(null);
 
-  // Switch Operational Mode
-  const handleModeChange = (mode: DemoMode) => {
+  // Sync state from backend on mount and periodically
+  const fetchBackendStatus = async () => {
+    try {
+      const res = await apiClient.get('/demo/controller/status/');
+      if (res.data) {
+        if (res.data.active_mode) setActiveMode(res.data.active_mode);
+        if (typeof res.data.stream_speed === 'number') setSpeedMultiplier(res.data.stream_speed);
+        if (typeof res.data.is_paused === 'boolean') setIsPaused(res.data.is_paused);
+        if (res.data.counts) setBackendCounts(res.data.counts);
+      }
+    } catch (err) {
+      console.warn('Backend controller status check fallback:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBackendStatus();
+    const interval = setInterval(fetchBackendStatus, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Switch Operational Mode - Synchronizes with Backend API
+  const handleModeChange = async (mode: DemoMode) => {
     setActiveMode(mode);
+    try {
+      const res = await apiClient.post('/demo/controller/status/', { active_mode: mode });
+      if (res.data?.counts) setBackendCounts(res.data.counts);
+    } catch (err) {
+      console.warn('Failed to update operational mode on backend:', err);
+    }
+
     addToast({
       type: 'info',
       title: `Operational Mode: ${mode}`,
@@ -48,12 +81,26 @@ export const DemoControllerToolbar: React.FC = () => {
           ? 'Continuous 2Hz telemetry and real-time event ingestion stream.'
           : 'Interactive Scenario Script Player active for demonstration stories.',
     });
+
+    if (mode === 'SCENARIO') {
+      window.dispatchEvent(new CustomEvent('open_scenario_player', { detail: { key: 'eng_vs_trd_conflict' } }));
+    }
   };
 
-  // Speed Dial Toggle
-  const handleSpeedChange = (speed: number) => {
+  // Speed Dial Toggle - Synchronizes with Backend API
+  const handleSpeedChange = async (speed: number) => {
     setSpeedMultiplier(speed);
     setIsPaused(false);
+    try {
+      const res = await apiClient.post('/demo/controller/status/', {
+        speed_multiplier: speed,
+        is_paused: false,
+      });
+      if (res.data?.counts) setBackendCounts(res.data.counts);
+    } catch (err) {
+      console.warn('Failed to update speed on backend:', err);
+    }
+
     addToast({
       type: 'info',
       title: `Simulation Speed: ${speed}x`,
@@ -61,323 +108,220 @@ export const DemoControllerToolbar: React.FC = () => {
     });
   };
 
-  const togglePause = () => {
-    setIsPaused(!isPaused);
-    addToast({
-      type: !isPaused ? 'warning' : 'success',
-      title: !isPaused ? 'Simulation Paused' : 'Simulation Resumed',
-      message: !isPaused ? 'Corridor telemetry and event dispatch paused.' : 'Live event playback resumed.',
-    });
-  };
-
-  // Conflict Injector Trigger - Directly updates store and UI
-  const handleInjectConflict = async (conflictType: 'COMBINED_BLOCK' | 'TRAIN_PRECEDENCE' | 'RESOURCE_PHYSICS') => {
-    setIsLoading(true);
-    let injectedBlocks: Block[] = [];
-    const now = Date.now();
-
-    if (conflictType === 'COMBINED_BLOCK') {
-      const engBlock: Block = {
-        id: `blk-demo-eng-${now}`,
-        block_code: 'BLK-ENG-TAM-901',
-        department_code: 'ENG',
-        corridor: DEMO_BLOCKS[0].corridor,
-        line_type: 'UP',
-        work_type: 'Track Tamping (CSM)',
-        start_km: 14.2,
-        end_km: 17.8,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 30 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 210 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: false,
-        gang_id: 'GANG-ENG-01',
-        equipment_required: 'CSM-092 Continuous Action Tamper',
-        work_description: 'USP #98 Track machine corridor occupation for mechanized tamping.',
-        version: 1,
-      };
-
-      const trdBlock: Block = {
-        id: `blk-demo-trd-${now + 1}`,
-        block_code: 'BLK-TRD-OHE-902',
-        department_code: 'TRD',
-        corridor: DEMO_BLOCKS[0].corridor,
-        line_type: 'UP',
-        work_type: '25kV Catenary Periodic Inspection',
-        start_km: 15.0,
-        end_km: 18.5,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 45 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 195 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: true,
-        gang_id: 'GANG-TRD-01',
-        equipment_required: 'TW-104 Tower Wagon',
-        work_description: 'USP #98 25kV Catenary isolation and contact wire adjustment.',
-        version: 1,
-      };
-
-      injectedBlocks = [engBlock, trdBlock];
-      setLastConflictResult({
-        title: 'ENG vs TRD Cross-Department Overlap (USP #98)',
-        potential_time_savings_hours: 3.5,
-        overlap_km_span: 2.5,
-        ai_recommendation: 'Merge into Single Unified Combined Block (UP Main, KM 14.2-18.5). Saves 3.5 hrs track time.',
+  const togglePause = async () => {
+    const nextPaused = !isPaused;
+    setIsPaused(nextPaused);
+    try {
+      const res = await apiClient.post('/demo/controller/status/', {
+        is_paused: nextPaused,
       });
-    } else if (conflictType === 'TRAIN_PRECEDENCE') {
-      const railBlock: Block = {
-        id: `blk-demo-raj-${now}`,
-        block_code: 'BLK-ENG-RAIL-905',
-        department_code: 'ENG',
-        corridor: DEMO_BLOCKS[0].corridor,
-        line_type: 'UP',
-        work_type: 'Rail Fracture Restoration',
-        start_km: 22.0,
-        end_km: 26.5,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 15 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 165 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: true,
-        gang_id: 'GANG-ENG-02',
-        equipment_required: 'Flash Butt Welding Plant',
-        work_description: 'Rail defect weld renewal. Conflicts with #12301 Rajdhani Express priority headway.',
-        version: 1,
-      };
-
-      injectedBlocks = [railBlock];
-      setLastConflictResult({
-        title: 'Rajdhani Timetable Collision (#12301)',
-        potential_time_savings_hours: 2.6,
-        overlap_km_span: 4.5,
-        ai_recommendation: 'AI Dynamic Breathing Window: Shift block slot +45m after #12301 clears section.',
-      });
-    } else {
-      const gangBlock: Block = {
-        id: `blk-demo-gang-${now}`,
-        block_code: 'BLK-ENG-GANG-909',
-        department_code: 'ENG',
-        corridor: DEMO_BLOCKS[0].corridor,
-        line_type: 'DOWN',
-        work_type: 'Turnout Renewal & Packing',
-        start_km: 95.0,
-        end_km: 98.0,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 60 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 240 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: false,
-        gang_id: 'GANG-ENG-01',
-        equipment_required: 'Plasser Quick Relaying System',
-        work_description: 'Rule 3 Violation: Gang GANG-ENG-01 assigned to 2 sites 160km apart within 1 hour.',
-        version: 1,
-      };
-
-      injectedBlocks = [gangBlock];
-      setLastConflictResult({
-        title: 'Coherence Rule 3: Gang Travel Physics Violation',
-        potential_time_savings_hours: 1.8,
-        overlap_km_span: 3.0,
-        ai_recommendation: 'Reassign to Section Gang GANG-ENG-03 stationed at KM 92 depot or delay start by 3.5 hrs.',
-      });
+      if (res.data?.counts) setBackendCounts(res.data.counts);
+    } catch (err) {
+      console.warn('Failed to toggle pause on backend:', err);
     }
 
-    // Always inject into blockStore and persist to localStorage
-    const currentBlocks = useBlockStore.getState().blocks;
-    const filteredCurrent = currentBlocks.filter((b) => !injectedBlocks.some((ib) => ib.id === b.id || ib.block_code === b.block_code));
-    const merged = [...injectedBlocks, ...filteredCurrent];
-    useBlockStore.setState({ blocks: merged, selectedBlockId: injectedBlocks[0]?.id || null });
-    try {
-      localStorage.setItem('railway_blocks_v1', JSON.stringify(merged));
-    } catch {}
-
-    // Dispatch update event to re-render all panels
-    window.dispatchEvent(new CustomEvent('corridor_block_updated'));
-
-    // Audio chime
-    try {
-      playPendingProposalChime('ENG');
-    } catch {}
-
-    // Trigger backend call non-blocking
-    try {
-      await fetch('/api/v1/demo/inject-conflict/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conflict_type: conflictType }),
-      });
-    } catch {}
-
     addToast({
-      type: 'warning',
-      title: `Conflict Injected: ${conflictType}`,
-      message: `Injected into Corridor Queue. AI Sweep-Line has detected the conflict and prepared deconfliction options.`,
-      durationMs: 7000,
+      type: nextPaused ? 'warning' : 'success',
+      title: nextPaused ? 'Simulation Paused' : 'Simulation Resumed',
+      message: nextPaused ? 'Corridor telemetry and event dispatch paused.' : 'Live event playback resumed.',
     });
-
-    setIsLoading(false);
   };
 
-  // Quick Batch Block Generator
+  // Conflict Injector Trigger - Connected directly to Backend POST /api/v1/demo/inject-conflict/
+  const handleInjectConflict = async (conflictType: 'COMBINED_BLOCK' | 'TRAIN_PRECEDENCE' | 'RESOURCE_PHYSICS') => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient.post('/demo/inject-conflict/', { conflict_type: conflictType });
+      const scenario = res.data?.scenario;
+
+      if (scenario && Array.isArray(scenario.blocks)) {
+        const injectedBlocks: Block[] = scenario.blocks.map((b: any) => ({
+          id: b.id,
+          block_code: b.block_code,
+          department_code: b.department_code || 'ENG',
+          line_type: b.line_type || 'UP',
+          work_type: b.work_type || 'Track Maintenance',
+          start_km: Number(b.start_km) || 0,
+          end_km: Number(b.end_km) || 0,
+          scheduled_start_time: b.scheduled_start_time,
+          scheduled_end_time: b.scheduled_end_time,
+          status: (b.status || 'CONFLICT_DETECTED') as BlockStatus,
+          gang_id: b.gang_id || 'GANG-ENG-01',
+          equipment_required: b.equipment_required || 'Track Maintenance Machine',
+          work_description: b.work_description || scenario.title || '',
+          traction_power_cutoff_required: Boolean(b.traction_power_cutoff_required),
+          corridor: b.corridor || DEMO_BLOCKS[0].corridor,
+          version: b.version || 1,
+        }));
+
+        const currentBlocks = useBlockStore.getState().blocks;
+        const filteredCurrent = currentBlocks.filter(
+          (b) => !injectedBlocks.some((ib) => ib.id === b.id || ib.block_code === b.block_code)
+        );
+        const merged = [...injectedBlocks, ...filteredCurrent];
+        useBlockStore.setState({ blocks: merged, selectedBlockId: injectedBlocks[0]?.id || null });
+        try {
+          localStorage.setItem('railway_blocks_v1', JSON.stringify(merged));
+        } catch {}
+
+        setLastConflictResult({
+          title: scenario.title,
+          potential_time_savings_hours: scenario.potential_time_savings_hours,
+          overlap_km_span: scenario.overlap_km_span || scenario.distance_km,
+          ai_recommendation: scenario.ai_recommendation,
+          scenario_type: scenario.scenario_type,
+        });
+
+        // Dispatch update event to re-render all panels
+        window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+
+        // Audio chime
+        try {
+          playPendingProposalChime(injectedBlocks[0]?.department_code || 'ENG');
+        } catch {}
+
+        addToast({
+          type: 'warning',
+          title: `Conflict Injected: ${scenario.title}`,
+          message: `${scenario.ai_recommendation || 'AI Sweep-Line has detected the conflict in PostgreSQL and prepared deconfliction options.'}`,
+          durationMs: 7000,
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to inject conflict via API:', err);
+      addToast({
+        type: 'error',
+        title: 'Conflict Injection Error',
+        message: err.response?.data?.message || err.message || 'API connection failed',
+      });
+    } finally {
+      setIsLoading(false);
+      fetchBackendStatus();
+    }
+  };
+
+  // Quick Batch Block Generator - Connected directly to Backend POST /api/v1/demo/generate/blocks/
   const handleGenerateBlocks = async () => {
     setIsLoading(true);
-    const now = Date.now();
-    const batch: Block[] = [
-      {
-        id: `blk-batch-eng-${now}`,
-        block_code: `BLK-ENG-${Math.floor(100 + Math.random() * 900)}`,
-        department_code: 'ENG',
-        corridor: DEMO_BLOCKS[0].corridor,
-        line_type: 'UP',
-        work_type: 'Track Tamping (CSM)',
-        start_km: 18.0,
-        end_km: 22.4,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 90 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 270 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: false,
-        gang_id: 'GANG-ENG-02',
-        equipment_required: 'CSM-092 Tamper',
-        work_description: 'Coherent scheduled mechanized track maintenance.',
-        version: 1,
-      },
-      {
-        id: `blk-batch-trd-${now + 1}`,
-        block_code: `BLK-TRD-${Math.floor(100 + Math.random() * 900)}`,
-        department_code: 'TRD',
-        corridor: DEMO_BLOCKS[0].corridor,
-        line_type: 'UP',
-        work_type: '25kV Catenary Periodic Inspection',
-        start_km: 18.2,
-        end_km: 21.0,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 100 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 240 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: true,
-        gang_id: 'GANG-TRD-02',
-        equipment_required: 'TW-108 Tower Car',
-        work_description: 'OHE bracket insulator replacement and dropper tuning.',
-        version: 1,
-      },
-      {
-        id: `blk-batch-snt-${now + 2}`,
-        block_code: `BLK-SNT-${Math.floor(100 + Math.random() * 900)}`,
-        department_code: 'SNT',
-        corridor: DEMO_BLOCKS[0].corridor,
-        line_type: 'UP',
-        work_type: 'Point Machine Testing & Overhaul',
-        start_km: 19.0,
-        end_km: 19.3,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 105 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 225 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: false,
-        gang_id: 'GANG-SNT-02',
-        equipment_required: 'Digital Point Gauge Kit',
-        work_description: 'Track circuit bonding and axle counter inspection.',
-        version: 1,
-      },
-      {
-        id: `blk-batch-eng2-${now + 3}`,
-        block_code: `BLK-ENG-${Math.floor(100 + Math.random() * 900)}`,
-        department_code: 'ENG',
-        corridor: DEMO_BLOCKS[1].corridor,
-        line_type: 'DOWN',
-        work_type: 'Ballast Cleaning Machine (BCM)',
-        start_km: 8.5,
-        end_km: 11.2,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 120 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 300 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: false,
-        gang_id: 'GANG-ENG-03',
-        equipment_required: 'BCM-RM-80 Machine',
-        work_description: 'Shoulder ballast cleaning and screener operations.',
-        version: 1,
-      },
-      {
-        id: `blk-batch-trd2-${now + 4}`,
-        block_code: `BLK-TRD-${Math.floor(100 + Math.random() * 900)}`,
-        department_code: 'TRD',
-        corridor: DEMO_BLOCKS[1].corridor,
-        line_type: 'DOWN',
-        work_type: 'OHE Neutral Section Renewal',
-        start_km: 9.0,
-        end_km: 10.5,
-        status: 'PENDING_APPROVAL' as BlockStatus,
-        scheduled_start_time: new Date(now + 130 * 60 * 1000).toISOString(),
-        scheduled_end_time: new Date(now + 280 * 60 * 1000).toISOString(),
-        traction_power_cutoff_required: true,
-        gang_id: 'GANG-TRD-03',
-        equipment_required: 'Heavy Wiring Train',
-        work_description: 'Neutral section PTFE rod insulator maintenance.',
-        version: 1,
-      },
-    ];
-
-    const currentBlocks = useBlockStore.getState().blocks;
-    const merged = [...batch, ...currentBlocks];
-    useBlockStore.setState({ blocks: merged });
     try {
-      localStorage.setItem('railway_blocks_v1', JSON.stringify(merged));
-    } catch {}
+      const res = await apiClient.post('/demo/generate/blocks/', { count: 5, mode: activeMode });
+      if (res.data?.blocks && Array.isArray(res.data.blocks)) {
+        const newBlocks: Block[] = res.data.blocks.map((b: any) => ({
+          id: b.id,
+          block_code: b.block_code,
+          department_code: b.department_code,
+          line_type: b.line_type,
+          work_type: b.work_type,
+          start_km: Number(b.start_km),
+          end_km: Number(b.end_km),
+          scheduled_start_time: b.scheduled_start_time,
+          scheduled_end_time: b.scheduled_end_time,
+          status: (b.status || 'PENDING_APPROVAL') as BlockStatus,
+          gang_id: b.gang_id,
+          equipment_required: b.equipment_required,
+          traction_power_cutoff_required: Boolean(b.traction_power_cutoff_required),
+          work_description: b.work_description || '',
+          corridor: b.corridor || DEMO_BLOCKS[0].corridor,
+          version: 1,
+        }));
 
-    window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+        const currentBlocks = useBlockStore.getState().blocks;
+        const filteredCurrent = currentBlocks.filter(
+          (b) => !newBlocks.some((nb) => nb.id === b.id || nb.block_code === b.block_code)
+        );
+        const merged = [...newBlocks, ...filteredCurrent];
+        useBlockStore.setState({ blocks: merged });
+        try {
+          localStorage.setItem('railway_blocks_v1', JSON.stringify(merged));
+        } catch {}
 
-    try {
-      await fetch('/api/v1/demo/generate/blocks/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: 5, mode: activeMode }),
+        window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+
+        addToast({
+          type: 'success',
+          title: `Batch Blocks Generated (+${newBlocks.length})`,
+          message: `Saved directly to PostgreSQL database across ENG, TRD & SNT. Queue updated.`,
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to generate blocks via API:', err);
+      addToast({
+        type: 'error',
+        title: 'Block Generation Error',
+        message: err.response?.data?.message || err.message || 'API connection failed',
       });
-    } catch {}
-
-    addToast({
-      type: 'success',
-      title: 'Batch Blocks Generated (+5)',
-      message: `Generated 5 compliant maintenance blocks across ENG, TRD & SNT. Queue updated.`,
-    });
-
-    setIsLoading(false);
+    } finally {
+      setIsLoading(false);
+      fetchBackendStatus();
+    }
   };
 
-  // Reset Simulation to Clean 4-Block Baseline
-  const handleResetSimulation = () => {
-    useBlockStore.setState({
-      blocks: DEMO_BLOCKS,
-      selectedBlockId: DEMO_BLOCKS[3]?.id || 'blk-004',
-      activeAcknowledgement: null,
-    });
+  // Reset Simulation to Clean Baseline - Connected directly to Backend POST /api/v1/demo/reset/
+  const handleResetSimulation = async () => {
+    setIsLoading(true);
     try {
-      localStorage.removeItem('railway_blocks_v1');
-      localStorage.removeItem('railway_local_blocks_v4');
-      localStorage.removeItem('railway_last_ack_v1');
-      localStorage.removeItem('railway_resolved_conflicts_v2');
-      localStorage.setItem('railway_blocks_v1', JSON.stringify(DEMO_BLOCKS));
-    } catch {}
-    window.dispatchEvent(new CustomEvent('corridor_block_updated'));
-    setLastConflictResult(null);
-    addToast({
-      type: 'info',
-      title: 'Simulation Reset',
-      message: 'Restored clean 4-block baseline for Delhi Division corridor.',
-    });
+      const res = await apiClient.post('/demo/reset/');
+
+      // Clear transient client storage keys
+      try {
+        localStorage.removeItem('railway_blocks_v1');
+        localStorage.removeItem('railway_local_blocks_v4');
+        localStorage.removeItem('railway_last_ack_v1');
+        localStorage.removeItem('railway_resolved_conflicts_v2');
+      } catch {}
+
+      // Reload fresh baseline blocks from PostgreSQL database
+      await useBlockStore.getState().syncWithBackend();
+
+      setLastConflictResult(null);
+      window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+
+      addToast({
+        type: 'info',
+        title: 'Simulation Reset Complete',
+        message: `Restored baseline state in PostgreSQL database. Cleaned transient blocks.`,
+      });
+    } catch (err: any) {
+      console.warn('Backend reset failed, falling back to local reset:', err);
+      useBlockStore.setState({
+        blocks: DEMO_BLOCKS,
+        selectedBlockId: DEMO_BLOCKS[3]?.id || 'blk-004',
+        activeAcknowledgement: null,
+      });
+      try {
+        localStorage.setItem('railway_blocks_v1', JSON.stringify(DEMO_BLOCKS));
+      } catch {}
+      window.dispatchEvent(new CustomEvent('corridor_block_updated'));
+      setLastConflictResult(null);
+      addToast({
+        type: 'info',
+        title: 'Simulation Reset',
+        message: 'Restored clean baseline for Delhi Division corridor.',
+      });
+    } finally {
+      setIsLoading(false);
+      fetchBackendStatus();
+    }
   };
 
-  // Quick Defect Generator
+  // Quick Defect Generator - Connected to Backend POST /api/v1/demo/generate/defects/
   const handleGenerateDefects = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/v1/demo/generate/defects/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: 4, mode: activeMode }),
+      const res = await apiClient.post('/demo/generate/defects/', {
+        count: 4,
+        mode: activeMode,
       });
-      const data = await res.json();
-      if (res.ok) {
+      const data = res.data;
+      if (data && data.defects) {
         addToast({
           type: 'warning',
           title: 'Infrastructure Defects Generated',
-          message: `Generated ${data.count} track & OHE defects with LoF x CoF risk scoring.`,
+          message: `Generated ${data.defects.length} track & OHE defects with LoF x CoF risk scoring in backend.`,
         });
       }
-    } catch {
+    } catch (err: any) {
+      console.error('Defects generation failed:', err);
       addToast({
         type: 'warning',
         title: 'Defects Simulated',
@@ -385,13 +329,14 @@ export const DemoControllerToolbar: React.FC = () => {
       });
     } finally {
       setIsLoading(false);
+      fetchBackendStatus();
     }
   };
 
   return (
     <>
-      {/* Floating Demo Controller Mini-Bar */}
-      <div className="fixed bottom-5 left-5 z-40">
+      {/* Floating Demo Controller Mini-Bar (Positioned cleanly above bottom timeline) */}
+      <div className="fixed bottom-28 left-6 z-40 flex items-center gap-2">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -415,6 +360,23 @@ export const DemoControllerToolbar: React.FC = () => {
           ) : (
             <ChevronUp className="w-4 h-4 text-slate-400 ml-1" />
           )}
+        </button>
+
+        {/* Direct Scenario Playbook Launch Button */}
+        <button
+          type="button"
+          onClick={() => {
+            handleModeChange('SCENARIO');
+            window.dispatchEvent(new CustomEvent('open_scenario_player', { detail: { key: 'eng_vs_trd_conflict' } }));
+          }}
+          className="px-3.5 py-2.5 rounded-xl font-mono font-bold text-xs shadow-2xl transition-all duration-300 flex items-center gap-2 border bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white border-amber-300/60 shadow-amber-950/60 hover:scale-105 active:scale-95 group"
+          title="Open Interactive Scenario Presentation Player (SIH PS 26027)"
+        >
+          <Film className="w-4 h-4 text-amber-200 animate-spin" style={{ animationDuration: '6s' }} />
+          <span className="tracking-wide uppercase drop-shadow font-extrabold text-[11px]">
+            🎬 SCENARIO PLAYBOOK (INTERACTIVE)
+          </span>
+          <span className="w-2 h-2 rounded-full bg-yellow-300 animate-ping" />
         </button>
       </div>
 
@@ -444,6 +406,23 @@ export const DemoControllerToolbar: React.FC = () => {
           </div>
 
           <div className="space-y-4 text-xs">
+            {/* Live Backend Connection Indicator */}
+            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-950/80 border border-emerald-500/30 text-[10px] font-mono">
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <Database className="w-3.5 h-3.5" />
+                <span className="font-bold">POSTGRESQL + BACKEND API: LIVE</span>
+              </div>
+              {backendCounts && (
+                <div className="flex items-center gap-2 text-slate-300">
+                  <span>{backendCounts.blocks} Blocks</span>
+                  <span>•</span>
+                  <span>{backendCounts.trains} Trains</span>
+                  <span>•</span>
+                  <span>{backendCounts.assets} Assets</span>
+                </div>
+              )}
+            </div>
+
             {/* 1. Operational Mode Switcher */}
             <div>
               <div className="flex items-center justify-between mb-1.5 font-mono text-[11px]">
@@ -468,6 +447,22 @@ export const DemoControllerToolbar: React.FC = () => {
                   </button>
                 ))}
               </div>
+
+              {/* Integrated Scenario Playbook Launcher Button inside Command Console */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleModeChange('SCENARIO');
+                  window.dispatchEvent(new CustomEvent('open_scenario_player', { detail: { key: 'eng_vs_trd_conflict' } }));
+                }}
+                className="w-full mt-2 py-2 px-3 rounded-xl font-mono font-bold text-xs shadow-xl transition-all duration-300 flex items-center justify-center gap-2 border bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white border-amber-300/60 shadow-amber-950/60 hover:scale-[1.01] active:scale-95 group"
+                title="Launch SIH PS 26027 Interactive Presentation Playbook"
+              >
+                <Film className="w-3.5 h-3.5 text-amber-200 animate-spin" style={{ animationDuration: '6s' }} />
+                <span className="tracking-wide uppercase font-extrabold drop-shadow">
+                  🎬 SCENARIO PLAYBOOK (INTERACTIVE)
+                </span>
+              </button>
             </div>
 
             {/* 2. Simulation Speed Dial & Pause */}

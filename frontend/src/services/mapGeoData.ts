@@ -1,9 +1,12 @@
-// Authoritative GeoJSON coordinates for Eastern Railway (PS 26027)
+// Authoritative GeoJSON coordinates for Northern Railway & NCR (PS 26027)
+// Master Corridor: New Delhi (NDLS) to Kanpur Central (CNB) Golden Trunk
 // SRS: EPSG:4326 (WGS84)
 
 export interface StationData {
   code: string;
   name: string;
+  division: string;
+  zone: string;
   coordinates: [number, number]; // [lng, lat]
   kmPost: number;
   platforms: number;
@@ -11,81 +14,157 @@ export interface StationData {
   interchange: string;
 }
 
-export const WB_STATIONS: StationData[] = [
+export const DELHI_STATIONS: StationData[] = [
   {
-    code: 'HWH',
-    name: 'Howrah Junction',
-    coordinates: [88.3411, 22.5833],
+    code: 'NDLS',
+    name: 'New Delhi',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.2191, 28.6429],
     kmPost: 0.0,
-    platforms: 23,
-    dailyFootfall: '1,000,000 Passengers',
-    interchange: 'East-West Metro, Ferry',
+    platforms: 16,
+    dailyFootfall: '520,000 Passengers',
+    interchange: 'Yellow Line, Airport Express, DLI Chord',
   },
   {
-    code: 'SDAH',
-    name: 'Sealdah',
-    coordinates: [88.3711, 22.5694],
-    kmPost: 0.0,
-    platforms: 21,
-    dailyFootfall: '1,200,000 Passengers',
-    interchange: 'East-West Metro',
+    code: 'TKJ',
+    name: 'Tilak Bridge',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.2410, 28.6250],
+    kmPost: 2.5,
+    platforms: 4,
+    dailyFootfall: '65,000 Passengers',
+    interchange: 'Suburban EMU Ring Railway',
   },
   {
-    code: 'KGP',
-    name: 'Kharagpur Junction',
-    coordinates: [87.3275, 22.3364],
-    kmPost: 115.0,
-    platforms: 12,
-    dailyFootfall: '250,000 Passengers',
-    interchange: 'South Eastern Railway Main',
+    code: 'DLI',
+    name: 'Old Delhi Junction',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.2289, 28.6606],
+    kmPost: 3.5,
+    platforms: 16,
+    dailyFootfall: '280,000 Passengers',
+    interchange: 'Yellow & Red Line Metro, Sadar Bazar',
   },
   {
-    code: 'BWN',
-    name: 'Bardhaman Junction',
-    coordinates: [87.8631, 23.2389],
-    kmPost: 95.0,
-    platforms: 8,
-    dailyFootfall: '120,000 Passengers',
-    interchange: 'Howrah-Bardhaman Chord',
-  },
-  {
-    code: 'ASN',
-    name: 'Asansol Junction',
-    coordinates: [86.9825, 23.6816],
-    kmPost: 200.0,
+    code: 'ANVT',
+    name: 'Anand Vihar Terminal',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.3153, 28.6502],
+    kmPost: 12.8,
     platforms: 7,
-    dailyFootfall: '90,000 Passengers',
-    interchange: 'Eastern Railway Main Line',
+    dailyFootfall: '190,000 Passengers',
+    interchange: 'Blue & Pink Line Metro, ISBT Terminal',
   },
   {
-    code: 'NJP',
-    name: 'New Jalpaiguri',
-    coordinates: [88.4372, 26.6806],
-    kmPost: 566.0,
-    platforms: 8,
-    dailyFootfall: '150,000 Passengers',
-    interchange: 'Northeast Frontier Railway',
+    code: 'SBB',
+    name: 'Sahibabad Junction',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.3475, 28.6722],
+    kmPost: 18.0,
+    platforms: 5,
+    dailyFootfall: '85,000 Passengers',
+    interchange: 'Delhi-Meerut RRTS Corridor Interchange',
   },
   {
-    code: 'MLDT',
-    name: 'Malda Town',
-    coordinates: [88.1362, 25.0108],
-    kmPost: 332.0,
+    code: 'GZB',
+    name: 'Ghaziabad Junction',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.4262, 28.6538],
+    kmPost: 24.5,
+    platforms: 6,
+    dailyFootfall: '240,000 Passengers',
+    interchange: 'Moradabad / Saharanpur / Aligarh Trunk Lines',
+  },
+  {
+    code: 'MIU',
+    name: 'Maripat',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.4800, 28.5900],
+    kmPost: 32.0,
+    platforms: 4,
+    dailyFootfall: '25,000 Passengers',
+    interchange: 'EDFC Freight Feeder Loop',
+  },
+  {
+    code: 'DER',
+    name: 'Dadri',
+    division: 'Delhi',
+    zone: 'Northern Railway',
+    coordinates: [77.5583, 28.5528],
+    kmPost: 45.0,
+    platforms: 3,
+    dailyFootfall: '45,000 Passengers',
+    interchange: 'Eastern & Western DFC Junction Hub',
+  },
+  {
+    code: 'ALJN',
+    name: 'Aligarh Junction',
+    division: 'Prayagraj',
+    zone: 'North Central Railway',
+    coordinates: [78.0772, 27.8937],
+    kmPost: 126.1,
     platforms: 7,
+    dailyFootfall: '140,000 Passengers',
+    interchange: 'Bareilly Branch, Chandausi Loop',
+  },
+  {
+    code: 'TDL',
+    name: 'Tundla Junction',
+    division: 'Agra',
+    zone: 'North Central Railway',
+    coordinates: [78.2393, 27.2043],
+    kmPost: 204.3,
+    platforms: 5,
+    dailyFootfall: '95,000 Passengers',
+    interchange: 'Agra Fort Bypass, Yamuna Bridge Line',
+  },
+  {
+    code: 'ETW',
+    name: 'Etawah Junction',
+    division: 'Prayagraj',
+    zone: 'North Central Railway',
+    coordinates: [79.0182, 26.7865],
+    kmPost: 296.8,
+    platforms: 5,
     dailyFootfall: '80,000 Passengers',
-    interchange: 'NFR Gateway',
-  }
+    interchange: 'Gwalior / Mainpuri Branch Line',
+  },
+  {
+    code: 'CNB',
+    name: 'Kanpur Central',
+    division: 'Prayagraj',
+    zone: 'North Central Railway',
+    coordinates: [80.3475, 26.4525],
+    kmPost: 440.2,
+    platforms: 10,
+    dailyFootfall: '380,000 Passengers',
+    interchange: 'Lucknow / Prayagraj / Jhansi Main Trunk',
+  },
 ];
 
-export const DELHI_STATIONS: StationData[] = WB_STATIONS;
+// Fallback alias for backward compatibility
+export const WB_STATIONS = DELHI_STATIONS;
 
-// Simplified Howrah to NJP Trunk coordinates
+// Simplified NDLS to CNB Trunk coordinates
 export const CORRIDOR_MAIN_LINE: [number, number][] = [
-  [88.3411, 22.5833], // HWH
-  [87.8631, 23.2389], // BWN
-  [86.9825, 23.6816], // ASN
-  [88.1362, 25.0108], // MLDT
-  [88.4372, 26.6806], // NJP
+  [77.2191, 28.6429], // NDLS
+  [77.2410, 28.6250], // TKJ
+  [77.3153, 28.6502], // ANVT
+  [77.3475, 28.6722], // SBB
+  [77.4262, 28.6538], // GZB
+  [77.4800, 28.5900], // MIU
+  [77.5583, 28.5528], // DER
+  [78.0772, 27.8937], // ALJN
+  [78.2393, 27.2043], // TDL
+  [79.0182, 26.7865], // ETW
+  [80.3475, 26.4525], // CNB
 ];
 
 export const CORRIDOR_UP_LINE = CORRIDOR_MAIN_LINE;
@@ -105,49 +184,71 @@ export interface TrackSectionGeo {
 
 export const TRACK_SECTIONS: TrackSectionGeo[] = [
   {
-    id: 'SEC-WB-01',
-    name: 'Howrah – Bardhaman',
+    id: 'SEC-DLI-01',
+    name: 'New Delhi – Tilak Bridge',
     startKm: 0.0,
-    endKm: 95.0,
+    endKm: 2.5,
     status: 'CLEAR',
     coordinates: [
-      [88.3411, 22.5833],
-      [87.8631, 23.2389],
+      [77.2191, 28.6429],
+      [77.2410, 28.6250],
     ],
   },
   {
-    id: 'SEC-WB-02',
-    name: 'Bardhaman – Asansol',
-    startKm: 95.0,
-    endKm: 200.0,
+    id: 'SEC-DLI-02',
+    name: 'Tilak Bridge – Anand Vihar',
+    startKm: 2.5,
+    endKm: 12.8,
+    status: 'CLEAR',
+    coordinates: [
+      [77.2410, 28.6250],
+      [77.3153, 28.6502],
+    ],
+  },
+  {
+    id: 'SEC-DLI-03',
+    name: 'Anand Vihar – Sahibabad',
+    startKm: 12.8,
+    endKm: 18.0,
     status: 'CAUTION',
-    cautionSpeedKmh: 60,
+    cautionSpeedKmh: 45,
     coordinates: [
-      [87.8631, 23.2389],
-      [86.9825, 23.6816],
+      [77.3153, 28.6502],
+      [77.3475, 28.6722],
     ],
   },
   {
-    id: 'SEC-WB-03',
-    name: 'Asansol – Malda Town',
-    startKm: 200.0,
-    endKm: 332.0,
+    id: 'SEC-DLI-04',
+    name: 'Sahibabad – Ghaziabad (DOWN)',
+    startKm: 18.0,
+    endKm: 24.5,
     status: 'POSSESSION',
-    activeBlockId: 'BLK-ENG-WB-01',
+    activeBlockId: 'BLK-ENG-DLI-01',
     coordinates: [
-      [86.9825, 23.6816],
-      [88.1362, 25.0108],
+      [77.3475, 28.6722],
+      [77.4262, 28.6538],
     ],
   },
   {
-    id: 'SEC-05',
+    id: 'SEC-DLI-05',
     name: 'Ghaziabad – Maripat (UP)',
-    startKm: 25.6,
+    startKm: 24.5,
     endKm: 32.0,
     status: 'CLEAR',
     coordinates: [
-      [77.4320, 28.6650],
-      [77.5100, 28.6400],
+      [77.4262, 28.6538],
+      [77.4800, 28.5900],
+    ],
+  },
+  {
+    id: 'SEC-DLI-06',
+    name: 'Maripat – Dadri (Main Trunk)',
+    startKm: 32.0,
+    endKm: 45.0,
+    status: 'CLEAR',
+    coordinates: [
+      [77.4800, 28.5900],
+      [77.5583, 28.5528],
     ],
   },
 ];
@@ -159,110 +260,114 @@ export interface LiveMapTrain {
   trainName: string;
   type: 'SUPERFAST' | 'SHATABDI' | 'VANDE_BHARAT' | 'DURONTO' | 'EXPRESS' | 'FREIGHT';
   coordinates: [number, number];
-  heading: number; // degrees
+  heading: number;
   speedKmh: number;
   delayMinutes: number;
   status: 'ON_TIME' | 'DELAYED' | 'REGULATED';
   lineType: 'UP' | 'DOWN';
   currentSection: string;
+  current_km?: number;
 }
 
 export const LIVE_MAP_TRAINS: LiveMapTrain[] = [
   {
-    id: 'trn-map-wb-1',
-    trainNumber: '12041',
-    trainName: 'Howrah NJP Shatabdi Express',
-    type: 'SHATABDI',
-    coordinates: [88.0000, 24.1000], // Approx between BWN and MLDT
-    heading: 10,
-    speedKmh: 110,
+    id: 'trn-map-dli-1',
+    trainNumber: '12424',
+    trainName: 'New Delhi - Dibrugarh Rajdhani Express',
+    type: 'SUPERFAST',
+    coordinates: [77.3758, 28.6515],
+    heading: 122,
+    speedKmh: 128,
     delayMinutes: 0,
     status: 'ON_TIME',
-    lineType: 'UP',
-    currentSection: 'Bardhaman – Malda Town',
-  },
-  {
-    id: 'trn-map-wb-2',
-    trainNumber: '12301',
-    trainName: 'Howrah Rajdhani Express',
-    type: 'SUPERFAST',
-    coordinates: [87.4200, 23.4600], // Near Asansol
-    heading: 300,
-    speedKmh: 130,
-    delayMinutes: 0,
-    status: 'ON_TIME',
-    lineType: 'UP',
-    currentSection: 'Bardhaman – Asansol',
-  },
-  {
-    id: 'trn-map-wb-3',
-    trainNumber: '12344',
-    trainName: 'Darjeeling Mail',
-    type: 'SUPERFAST',
-    coordinates: [88.2500, 25.8000], // Near NJP
-    heading: 190,
-    speedKmh: 105,
-    delayMinutes: 15,
-    status: 'DELAYED',
     lineType: 'DOWN',
-    currentSection: 'NJP – Malda Town',
+    currentSection: 'Sahibabad – Ghaziabad',
+    current_km: 19.5,
   },
   {
-    id: 'trn-map-wb-4',
-    trainNumber: 'FRT-BOXN-22',
-    trainName: 'Loaded Coal Rake (BOXN)',
-    type: 'FREIGHT',
-    coordinates: [87.6000, 23.0000], // Near Kharagpur line
-    heading: 45,
-    speedKmh: 0,
-    delayMinutes: 45,
-    status: 'REGULATED',
-    lineType: 'UP',
-    currentSection: 'Kharagpur – Howrah',
-  },
-  {
-    id: 'trn-map-8',
-    trainNumber: 'CON-DL-09',
-    trainName: 'Dedicated Freight Container Express',
-    type: 'FREIGHT',
-    coordinates: [77.4800, 28.6500],
-    heading: 65,
-    speedKmh: 75,
+    id: 'trn-map-dli-2',
+    trainNumber: '22436',
+    trainName: 'New Delhi - Varanasi Vande Bharat Express',
+    type: 'VANDE_BHARAT',
+    coordinates: [77.6200, 28.4500],
+    heading: 125,
+    speedKmh: 155,
     delayMinutes: 0,
     status: 'ON_TIME',
+    lineType: 'DOWN',
+    currentSection: 'Dadri – Aligarh',
+    current_km: 73.3,
+  },
+  {
+    id: 'trn-map-dli-3',
+    trainNumber: '12004',
+    trainName: 'New Delhi - Lucknow Shatabdi Express',
+    type: 'SHATABDI',
+    coordinates: [77.3200, 28.6600],
+    heading: 110,
+    speedKmh: 110,
+    delayMinutes: 5,
+    status: 'ON_TIME',
+    lineType: 'DOWN',
+    currentSection: 'Anand Vihar – Sahibabad',
+    current_km: 14.2,
+  },
+  {
+    id: 'trn-map-dli-4',
+    trainNumber: '12419',
+    trainName: 'Gomti Express',
+    type: 'EXPRESS',
+    coordinates: [78.1500, 27.8500],
+    heading: 300,
+    speedKmh: 95,
+    delayMinutes: 12,
+    status: 'DELAYED',
     lineType: 'UP',
-    currentSection: 'Ghaziabad – Maripat DFC Line',
+    currentSection: 'Aligarh – Dadri',
+    current_km: 180.0,
+  },
+  {
+    id: 'trn-map-dli-5',
+    trainNumber: 'BCN-774',
+    trainName: 'Foodgrain & Bulk Covered Rake (BCN)',
+    type: 'FREIGHT',
+    coordinates: [77.4900, 28.5800],
+    heading: 45,
+    speedKmh: 65,
+    delayMinutes: 0,
+    status: 'ON_TIME',
+    lineType: 'DOWN',
+    currentSection: 'Ghaziabad – Maripat (EDFC)',
+    current_km: 29.8,
   },
 ];
 
-// Ultrasonic (USFD) defect heatmap points
-export interface USFDDefectPoint {
-  id: string;
-  coordinates: [number, number];
-  kmPost: number;
-  flawSeverity: 'CRITICAL' | 'MAJOR' | 'MODERATE';
-  detectionDate: string;
-  flawType: string;
-  containmentStatus: string;
-}
-
-export const USFD_DEFECT_POINTS: USFDDefectPoint[] = [
+export const USFD_DEFECT_POINTS = [
   {
-    id: 'usfd-wb-01',
-    coordinates: [87.8631, 23.2389], // Near BWN
-    kmPost: 95.0,
-    flawSeverity: 'CRITICAL',
-    detectionDate: '2026-09-08',
-    flawType: '4.8mm Transverse Fatigue Crack',
-    containmentStatus: 'Clamped with Jogglled Plate (Speed 30 km/h)',
+    id: 'flaw-dli-01',
+    code: 'DEF-USFD-014',
+    kmPost: 14.8,
+    type: 'Internal Rail Fatigue / Transverse Fissure',
+    severity: 'CRITICAL',
+    recommendedSpeed: 30,
+    coordinates: [77.3320, 28.6620] as [number, number],
   },
   {
-    id: 'usfd-wb-02',
-    coordinates: [86.9825, 23.6816], // Near ASN
-    kmPost: 200.0,
-    flawSeverity: 'MODERATE',
-    detectionDate: '2026-09-02',
-    flawType: 'Weld Scab on Rail Head',
-    containmentStatus: 'Observation / Ultrasonic Polling',
+    id: 'flaw-dli-02',
+    code: 'DEF-WHEEL-020',
+    kmPost: 20.2,
+    type: 'Wheel Burn / Scabbing',
+    severity: 'MEDIUM',
+    recommendedSpeed: 50,
+    coordinates: [77.3850, 28.6580] as [number, number],
+  },
+  {
+    id: 'flaw-dli-03',
+    code: 'DEF-OHE-007',
+    kmPost: 7.5,
+    type: 'Excessive Contact Wire Sag',
+    severity: 'HIGH',
+    recommendedSpeed: 75,
+    coordinates: [77.2750, 28.6400] as [number, number],
   },
 ];

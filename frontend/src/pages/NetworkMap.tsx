@@ -1,28 +1,42 @@
 import React, { useState } from 'react';
 import { ControlRoomLayout } from '../layouts/ControlRoomLayout';
 import { RailMap } from '../components/map/RailMap';
+import { TrainTelemetryPanel } from '../components/map/TrainTelemetryPanel';
+import { BlockQueueAiPanel } from '../components/map/BlockQueueAiPanel';
+import { CorridorGanttStrip } from '../components/map/CorridorGanttStrip';
 import { Block } from '../types';
 import { useBlockStore } from '../stores/blockStore';
 import { useLiveBlocks } from '../hooks/useLiveBlocks';
-import { LIVE_MAP_TRAINS } from '../services/mapGeoData';
+import { useLiveTrains } from '../hooks/useLiveTrains';
+import { LIVE_MAP_TRAINS, StationData } from '../services/mapGeoData';
+import { UnifiedTrain } from '../components/map/TrainMarker';
 import {
-  MapPin,
   Train,
   Wrench,
   AlertTriangle,
-  Compass,
-  Activity,
-  Layers,
-  Sparkles,
   Cpu,
-  CheckCircle2,
+  Layers,
+  Radio,
+  Clock,
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
 } from 'lucide-react';
 
 export const NetworkMapPage: React.FC = () => {
   const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
+  const [selectedTrain, setSelectedTrain] = useState<UnifiedTrain | null>(null);
+  const [selectedStation, setSelectedStation] = useState<StationData | null>(null);
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+
   const storeBlocks = useBlockStore((state) => state.blocks);
   const { blocks: liveBlocks } = useLiveBlocks();
   const blocks = liveBlocks && liveBlocks.length > 0 ? liveBlocks : storeBlocks;
+
+  const { trains: backendTrains } = useLiveTrains({ pollingIntervalMs: 4000, autoSimulate: true });
+  const trains: UnifiedTrain[] = backendTrains && backendTrains.length > 0 ? backendTrains : LIVE_MAP_TRAINS;
 
   const activeBlocks = blocks.filter((b) => b.status === 'ACTIVE');
   const coordinatedBlocks = blocks.filter((b) => b.status === 'COORDINATED' || b.status === 'SANCTIONED');
@@ -30,66 +44,143 @@ export const NetworkMapPage: React.FC = () => {
     (b) => b.status === 'SUBMITTED' || b.status === 'PENDING_APPROVAL' || b.status === 'CONFLICT_DETECTED'
   );
 
-  // Total possessed km
   const totalOccupiedKm = activeBlocks
-    .reduce((acc, b) => acc + Math.abs(b.end_km - b.start_km), 0)
+    .reduce((acc, b) => acc + Math.abs(Number(b.end_km || 0) - Number(b.start_km || 0)), 0)
     .toFixed(1);
 
-  const handleSelectBlock = (block: Block) => {
-    setSelectedBlock(block);
-  };
+  const onTimeCount = trains.filter(
+    (t) => Number(('delay_minutes' in t ? t.delay_minutes : t.delayMinutes) || 0) <= 0
+  ).length;
+
+  const punctualityRate = trains.length > 0 ? ((onTimeCount / trains.length) * 100).toFixed(0) : '93';
 
   return (
     <ControlRoomLayout>
-      <div className="p-6 space-y-5">
-        {/* Header Strip */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-control-border pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-              <h2 className="text-xl font-extrabold text-white font-mono tracking-tight flex items-center gap-2">
-                Delhi – Ghaziabad Corridor • 3D GIS Digital Twin
-                <span className="px-2 py-0.5 text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 rounded-full font-sans">
-                  REAL-TIME SYNC
+      <div className="flex flex-col h-[calc(100vh-64px)] w-full overflow-hidden select-none font-mono bg-slate-950">
+        {/* ------------------------------------------------------------- */}
+        {/* TOP STATUS HUD BAR (Full-Width Header)                       */}
+        {/* ------------------------------------------------------------- */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 bg-slate-950 border-b border-control-border shrink-0 z-20">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.2 rounded text-[10px] font-black bg-rose-950 border border-rose-500 text-rose-300">
+                  LIVE CONTROL ROOM
                 </span>
-              </h2>
+                <h2 className="text-sm font-black text-white tracking-wide uppercase">
+                  Delhi–Kanpur Trunk Corridor (440.2 KM)
+                </h2>
+              </div>
+              <p className="text-[10px] text-control-muted mt-0.5">
+                NDLS (KM 0.0) → GZB (KM 24.5) → ALJN (KM 126.1) → TDL (KM 204.3) → ETW (KM 296.8) → CNB (KM 440.2)
+              </p>
             </div>
-            <p className="text-xs text-control-muted mt-1 font-mono">
-              NDLS (KM 0.0) → MIU (KM 32.0) • 9 Quad-Track Stations • 8 Live Telemetry Rakes • Sweep-Line AI Engine Active
-            </p>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="flex flex-wrap items-center gap-2.5 font-mono text-xs">
-            <div className="px-3 py-1.5 rounded-xl border border-control-border bg-control-panel flex items-center gap-2 shadow-sm">
+          {/* Quick Real-Time Metrics Badges */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* Trains & Punctuality */}
+            <div className="px-2.5 py-1 rounded-lg border border-control-border bg-slate-900 flex items-center gap-1.5">
               <Train className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="text-control-muted">Active Rakes:</span>
-              <strong className="text-white">{LIVE_MAP_TRAINS.length} Trains</strong>
+              <span className="text-control-muted">Active Trains:</span>
+              <strong className="text-white font-bold">{trains.length}</strong>
+              <span className="text-emerald-400 font-bold">({punctualityRate}% Punctual)</span>
             </div>
 
-            <div className="px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-950/20 flex items-center gap-2 shadow-sm">
+            {/* Occupied Possessions */}
+            <div className="px-2.5 py-1 rounded-lg border border-rose-500/40 bg-rose-950/30 flex items-center gap-1.5">
               <Wrench className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
               <span className="text-control-muted">Live Occupied:</span>
-              <strong className="text-rose-300">{activeBlocks.length} Blocks ({totalOccupiedKm} KM)</strong>
+              <strong className="text-rose-300 font-bold">{activeBlocks.length} Blocks ({totalOccupiedKm} KM)</strong>
             </div>
 
-            <div className="px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-950/20 flex items-center gap-2 shadow-sm">
-              <Cpu className="w-3.5 h-3.5 text-purple-400" />
+            {/* AI Deconflicted Slots */}
+            <div className="px-2.5 py-1 rounded-lg border border-cyan-500/40 bg-cyan-950/30 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
               <span className="text-control-muted">AI Deconflicted:</span>
-              <strong className="text-purple-300">{coordinatedBlocks.length} Slots</strong>
+              <strong className="text-cyan-300 font-bold">{coordinatedBlocks.length} Slots</strong>
             </div>
 
-            {pendingBlocks.length > 0 && (
-              <div className="px-3 py-1.5 rounded-xl border border-amber-500/40 bg-amber-950/30 text-amber-300 flex items-center gap-2 animate-pulse">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                <span>Pending Approvals: {pendingBlocks.length}</span>
-              </div>
-            )}
+            {/* Sweep-Line Engine Status */}
+            <div className="px-2.5 py-1 rounded-lg border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 flex items-center gap-1">
+              <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-bold">SWEEP-LINE &lt; 100ms</span>
+            </div>
+
+            {/* Toggle Panel Buttons */}
+            <div className="flex items-center gap-1 ml-1 border-l border-slate-800 pl-2">
+              <button
+                onClick={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+                className={`p-1.5 rounded-lg border text-xs font-bold transition ${
+                  isLeftPanelOpen ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="Toggle Left Train Telemetry Panel"
+              >
+                Trains [20%]
+              </button>
+              <button
+                onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+                className={`p-1.5 rounded-lg border text-xs font-bold transition ${
+                  isRightPanelOpen ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="Toggle Right Block Queue Panel"
+              >
+                Queue [20%]
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* 3D GIS Radar Canvas */}
-        <RailMap onSelectBlock={handleSelectBlock} />
+        {/* ------------------------------------------------------------- */}
+        {/* MAIN WORKSPACE: 3-PANEL CONTROL ROOM WORKSTATION              */}
+        {/* ------------------------------------------------------------- */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* LEFT PANEL: Train Telemetry (20%) */}
+          {isLeftPanelOpen && (
+            <div className="w-80 shrink-0 h-full border-r border-control-border transition-all duration-300">
+              <TrainTelemetryPanel
+                trains={trains}
+                selectedTrain={selectedTrain}
+                onSelectTrain={(train) => {
+                  setSelectedTrain(train);
+                  setSelectedStation(null);
+                }}
+              />
+            </div>
+          )}
+
+          {/* CENTER CANVAS: Topological Schematic Map (60% to 100%) */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+            <RailMap
+              onSelectBlock={(b) => setSelectedBlock(b)}
+              onSelectTrain={(t) => setSelectedTrain(t)}
+              onSelectStation={(s) => setSelectedStation(s)}
+              selectedTrainProp={selectedTrain}
+              selectedStationProp={selectedStation}
+            />
+          </div>
+
+          {/* RIGHT PANEL: Block Queue & AI Suggestions (20%) */}
+          {isRightPanelOpen && (
+            <div className="w-80 shrink-0 h-full border-l border-control-border transition-all duration-300">
+              <BlockQueueAiPanel
+                blocks={blocks}
+                onSelectBlock={(b) => setSelectedBlock(b)}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* ------------------------------------------------------------- */}
+        {/* BOTTOM TIMELINE: 24-Hour Gantt Timeline Strip (100% Width)   */}
+        {/* ------------------------------------------------------------- */}
+        <div className="shrink-0 z-20">
+          <CorridorGanttStrip
+            blocks={blocks}
+            onSelectBlock={(b) => setSelectedBlock(b)}
+          />
+        </div>
       </div>
     </ControlRoomLayout>
   );

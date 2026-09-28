@@ -144,19 +144,35 @@ export const ControlRoomDashboard: React.FC = () => {
   };
 
   const handleDeclareEmergency = (corridor: string, kmLocation: number, reason: string) => {
+    const isPowerFault =
+      reason.toLowerCase().includes('ohe') ||
+      reason.toLowerCase().includes('catenary') ||
+      reason.toLowerCase().includes('wire') ||
+      reason.toLowerCase().includes('dropper') ||
+      reason.toLowerCase().includes('pantograph');
+
+    const dept = isPowerFault ? 'TRD' : 'ENG';
+    const gang = isPowerFault ? 'GANG-TRD-EMG-01' : 'GANG-ENG-EMG-01';
+    const machinery = isPowerFault
+      ? 'OHE Emergency Tower Wagon 4W-TW-EMG'
+      : 'Rail Fracture Rapid Restoration Unit & USFD Trolley';
+
     const emergencyBlock: Block = {
       id: `blk-emg-${Date.now()}`,
       block_code: `EMG-${corridor.substring(0, 4)}-${Math.floor(100 + Math.random() * 900)}`,
       corridor: blocks[0]?.corridor || DEMO_BLOCKS[0].corridor,
       line_type: 'UP',
-      department_code: 'ENG',
+      department_code: dept,
       work_type: `EMERGENCY HALT: ${reason}`,
       status: 'ACTIVE',
-      start_km: kmLocation - 0.2,
-      end_km: kmLocation + 0.2,
+      start_km: Math.max(0, Number((kmLocation - 0.2).toFixed(2))),
+      end_km: Number((kmLocation + 0.2).toFixed(2)),
       scheduled_start_time: new Date().toISOString(),
       scheduled_end_time: new Date(Date.now() + 120 * 60 * 1000).toISOString(),
+      actual_start_time: new Date().toISOString(),
       traction_power_cutoff_required: true,
+      gang_id: gang,
+      equipment_required: machinery,
       work_description: `IMMEDIATE SECTION HALT ENFORCED BY CHIEF CONTROLLER: ${reason}`,
       version: 1,
     };

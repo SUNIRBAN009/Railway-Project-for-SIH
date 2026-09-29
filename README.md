@@ -1,4 +1,4 @@
-# Railway AI Block Planning Platform (PS 26027)
+# DYNAMIC FORECAST OF EXPECTED TIME OF ARRIVAL ETA FOR COACHING TRAINS (PS 26028)
 
 ## 1. How to Set Up the Project on a New System (Step-by-Step)
 To set up this project on a brand new machine, you do not need to manually install Python, PostgreSQL, Redis, or Node.js. Everything is containerized using Docker, making the setup completely automated.
